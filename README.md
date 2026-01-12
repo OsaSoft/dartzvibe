@@ -1,36 +1,180 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# DartzVibe - Kotlin Multiplatform App
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-    - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-    - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-      the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-      Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-      folder is the appropriate location.
+A Kotlin Multiplatform project targeting Android and iOS, built with Compose Multiplatform.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+## 🏗️ Project Architecture
 
-### Build and Run Android Application
+This project follows a clean architecture pattern similar to Spring Boot applications:
 
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
+```
+composeApp/src/commonMain/kotlin/cloud/osasoft/dartzvibe/
+├── config/           # App configuration (like @ConfigurationProperties)
+├── data/
+│   ├── model/        # Data classes (like DTOs/Entities)
+│   └── repository/   # Data access layer (like @Repository)
+├── di/               # Dependency injection (like @Configuration)
+├── network/          # HTTP client setup (like RestTemplate/WebClient config)
+└── ui/
+    └── screen/       # UI screens with ScreenModels (like @Controller + ViewModels)
+```
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+## 📚 Libraries & Spring Boot Equivalents
 
-### Build and Run iOS Application
+| Library | Purpose | Spring Boot Equivalent |
+|---------|---------|----------------------|
+| **kotlin-inject** | Compile-time DI | Spring DI (`@Component`, `@Autowired`) |
+| **Ktor Client** | HTTP networking | RestTemplate / WebClient |
+| **Kotlinx Serialization** | JSON serialization | Jackson |
+| **Kotest** | Testing framework | JUnit + AssertJ |
+| **Kermit** | Logging | SLF4J + Logback |
+| **Multiplatform Settings** | Key-value storage | `application.properties` |
+| **Voyager** | Navigation + ScreenModel | Spring MVC Controllers |
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+## 🚀 Quick Start
+
+### Dependency Injection (kotlin-inject)
+
+Similar to Spring's `@Component` and `@Autowired`, but compile-time:
+
+```kotlin
+// Define a component (like @Configuration class)
+@Component
+abstract class AppComponent {
+    // Like @Bean
+    @Provides
+    fun provideHttpClient(): HttpClient = HttpClientFactory.create()
+    
+    // Like component scanning + @Autowired
+    abstract val greetingRepository: GreetingRepository
+}
+
+// Use @Inject like @Component + constructor injection
+@Inject
+class GreetingRepositoryImpl : GreetingRepository {
+    // ...
+}
+```
+
+### HTTP Client (Ktor)
+
+Similar to Spring's WebClient:
+
+```kotlin
+val client = HttpClient {
+    install(ContentNegotiation) { json() }  // Like Jackson config
+    install(Logging) { level = LogLevel.INFO }  // Like interceptors
+}
+
+// Making requests
+val user = client.get("https://api.example.com/users/1").body<User>()
+```
+
+### Testing with Kotest
+
+BDD-style assertions similar to AssertJ:
+
+```kotlin
+@Test
+fun `user should have valid email`() = runTest {
+    val user = repository.getUser(1)
+    
+    user.email shouldContain "@"
+    user.name shouldNotBe null
+    user.age shouldBeGreaterThan 0
+}
+```
+
+### Data Classes with Serialization
+
+Like Jackson's `@JsonProperty`:
+
+```kotlin
+@Serializable
+data class User(
+    val id: Long,
+    @SerialName("created_at")  // Like @JsonProperty
+    val createdAt: String
+)
+```
+
+## 📁 Project Structure
+
+* [/composeApp](./composeApp/src) - Shared Compose Multiplatform code
+    - [commonMain](./composeApp/src/commonMain/kotlin) - Code shared across all platforms
+    - [androidMain](./composeApp/src/androidMain/kotlin) - Android-specific code
+    - [iosMain](./composeApp/src/iosMain/kotlin) - iOS-specific code
+    - [commonTest](./composeApp/src/commonTest/kotlin) - Shared tests
+
+* [/iosApp](./iosApp/iosApp) - iOS application entry point
+
+## 🛠️ Build Commands
+
+### Android
+
+```shell
+# Debug build
+.\gradlew.bat :composeApp:assembleDebug
+
+# Run tests
+.\gradlew.bat :composeApp:testDebugUnitTest
+
+# All common tests
+.\gradlew.bat :composeApp:allTests
+```
+
+### iOS (requires macOS)
+
+```shell
+# Build iOS framework
+./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+```
+
+Or open `/iosApp` in Xcode.
+
+## 🔧 Key Concepts for Spring Developers
+
+### expect/actual Pattern
+
+KMP's way of platform-specific code (like conditional beans):
+
+```kotlin
+// commonMain - declare expectation
+expect fun getPlatform(): Platform
+
+// androidMain - Android implementation
+actual fun getPlatform(): Platform = AndroidPlatform()
+
+// iosMain - iOS implementation  
+actual fun getPlatform(): Platform = IOSPlatform()
+```
+
+### Coroutines = Reactive Streams
+
+If you know Spring WebFlux:
+- `suspend fun` ≈ `Mono<T>`
+- `Flow<T>` ≈ `Flux<T>`
+- `runBlocking` ≈ `.block()`
+
+### ScreenModel = Controller + ViewModel
+
+```kotlin
+@Inject
+class HomeScreenModel(
+    private val repository: GreetingRepository  // Constructor injection
+) : ScreenModel {
+    
+    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+    
+    fun loadData() {
+        screenModelScope.launch {  // Like @Async
+            val data = repository.getData()
+            _uiState.value = UiState.Success(data)
+        }
+    }
+}
+```
 
 ---
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)

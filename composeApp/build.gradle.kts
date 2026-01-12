@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinxSerialization)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -29,7 +31,19 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+
+            // Ktor engine for Android
+            implementation(libs.ktor.client.okhttp)
+
+            // Coroutines Android
+            implementation(libs.kotlinx.coroutines.android)
         }
+
+        iosMain.dependencies {
+            // Ktor engine for iOS
+            implementation(libs.ktor.client.darwin)
+        }
+
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -39,11 +53,56 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+
+            // DI - kotlin-inject runtime
+            implementation(libs.kotlinInject.runtime)
+
+            // Networking - Ktor Client
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.contentNegotiation)
+            implementation(libs.ktor.serialization.kotlinxJson)
+            implementation(libs.ktor.client.logging)
+
+            // Serialization
+            implementation(libs.kotlinx.serialization.json)
+
+            // Coroutines
+            implementation(libs.kotlinx.coroutines.core)
+
+            // Logging
+            implementation(libs.kermit)
+
+            // Settings/Preferences
+            implementation(libs.multiplatformSettings)
+            implementation(libs.multiplatformSettings.noArg)
+            implementation(libs.multiplatformSettings.coroutines)
+
+            // Navigation
+            implementation(libs.voyager.navigator)
+            implementation(libs.voyager.screenModel)
+            implementation(libs.voyager.transitions)
         }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+
+            // Kotest
+            implementation(libs.kotest.framework.engine)
+            implementation(libs.kotest.assertions.core)
+            implementation(libs.kotest.property)
+
+            // Coroutines testing
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
+}
+
+// KSP configuration for kotlin-inject
+dependencies {
+    // kotlin-inject compiler for each target
+    add("kspAndroid", libs.kotlinInject.compiler)
+    add("kspIosArm64", libs.kotlinInject.compiler)
+    add("kspIosSimulatorArm64", libs.kotlinInject.compiler)
 }
 
 android {
