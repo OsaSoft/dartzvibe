@@ -1,0 +1,260 @@
+package cloud.osasoft.dartzvibe.domain.game
+
+import cloud.osasoft.dartzvibe.data.model.GameConfig
+import cloud.osasoft.dartzvibe.data.model.GameSession
+import cloud.osasoft.dartzvibe.data.model.GameStatus
+import cloud.osasoft.dartzvibe.data.model.Leg
+import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.model.Turn
+import cloud.osasoft.dartzvibe.util.currentTimeMillis
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+
+/**
+ * Result of adding a throw to the current turn.
+ */
+@OptIn(ExperimentalUuidApi::class)
+sealed class ThrowResult {
+    data class Success(val newScore: Int) : ThrowResult()
+    data class Bust(val reason: String) : ThrowResult()
+    data class Checkout(val winnerId: Uuid) : ThrowResult()
+}
+
+/**
+ * Result of ending a turn.
+ */
+@OptIn(ExperimentalUuidApi::class)
+sealed class TurnResult {
+    data class NextPlayer(val playerId: Uuid) : TurnResult()
+    data class LegWon(val winnerId: Uuid, val matchContinues: Boolean) : TurnResult()
+    data class MatchWon(val winnerId: Uuid) : TurnResult()
+}
+
+/**
+ * Core game engine that manages game state and logic.
+ * This class is immutable - operations return new engine instances.
+ */
+@OptIn(ExperimentalUuidApi::class)
+class GameEngine private constructor(
+    private val session: GameSession,
+    private val currentTurnThrows: List<Throw> = emptyList(),
+    private val pendingScore: Int? = null,
+    private val isBusted: Boolean = false
+) {
+
+    companion object {
+        fun fromSession(session: GameSession): GameEngine {
+            return GameEngine(session)
+        }
+    }
+
+    val config: GameConfig get() = session.config
+    val status: GameStatus get() = session.status
+
+    fun getCurrentPlayerId(): Uuid {
+        val currentLeg = session.currentLeg
+        val playerCount = config.playerIds.size
+        val turnCount = currentLeg.turns.size
+        return config.playerIds[turnCount % playerCount]
+    }
+
+    fun getPlayerScore(playerId: Uuid): Int {
+        val currentLeg = session.currentLeg
+        val lastTurn = currentLeg.turns.lastOrNull { it.playerId == playerId }
+        return lastTurn?.scoreAfterTurn ?: config.startingScore
+    }
+
+    fun getCurrentPlayerScore(): Int {
+        return pendingScore ?: getPlayerScore(getCurrentPlayerId())
+    }
+
+    fun getCurrentTurnThrows(): List<Throw> = currentTurnThrows
+
+    fun getLegsWon(playerId: Uuid): Int {
+        return session.legs.count { it.winnerId == playerId }
+    }
+
+    fun addThrow(segment: Int, multiplier: Multiplier): Pair<GameEngine, ThrowResult> {
+        if (isBusted || currentTurnThrows.size >= 3) {
+            return this to ThrowResult.Bust("Turn already ended")
+        }
+
+        val throwObj = Throw(segment, multiplier)
+        val currentScore = pendingScore ?: getPlayerScore(getCurrentPlayerId())
+        val newScore = currentScore - throwObj.score
+
+        // Check for bust conditions
+        val bustResult = checkBust(newScore, throwObj)
+        if (bustResult != null) {
+            val newEngine = copy(
+                currentTurnThrows = currentTurnThrows + throwObj,
+                pendingScore = getPlayerScore(getCurrentPlayerId()), // Reset to score before turn
+                isBusted = true
+            )
+            return newEngine to bustResult
+        }
+
+        // Check for checkout (score reaches exactly 0)
+        if (newScore == 0) {
+            val newEngine = copy(
+                currentTurnThrows = currentTurnThrows + throwObj,
+                pendingScore = 0
+            )
+            return newEngine to ThrowResult.Checkout(getCurrentPlayerId())
+        }
+
+        // Normal throw
+        val newEngine = copy(
+            currentTurnThrows = currentTurnThrows + throwObj,
+            pendingScore = newScore
+        )
+        return newEngine to ThrowResult.Success(newScore)
+    }
+
+    private fun checkBust(newScore: Int, lastThrow: Throw): ThrowResult.Bust? {
+        // Score below 0
+        if (newScore < 0) {
+            return ThrowResult.Bust("Score below zero")
+        }
+
+        // Score equals 1 with double-out (impossible to finish)
+        if (newScore == 1 && config.doubleOut) {
+            return ThrowResult.Bust("Score at 1 with double-out required")
+        }
+
+        // Score equals 0 but last throw wasn't a double (with double-out)
+        if (newScore == 0 && config.doubleOut && lastThrow.multiplier != Multiplier.DOUBLE) {
+            return ThrowResult.Bust("Must finish on a double")
+        }
+
+        return null
+    }
+
+    fun undoLastThrow(): GameEngine? {
+        if (currentTurnThrows.isEmpty()) {
+            return null
+        }
+
+        val newThrows = currentTurnThrows.dropLast(1)
+        val newScore = if (newThrows.isEmpty()) {
+            getPlayerScore(getCurrentPlayerId())
+        } else {
+            val originalScore = getPlayerScore(getCurrentPlayerId())
+            originalScore - newThrows.sumOf { it.score }
+        }
+
+        return copy(
+            currentTurnThrows = newThrows,
+            pendingScore = if (newThrows.isEmpty()) null else newScore,
+            isBusted = false
+        )
+    }
+
+    fun endTurn(): Pair<GameEngine, TurnResult> {
+        val currentPlayerId = getCurrentPlayerId()
+        val scoreBeforeTurn = getPlayerScore(currentPlayerId)
+        val scoreAfterTurn = if (isBusted) scoreBeforeTurn else (pendingScore ?: scoreBeforeTurn)
+
+        val turn = Turn(
+            playerId = currentPlayerId,
+            throws = currentTurnThrows,
+            scoreBeforeTurn = scoreBeforeTurn,
+            scoreAfterTurn = scoreAfterTurn,
+            isBust = isBusted
+        )
+
+        val currentLeg = session.currentLeg
+        val updatedLeg = currentLeg.copy(turns = currentLeg.turns + turn)
+
+        // Check if leg is won (score reached 0)
+        if (scoreAfterTurn == 0 && !isBusted) {
+            return handleLegWon(updatedLeg, currentPlayerId)
+        }
+
+        // Continue to next player
+        val updatedLegs = session.legs.toMutableList()
+        updatedLegs[session.currentLegIndex] = updatedLeg
+
+        val newSession = session.copy(legs = updatedLegs)
+        val newEngine = GameEngine(newSession)
+
+        return newEngine to TurnResult.NextPlayer(newEngine.getCurrentPlayerId())
+    }
+
+    private fun handleLegWon(completedLeg: Leg, winnerId: Uuid): Pair<GameEngine, TurnResult> {
+        val legWithWinner = completedLeg.copy(winnerId = winnerId)
+        val updatedLegs = session.legs.toMutableList()
+        updatedLegs[session.currentLegIndex] = legWithWinner
+
+        val legsWon = updatedLegs.count { it.winnerId == winnerId }
+
+        // Check if match is won
+        if (legsWon >= config.legsToWin) {
+            val newSession = session.copy(
+                legs = updatedLegs,
+                status = GameStatus.COMPLETED,
+                finishedAt = currentTimeMillis(),
+                winnerId = winnerId
+            )
+            return GameEngine(newSession) to TurnResult.MatchWon(winnerId)
+        }
+
+        // Start new leg
+        val newLegs = updatedLegs + Leg()
+        val newSession = session.copy(
+            legs = newLegs,
+            currentLegIndex = session.currentLegIndex + 1
+        )
+
+        return GameEngine(newSession) to TurnResult.LegWon(winnerId, matchContinues = true)
+    }
+
+    fun toGameSession(): GameSession = session
+
+    private fun copy(
+        session: GameSession = this.session,
+        currentTurnThrows: List<Throw> = this.currentTurnThrows,
+        pendingScore: Int? = this.pendingScore,
+        isBusted: Boolean = this.isBusted
+    ): GameEngine {
+        return GameEngine(session, currentTurnThrows, pendingScore, isBusted)
+    }
+
+    fun hasFirstThrowWithDouble(): Boolean {
+        if (!config.doubleIn) return true // No double-in requirement
+
+        val currentPlayerId = getCurrentPlayerId()
+        val currentLeg = session.currentLeg
+
+        // Check if player has already started (has a non-bust turn)
+        val hasStarted = currentLeg.turns.any {
+            it.playerId == currentPlayerId && !it.isBust && it.throws.isNotEmpty()
+        }
+
+        if (hasStarted) return true
+
+        // Check if current turn has a double
+        return currentTurnThrows.any { it.multiplier == Multiplier.DOUBLE }
+    }
+
+    fun addThrowWithDoubleInCheck(segment: Int, multiplier: Multiplier): Pair<GameEngine, ThrowResult> {
+        // If double-in is required and player hasn't started yet
+        if (config.doubleIn && !hasFirstThrowWithDouble()) {
+            val throwObj = Throw(segment, multiplier)
+
+            // If this is a double, it counts as starting
+            if (multiplier == Multiplier.DOUBLE) {
+                return addThrow(segment, multiplier)
+            }
+
+            // Otherwise, add the throw but don't count points
+            val newEngine = copy(
+                currentTurnThrows = currentTurnThrows + throwObj
+            )
+            return newEngine to ThrowResult.Success(getPlayerScore(getCurrentPlayerId()))
+        }
+
+        return addThrow(segment, multiplier)
+    }
+}

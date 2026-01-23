@@ -23,7 +23,10 @@ class MainActivity : ComponentActivity() {
         appComponent = AppComponent::class.create(database)
 
         setContent {
-            App(playerRepository = appComponent.playerRepository)
+            App(
+                playerRepository = appComponent.playerRepository,
+                gameRepository = appComponent.gameRepository
+            )
         }
     }
 }

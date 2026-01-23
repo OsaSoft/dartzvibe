@@ -3,6 +3,8 @@ package cloud.osasoft.dartzvibe.di
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
 import cloud.osasoft.dartzvibe.data.repository.GreetingRepository
 import cloud.osasoft.dartzvibe.data.repository.GreetingRepositoryImpl
+import cloud.osasoft.dartzvibe.data.repository.GameRepository
+import cloud.osasoft.dartzvibe.data.repository.GameRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepositoryImpl
 import cloud.osasoft.dartzvibe.network.HttpClientFactory
@@ -52,4 +54,12 @@ abstract class AppComponent(
 
     @Provides
     fun providePlayerRepository(impl: PlayerRepositoryImpl): PlayerRepository = impl
+
+    /**
+     * Game repository for managing game sessions.
+     */
+    abstract val gameRepository: GameRepository
+
+    @Provides
+    fun provideGameRepository(impl: GameRepositoryImpl): GameRepository = impl
 }

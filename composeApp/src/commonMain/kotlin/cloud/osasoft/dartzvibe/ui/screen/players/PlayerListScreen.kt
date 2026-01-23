@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -50,13 +51,16 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 class PlayerListScreen(
-    private val playerRepository: PlayerRepository
+    private val playerRepository: PlayerRepository,
+    private val gameRepository: GameRepository
 ) : Screen {
 
     @Composable
@@ -73,7 +77,8 @@ class PlayerListScreen(
             },
             onDeletePlayer = { screenModel.showDeleteConfirmation(it) },
             onConfirmDelete = { screenModel.confirmDeletePlayer() },
-            onDismissDelete = { screenModel.dismissDeleteConfirmation() }
+            onDismissDelete = { screenModel.dismissDeleteConfirmation() },
+            onNewGame = { navigator.push(NewGameScreen(playerRepository, gameRepository)) }
         )
     }
 }
@@ -91,12 +96,29 @@ fun PlayerListContent(
     onEditPlayer: (Player) -> Unit,
     onDeletePlayer: (Player) -> Unit,
     onConfirmDelete: () -> Unit,
-    onDismissDelete: () -> Unit
+    onDismissDelete: () -> Unit,
+    onNewGame: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Players") },
+                title = { Text("DartzVibe") },
+                actions = {
+                    IconButton(
+                        onClick = onNewGame,
+                        enabled = state.players.size >= 2
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "New Game",
+                            tint = if (state.players.size >= 2) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
+                            }
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
