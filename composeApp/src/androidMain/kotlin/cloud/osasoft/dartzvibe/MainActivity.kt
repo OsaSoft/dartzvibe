@@ -4,8 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import cloud.osasoft.dartzvibe.data.local.DatabaseDriverFactory
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
+import cloud.osasoft.dartzvibe.data.local.DatabaseDriverFactory
 import cloud.osasoft.dartzvibe.di.AppComponent
 import cloud.osasoft.dartzvibe.di.create
 
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             App(
                 playerRepository = appComponent.playerRepository,
-                gameRepository = appComponent.gameRepository
+                gameRepository = appComponent.gameRepository,
             )
         }
     }

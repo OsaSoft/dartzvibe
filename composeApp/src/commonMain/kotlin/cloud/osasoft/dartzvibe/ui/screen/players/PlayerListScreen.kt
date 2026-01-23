@@ -60,7 +60,7 @@ import kotlin.uuid.ExperimentalUuidApi
 @OptIn(ExperimentalUuidApi::class)
 class PlayerListScreen(
     private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
 ) : Screen {
 
     @Composable
@@ -78,16 +78,17 @@ class PlayerListScreen(
             onDeletePlayer = { screenModel.showDeleteConfirmation(it) },
             onConfirmDelete = { screenModel.confirmDeletePlayer() },
             onDismissDelete = { screenModel.dismissDeleteConfirmation() },
-            onNewGame = { navigator.push(NewGameScreen(playerRepository, gameRepository)) }
+            onNewGame = { navigator.push(NewGameScreen(playerRepository, gameRepository)) },
         )
     }
 }
 
 @Composable
-fun rememberPlayerListScreenModel(playerRepository: PlayerRepository): PlayerListScreenModel {
-    return remember { PlayerListScreenModel(playerRepository) }
-}
+fun rememberPlayerListScreenModel(
+    playerRepository: PlayerRepository,
+): PlayerListScreenModel = remember { PlayerListScreenModel(playerRepository) }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
 @Composable
 fun PlayerListContent(
@@ -97,7 +98,7 @@ fun PlayerListContent(
     onDeletePlayer: (Player) -> Unit,
     onConfirmDelete: () -> Unit,
     onDismissDelete: () -> Unit,
-    onNewGame: () -> Unit
+    onNewGame: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -106,7 +107,7 @@ fun PlayerListContent(
                 actions = {
                     IconButton(
                         onClick = onNewGame,
-                        enabled = state.players.size >= 2
+                        enabled = state.players.size >= 2,
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
@@ -115,58 +116,61 @@ fun PlayerListContent(
                                 MaterialTheme.colorScheme.onPrimaryContainer
                             } else {
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
-                            }
+                            },
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddPlayer,
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary,
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Player")
             }
-        }
+        },
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             when {
                 state.isLoading -> {
                     CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
+
                 state.error != null -> {
                     Text(
                         text = "Error: ${state.error}",
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
+
                 state.players.isEmpty() -> {
                     EmptyPlayersMessage(
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
+
                 else -> {
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(state.players, key = { it.id }) { player ->
                             PlayerCard(
                                 player = player,
                                 onEdit = { onEditPlayer(player) },
-                                onDelete = { onDeletePlayer(player) }
+                                onDelete = { onDeletePlayer(player) },
                             )
                         }
                     }
@@ -190,27 +194,28 @@ fun PlayerListContent(
                 TextButton(onClick = onDismissDelete) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun PlayerCard(
     player: Player,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onEdit() }
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar
             Box(
@@ -218,13 +223,13 @@ fun PlayerCard(
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(AvatarColors.getColor(player.avatarColor)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = player.name.first().uppercase(),
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
@@ -235,13 +240,13 @@ fun PlayerCard(
                 Text(
                     text = player.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
                 player.nickname?.let { nickname ->
                     Text(
                         text = "\"$nickname\"",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -251,43 +256,44 @@ fun PlayerCard(
                 Icon(
                     Icons.Default.Edit,
                     contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error,
                 )
             }
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun EmptyPlayersMessage(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             Icons.Default.Person,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.outline
+            tint = MaterialTheme.colorScheme.outline,
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "No players yet",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Tap + to add your first player",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.outline
+            color = MaterialTheme.colorScheme.outline,
         )
     }
 }

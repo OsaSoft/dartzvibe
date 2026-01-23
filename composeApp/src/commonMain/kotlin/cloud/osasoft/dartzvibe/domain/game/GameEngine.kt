@@ -17,7 +17,9 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 sealed class ThrowResult {
     data class Success(val newScore: Int) : ThrowResult()
+
     data class Bust(val reason: String) : ThrowResult()
+
     data class Checkout(val winnerId: Uuid) : ThrowResult()
 }
 
@@ -27,7 +29,9 @@ sealed class ThrowResult {
 @OptIn(ExperimentalUuidApi::class)
 sealed class TurnResult {
     data class NextPlayer(val playerId: Uuid) : TurnResult()
+
     data class LegWon(val winnerId: Uuid, val matchContinues: Boolean) : TurnResult()
+
     data class MatchWon(val winnerId: Uuid) : TurnResult()
 }
 
@@ -40,13 +44,11 @@ class GameEngine private constructor(
     private val session: GameSession,
     private val currentTurnThrows: List<Throw> = emptyList(),
     private val pendingScore: Int? = null,
-    private val isBusted: Boolean = false
+    private val isBusted: Boolean = false,
 ) {
 
     companion object {
-        fun fromSession(session: GameSession): GameEngine {
-            return GameEngine(session)
-        }
+        fun fromSession(session: GameSession): GameEngine = GameEngine(session)
     }
 
     val config: GameConfig get() = session.config
@@ -65,15 +67,11 @@ class GameEngine private constructor(
         return lastTurn?.scoreAfterTurn ?: config.startingScore
     }
 
-    fun getCurrentPlayerScore(): Int {
-        return pendingScore ?: getPlayerScore(getCurrentPlayerId())
-    }
+    fun getCurrentPlayerScore(): Int = pendingScore ?: getPlayerScore(getCurrentPlayerId())
 
     fun getCurrentTurnThrows(): List<Throw> = currentTurnThrows
 
-    fun getLegsWon(playerId: Uuid): Int {
-        return session.legs.count { it.winnerId == playerId }
-    }
+    fun getLegsWon(playerId: Uuid): Int = session.legs.count { it.winnerId == playerId }
 
     fun addThrow(segment: Int, multiplier: Multiplier): Pair<GameEngine, ThrowResult> {
         if (isBusted || currentTurnThrows.size >= 3) {
@@ -90,7 +88,7 @@ class GameEngine private constructor(
             val newEngine = copy(
                 currentTurnThrows = currentTurnThrows + throwObj,
                 pendingScore = getPlayerScore(getCurrentPlayerId()), // Reset to score before turn
-                isBusted = true
+                isBusted = true,
             )
             return newEngine to bustResult
         }
@@ -99,7 +97,7 @@ class GameEngine private constructor(
         if (newScore == 0) {
             val newEngine = copy(
                 currentTurnThrows = currentTurnThrows + throwObj,
-                pendingScore = 0
+                pendingScore = 0,
             )
             return newEngine to ThrowResult.Checkout(getCurrentPlayerId())
         }
@@ -107,7 +105,7 @@ class GameEngine private constructor(
         // Normal throw
         val newEngine = copy(
             currentTurnThrows = currentTurnThrows + throwObj,
-            pendingScore = newScore
+            pendingScore = newScore,
         )
         return newEngine to ThrowResult.Success(newScore)
     }
@@ -147,7 +145,7 @@ class GameEngine private constructor(
         return copy(
             currentTurnThrows = newThrows,
             pendingScore = if (newThrows.isEmpty()) null else newScore,
-            isBusted = false
+            isBusted = false,
         )
     }
 
@@ -161,7 +159,7 @@ class GameEngine private constructor(
             throws = currentTurnThrows,
             scoreBeforeTurn = scoreBeforeTurn,
             scoreAfterTurn = scoreAfterTurn,
-            isBust = isBusted
+            isBust = isBusted,
         )
 
         val currentLeg = session.currentLeg
@@ -195,7 +193,7 @@ class GameEngine private constructor(
                 legs = updatedLegs,
                 status = GameStatus.COMPLETED,
                 finishedAt = currentTimeMillis(),
-                winnerId = winnerId
+                winnerId = winnerId,
             )
             return GameEngine(newSession) to TurnResult.MatchWon(winnerId)
         }
@@ -204,7 +202,7 @@ class GameEngine private constructor(
         val newLegs = updatedLegs + Leg()
         val newSession = session.copy(
             legs = newLegs,
-            currentLegIndex = session.currentLegIndex + 1
+            currentLegIndex = session.currentLegIndex + 1,
         )
 
         return GameEngine(newSession) to TurnResult.LegWon(winnerId, matchContinues = true)
@@ -216,10 +214,8 @@ class GameEngine private constructor(
         session: GameSession = this.session,
         currentTurnThrows: List<Throw> = this.currentTurnThrows,
         pendingScore: Int? = this.pendingScore,
-        isBusted: Boolean = this.isBusted
-    ): GameEngine {
-        return GameEngine(session, currentTurnThrows, pendingScore, isBusted)
-    }
+        isBusted: Boolean = this.isBusted,
+    ): GameEngine = GameEngine(session, currentTurnThrows, pendingScore, isBusted)
 
     fun hasFirstThrowWithDouble(): Boolean {
         if (!config.doubleIn) return true // No double-in requirement
@@ -250,7 +246,7 @@ class GameEngine private constructor(
 
             // Otherwise, add the throw but don't count points
             val newEngine = copy(
-                currentTurnThrows = currentTurnThrows + throwObj
+                currentTurnThrows = currentTurnThrows + throwObj,
             )
             return newEngine to ThrowResult.Success(getPlayerScore(getCurrentPlayerId()))
         }

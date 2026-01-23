@@ -1,10 +1,10 @@
 package cloud.osasoft.dartzvibe.di
 
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
-import cloud.osasoft.dartzvibe.data.repository.GreetingRepository
-import cloud.osasoft.dartzvibe.data.repository.GreetingRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepositoryImpl
+import cloud.osasoft.dartzvibe.data.repository.GreetingRepository
+import cloud.osasoft.dartzvibe.data.repository.GreetingRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepositoryImpl
 import cloud.osasoft.dartzvibe.network.HttpClientFactory
@@ -30,7 +30,7 @@ import me.tatarka.inject.annotations.Provides
  */
 @Component
 abstract class AppComponent(
-    @get:Provides val database: DartzVibeDatabase
+    @get:Provides val database: DartzVibeDatabase,
 ) {
 
     /**

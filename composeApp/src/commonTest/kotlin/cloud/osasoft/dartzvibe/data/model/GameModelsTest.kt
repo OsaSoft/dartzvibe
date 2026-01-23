@@ -3,10 +3,10 @@ package cloud.osasoft.dartzvibe.data.model
 import cloud.osasoft.dartzvibe.util.currentTimeMillis
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Tests for Game-related data models.
@@ -83,12 +83,12 @@ class GameModelsTest : FreeSpec({
             val turn = Turn(
                 playerId = playerId1,
                 throws = listOf(
-                    Throw(segment = 20, multiplier = Multiplier.TRIPLE),  // 60
-                    Throw(segment = 20, multiplier = Multiplier.TRIPLE),  // 60
-                    Throw(segment = 20, multiplier = Multiplier.TRIPLE)   // 60
+                    Throw(segment = 20, multiplier = Multiplier.TRIPLE), // 60
+                    Throw(segment = 20, multiplier = Multiplier.TRIPLE), // 60
+                    Throw(segment = 20, multiplier = Multiplier.TRIPLE), // 60
                 ),
                 scoreBeforeTurn = 501,
-                scoreAfterTurn = 321
+                scoreAfterTurn = 321,
             )
 
             turn.totalScore shouldBe 180
@@ -98,11 +98,11 @@ class GameModelsTest : FreeSpec({
             val turn = Turn(
                 playerId = playerId1,
                 throws = listOf(
-                    Throw(segment = 20, multiplier = Multiplier.SINGLE)
+                    Throw(segment = 20, multiplier = Multiplier.SINGLE),
                 ),
                 scoreBeforeTurn = 100,
                 scoreAfterTurn = 80,
-                isBust = false
+                isBust = false,
             )
 
             val jsonString = json.encodeToString(turn)
@@ -120,7 +120,7 @@ class GameModelsTest : FreeSpec({
         "should have correct starting score for 501" {
             val config = GameConfig(
                 gameType = GameType.CLASSIC_501,
-                playerIds = listOf(playerId1, playerId2)
+                playerIds = listOf(playerId1, playerId2),
             )
 
             config.startingScore shouldBe 501
@@ -129,7 +129,7 @@ class GameModelsTest : FreeSpec({
         "should have default doubleIn as false" {
             val config = GameConfig(
                 gameType = GameType.CLASSIC_501,
-                playerIds = listOf(playerId1)
+                playerIds = listOf(playerId1),
             )
 
             config.doubleIn shouldBe false
@@ -138,7 +138,7 @@ class GameModelsTest : FreeSpec({
         "should have default doubleOut as true" {
             val config = GameConfig(
                 gameType = GameType.CLASSIC_501,
-                playerIds = listOf(playerId1)
+                playerIds = listOf(playerId1),
             )
 
             config.doubleOut shouldBe true
@@ -147,7 +147,7 @@ class GameModelsTest : FreeSpec({
         "should have default legsToWin as 1" {
             val config = GameConfig(
                 gameType = GameType.CLASSIC_501,
-                playerIds = listOf(playerId1)
+                playerIds = listOf(playerId1),
             )
 
             config.legsToWin shouldBe 1
@@ -160,14 +160,14 @@ class GameModelsTest : FreeSpec({
                 id = sessionId,
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(
                     Leg(turns = emptyList(), winnerId = playerId1),
-                    Leg(turns = emptyList())
+                    Leg(turns = emptyList()),
                 ),
                 currentLegIndex = 1,
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
 
             session.currentLeg shouldBe session.legs[1]
@@ -178,9 +178,9 @@ class GameModelsTest : FreeSpec({
                 id = sessionId,
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
-                    playerIds = listOf(playerId1)
+                    playerIds = listOf(playerId1),
                 ),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
 
             session.status shouldBe GameStatus.IN_PROGRESS

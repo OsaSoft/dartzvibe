@@ -73,4 +73,5 @@ class ComposeAppCommonTest : FreeSpec(
                 result shouldContain "Hello"
             }
         }
-    })
+    },
+)

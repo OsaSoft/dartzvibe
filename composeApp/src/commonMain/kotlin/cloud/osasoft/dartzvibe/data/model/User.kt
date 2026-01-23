@@ -14,14 +14,12 @@ data class User(
     val id: Long,
     val name: String,
     val email: String,
-
     // Like @JsonProperty("created_at") in Jackson
     @SerialName("created_at")
     val createdAt: String? = null,
-
     // Like @JsonProperty("is_active") in Jackson
     @SerialName("is_active")
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
 )
 
 /**
@@ -31,6 +29,5 @@ data class User(
 data class ApiResponse<T>(
     val data: T,
     val message: String? = null,
-    val success: Boolean = true
+    val success: Boolean = true,
 )
-

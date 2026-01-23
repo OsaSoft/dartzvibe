@@ -52,7 +52,7 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 class AddEditPlayerScreen(
     private val playerRepository: PlayerRepository,
-    private val playerId: Uuid? = null
+    private val playerId: Uuid? = null,
 ) : Screen {
 
     @Composable
@@ -74,7 +74,7 @@ class AddEditPlayerScreen(
             onNicknameChange = screenModel::updateNickname,
             onColorSelect = screenModel::updateAvatarColor,
             onSave = screenModel::save,
-            onBack = { navigator.pop() }
+            onBack = { navigator.pop() },
         )
     }
 }
@@ -83,11 +83,10 @@ class AddEditPlayerScreen(
 @Composable
 fun rememberAddEditPlayerScreenModel(
     playerRepository: PlayerRepository,
-    playerId: Uuid?
-): AddEditPlayerScreenModel {
-    return remember { AddEditPlayerScreenModel(playerRepository, playerId) }
-}
+    playerId: Uuid?,
+): AddEditPlayerScreenModel = remember { AddEditPlayerScreenModel(playerRepository, playerId) }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditPlayerContent(
@@ -96,7 +95,7 @@ fun AddEditPlayerContent(
     onNicknameChange: (String) -> Unit,
     onColorSelect: (Int) -> Unit,
     onSave: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -111,12 +110,12 @@ fun AddEditPlayerContent(
                     if (state.isSaving) {
                         CircularProgressIndicator(
                             modifier = Modifier.padding(16.dp).size(24.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
                         )
                     } else {
                         IconButton(
                             onClick = onSave,
-                            enabled = state.isValid && !state.isLoading
+                            enabled = state.isValid && !state.isLoading,
                         ) {
                             Icon(Icons.Default.Check, contentDescription = "Save")
                         }
@@ -124,15 +123,15 @@ fun AddEditPlayerContent(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
-        }
+        },
     ) { padding ->
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
@@ -142,25 +141,25 @@ fun AddEditPlayerContent(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(16.dp),
             ) {
                 // Avatar preview
                 Box(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Box(
                         modifier = Modifier
                             .size(96.dp)
                             .clip(CircleShape)
                             .background(AvatarColors.getColor(state.avatarColor)),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = state.name.firstOrNull()?.uppercase() ?: "?",
                             style = MaterialTheme.typography.headlineLarge,
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -175,7 +174,7 @@ fun AddEditPlayerContent(
                     placeholder = { Text("Enter player name") },
                     singleLine = true,
                     isError = state.error != null && state.name.isBlank(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -187,7 +186,7 @@ fun AddEditPlayerContent(
                     label = { Text("Nickname") },
                     placeholder = { Text("Optional nickname") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -196,7 +195,7 @@ fun AddEditPlayerContent(
                 Text(
                     text = "Avatar Color",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -204,13 +203,13 @@ fun AddEditPlayerContent(
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     AvatarColors.getAllColors().forEachIndexed { index, color ->
                         ColorOption(
                             color = color,
                             isSelected = state.avatarColor == index,
-                            onClick = { onColorSelect(index) }
+                            onClick = { onColorSelect(index) },
                         )
                     }
                 }
@@ -221,7 +220,7 @@ fun AddEditPlayerContent(
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
@@ -229,11 +228,12 @@ fun AddEditPlayerContent(
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun ColorOption(
     color: Color,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -245,17 +245,16 @@ fun ColorOption(
                     Modifier.border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
                 } else {
                     Modifier
-                }
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+                },
+            ).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         if (isSelected) {
             Icon(
                 Icons.Default.Check,
                 contentDescription = "Selected",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(24.dp),
             )
         }
     }

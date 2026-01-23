@@ -2,17 +2,16 @@ package cloud.osasoft.dartzvibe.ui.screen.players
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 data class AddEditPlayerState(
@@ -24,7 +23,7 @@ data class AddEditPlayerState(
     val error: String? = null,
     val isEditMode: Boolean = false,
     val playerId: Uuid? = null,
-    val saveCompleted: Boolean = false
+    val saveCompleted: Boolean = false,
 ) {
     val isValid: Boolean
         get() = name.isNotBlank()
@@ -33,15 +32,17 @@ data class AddEditPlayerState(
 @OptIn(ExperimentalUuidApi::class)
 class AddEditPlayerScreenModel(
     private val playerRepository: PlayerRepository,
-    private val playerId: Uuid? = null
+    private val playerId: Uuid? = null,
 ) : ScreenModel {
 
     private val log = Logger.withTag("AddEditPlayerScreenModel")
 
-    private val _state = MutableStateFlow(AddEditPlayerState(
-        isEditMode = playerId != null,
-        playerId = playerId
-    ))
+    private val _state = MutableStateFlow(
+        AddEditPlayerState(
+            isEditMode = playerId != null,
+            playerId = playerId,
+        ),
+    )
     val state: StateFlow<AddEditPlayerState> = _state.asStateFlow()
 
     init {
@@ -61,7 +62,7 @@ class AddEditPlayerScreenModel(
                             name = player.name,
                             nickname = player.nickname ?: "",
                             avatarColor = player.avatarColor,
-                            isLoading = false
+                            isLoading = false,
                         )
                     }
                 } else {
@@ -103,7 +104,7 @@ class AddEditPlayerScreenModel(
                         val updatedPlayer = existingPlayer.copy(
                             name = currentState.name.trim(),
                             nickname = currentState.nickname.trim().takeIf { it.isNotEmpty() },
-                            avatarColor = currentState.avatarColor
+                            avatarColor = currentState.avatarColor,
                         )
                         playerRepository.updatePlayer(updatedPlayer)
                         log.d { "Updated player: ${updatedPlayer.name}" }
@@ -113,7 +114,7 @@ class AddEditPlayerScreenModel(
                     playerRepository.createPlayer(
                         name = currentState.name.trim(),
                         nickname = currentState.nickname.trim().takeIf { it.isNotEmpty() },
-                        avatarColor = currentState.avatarColor
+                        avatarColor = currentState.avatarColor,
                     )
                     log.d { "Created new player: ${currentState.name}" }
                 }

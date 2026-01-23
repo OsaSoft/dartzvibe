@@ -2,11 +2,11 @@ package cloud.osasoft.dartzvibe.data.repository
 
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.util.currentTimeMillis
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Fake implementation of PlayerRepository for testing purposes.
@@ -16,13 +16,9 @@ class FakePlayerRepository : PlayerRepository {
 
     private val players = MutableStateFlow<Map<Uuid, Player>>(emptyMap())
 
-    override fun getAllPlayers(): Flow<List<Player>> {
-        return players.map { it.values.toList().sortedBy { p -> p.name } }
-    }
+    override fun getAllPlayers(): Flow<List<Player>> = players.map { it.values.toList().sortedBy { p -> p.name } }
 
-    override fun getPlayerById(id: Uuid): Flow<Player?> {
-        return players.map { it[id] }
-    }
+    override fun getPlayerById(id: Uuid): Flow<Player?> = players.map { it[id] }
 
     override suspend fun insertPlayer(player: Player) {
         players.value = players.value + (player.id to player)
@@ -42,7 +38,7 @@ class FakePlayerRepository : PlayerRepository {
             name = name,
             nickname = nickname,
             avatarColor = avatarColor,
-            createdAt = currentTimeMillis()
+            createdAt = currentTimeMillis(),
         )
         insertPlayer(player)
         return player

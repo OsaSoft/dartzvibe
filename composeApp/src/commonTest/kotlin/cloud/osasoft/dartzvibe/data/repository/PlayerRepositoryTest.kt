@@ -8,9 +8,9 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.flow.first
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.coroutines.flow.first
 
 /**
  * Tests for PlayerRepository using a fake implementation.
@@ -121,7 +121,7 @@ class PlayerRepositoryTest : FreeSpec({
                 val player = repository.createPlayer(
                     name = "Created Player",
                     nickname = "CP",
-                    avatarColor = 3
+                    avatarColor = 3,
                 )
 
                 player.id shouldNotBe null
@@ -134,7 +134,7 @@ class PlayerRepositoryTest : FreeSpec({
                 val player = repository.createPlayer(
                     name = "Persisted Player",
                     nickname = null,
-                    avatarColor = 0
+                    avatarColor = 0,
                 )
 
                 val retrieved = repository.getPlayerById(player.id).first()
@@ -145,12 +145,10 @@ class PlayerRepositoryTest : FreeSpec({
 })
 
 @OptIn(ExperimentalUuidApi::class)
-private fun createPlayer(id: Uuid, name: String, nickname: String? = null): Player {
-    return Player(
-        id = id,
-        name = name,
-        nickname = nickname,
-        avatarColor = 0,
-        createdAt = currentTimeMillis()
-    )
-}
+private fun createPlayer(id: Uuid, name: String, nickname: String? = null): Player = Player(
+    id = id,
+    name = name,
+    nickname = nickname,
+    avatarColor = 0,
+    createdAt = currentTimeMillis(),
+)

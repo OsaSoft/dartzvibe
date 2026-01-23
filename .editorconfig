@@ -1,0 +1,26 @@
+[*]
+indent_style = space
+insert_final_newline = true
+end_of_line = lf
+trim_trailing_whitespace = true
+
+[*.{yaml,yml}]
+indent_size = 2
+
+[*.{kt,kts}]
+max_line_length = 120
+indent_size = 4
+ij_kotlin_allow_trailing_comma_on_call_site=true
+ij_kotlin_allow_trailing_comma=true
+
+# ktlint rules
+ktlint_standard_multiline-expression-wrapping=disabled # enforces all multiline expressions to be wrapped, disable
+ktlint_standard_function-signature=disabled # enforces function declarations with more than 2 args to be multiline, disable
+ktlint_standard_annotation=disabled # enforces annotations to be on a separate line, disable
+ktlint_standard_no-empty-first-line-in-class-body=disabled # enforces no empty first line in class body, disable
+ktlint_standard_class-signature=disabled # enforces class signatures to be on a single line, disable
+ktlint_standard_no-empty-file=disabled # allow placeholder empty files
+
+[*.md]
+max_line_length = off
+indent_size = 4

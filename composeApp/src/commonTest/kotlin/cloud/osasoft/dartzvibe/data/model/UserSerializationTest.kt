@@ -26,7 +26,7 @@ class UserSerializationTest : FreeSpec({
                 name = "John Doe",
                 email = "john@example.com",
                 createdAt = "2024-01-01T00:00:00Z",
-                isActive = true
+                isActive = true,
             )
 
             val jsonString = json.encodeToString(user)
@@ -38,7 +38,8 @@ class UserSerializationTest : FreeSpec({
         }
 
         "should deserialize JSON to User" {
-            val jsonString = """
+            val jsonString =
+                """
                 {
                     "id": 2,
                     "name": "Jane Doe",
@@ -46,7 +47,7 @@ class UserSerializationTest : FreeSpec({
                     "created_at": "2024-06-15T12:00:00Z",
                     "is_active": false
                 }
-            """.trimIndent()
+                """.trimIndent()
 
             val user = json.decodeFromString<User>(jsonString)
 
@@ -58,13 +59,14 @@ class UserSerializationTest : FreeSpec({
         }
 
         "should handle default values" {
-            val jsonString = """
+            val jsonString =
+                """
                 {
                     "id": 3,
                     "name": "Default User",
                     "email": "default@example.com"
                 }
-            """.trimIndent()
+                """.trimIndent()
 
             val user = json.decodeFromString<User>(jsonString)
 
@@ -78,7 +80,7 @@ class UserSerializationTest : FreeSpec({
             val response = ApiResponse(
                 data = User(id = 1, name = "Test", email = "test@test.com"),
                 message = "Success",
-                success = true
+                success = true,
             )
 
             val jsonString = json.encodeToString(response)

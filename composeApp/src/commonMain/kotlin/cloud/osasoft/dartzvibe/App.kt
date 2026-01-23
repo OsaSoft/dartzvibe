@@ -27,16 +27,17 @@ val LocalGameRepository = staticCompositionLocalOf<GameRepository> {
     error("GameRepository not provided")
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun App(playerRepository: PlayerRepository, gameRepository: GameRepository) {
     CompositionLocalProvider(
         LocalPlayerRepository provides playerRepository,
-        LocalGameRepository provides gameRepository
+        LocalGameRepository provides gameRepository,
     ) {
         MaterialTheme {
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
+                color = MaterialTheme.colorScheme.background,
             ) {
                 Navigator(HomeScreen(playerRepository, gameRepository)) { navigator ->
                     SlideTransition(navigator)

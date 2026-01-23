@@ -31,7 +31,7 @@ class GameEngineTest : FreeSpec({
         gameType: GameType = GameType.CLASSIC_501,
         doubleIn: Boolean = false,
         doubleOut: Boolean = true,
-        legsToWin: Int = 1
+        legsToWin: Int = 1,
     ): GameEngine {
         val session = GameSession(
             id = sessionId,
@@ -40,12 +40,12 @@ class GameEngineTest : FreeSpec({
                 doubleIn = doubleIn,
                 doubleOut = doubleOut,
                 playerIds = playerIds,
-                legsToWin = legsToWin
+                legsToWin = legsToWin,
             ),
             legs = listOf(Leg()),
             currentLegIndex = 0,
             status = GameStatus.IN_PROGRESS,
-            startedAt = currentTimeMillis()
+            startedAt = currentTimeMillis(),
         )
         return GameEngine.fromSession(session)
     }
@@ -126,7 +126,7 @@ class GameEngineTest : FreeSpec({
             var engine = createEngine()
 
             val (e1, _) = engine.addThrow(20, Multiplier.TRIPLE) // -60 = 441
-            val (e2, _) = e1.addThrow(20, Multiplier.TRIPLE)     // -60 = 381
+            val (e2, _) = e1.addThrow(20, Multiplier.TRIPLE) // -60 = 381
             val (e3, result) = e2.addThrow(20, Multiplier.TRIPLE) // -60 = 321
 
             result.shouldBeInstanceOf<ThrowResult.Success>()
@@ -142,10 +142,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             // Create engine with low score by simulating turns
             var engine = GameEngine.fromSession(session)
@@ -174,10 +174,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -203,10 +203,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -240,10 +240,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = false, // No double-out required
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -275,10 +275,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -292,7 +292,7 @@ class GameEngineTest : FreeSpec({
             }
             // 501 - 420 = 81
             val (e5, _) = engine.addThrow(1, Multiplier.SINGLE) // 80
-            val (e6, _) = e5.addThrow(20, Multiplier.DOUBLE)    // 40
+            val (e6, _) = e5.addThrow(20, Multiplier.DOUBLE) // 40
             val (e7, _) = e6.endTurn()
             val (e8, _) = e7.addThrow(0, Multiplier.SINGLE)
             val (e9, _) = e8.endTurn()
@@ -311,10 +311,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -328,8 +328,8 @@ class GameEngineTest : FreeSpec({
             }
             // 501 - 420 = 81
             val (e5, _) = engine.addThrow(1, Multiplier.SINGLE) // 80
-            val (e6, _) = e5.addThrow(10, Multiplier.SINGLE)    // 70
-            val (e7, _) = e6.addThrow(20, Multiplier.SINGLE)    // 50
+            val (e6, _) = e5.addThrow(10, Multiplier.SINGLE) // 70
+            val (e7, _) = e6.addThrow(20, Multiplier.SINGLE) // 50
             val (e8, _) = e7.endTurn()
             val (e9, _) = e8.addThrow(0, Multiplier.SINGLE)
             val (e10, _) = e9.endTurn()
@@ -363,8 +363,8 @@ class GameEngineTest : FreeSpec({
 
         "should remove only last throw when multiple throws" {
             val engine = createEngine()
-            val (e1, _) = engine.addThrow(20, Multiplier.TRIPLE)  // 441
-            val (e2, _) = e1.addThrow(19, Multiplier.TRIPLE)      // 384
+            val (e1, _) = engine.addThrow(20, Multiplier.TRIPLE) // 441
+            val (e2, _) = e1.addThrow(19, Multiplier.TRIPLE) // 384
 
             val undone = e2.undoLastThrow()
 
@@ -379,10 +379,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -445,10 +445,10 @@ class GameEngineTest : FreeSpec({
                 config = GameConfig(
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -478,10 +478,10 @@ class GameEngineTest : FreeSpec({
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
                     playerIds = listOf(playerId1, playerId2),
-                    legsToWin = 3
+                    legsToWin = 3,
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 
@@ -523,10 +523,10 @@ class GameEngineTest : FreeSpec({
                     gameType = GameType.CLASSIC_501,
                     doubleOut = true,
                     playerIds = listOf(playerId1, playerId2),
-                    legsToWin = 1 // Single leg match
+                    legsToWin = 1, // Single leg match
                 ),
                 legs = listOf(Leg()),
-                startedAt = currentTimeMillis()
+                startedAt = currentTimeMillis(),
             )
             var engine = GameEngine.fromSession(session)
 

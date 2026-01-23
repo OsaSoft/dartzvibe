@@ -10,6 +10,7 @@ import me.tatarka.inject.annotations.Inject
  */
 interface GreetingRepository {
     suspend fun getGreeting(): String
+
     suspend fun getGreetingForName(name: String): String
 }
 
@@ -37,4 +38,3 @@ class GreetingRepositoryImpl : GreetingRepository {
         return "Hello, $name! Welcome to ${platform.name}!"
     }
 }
-

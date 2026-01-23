@@ -1,8 +1,8 @@
 package cloud.osasoft.dartzvibe.data.model
 
+import kotlinx.serialization.Serializable
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.serialization.Serializable
 
 /**
  * Represents a player profile in the darts game.
@@ -14,5 +14,5 @@ data class Player(
     val name: String,
     val nickname: String? = null,
     val avatarColor: Int = 0,
-    val createdAt: Long
+    val createdAt: Long,
 )

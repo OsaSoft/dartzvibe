@@ -52,8 +52,6 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,11 +61,12 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 data class GameWithPlayers(
     val session: GameSession,
-    val players: List<Player>
+    val players: List<Player>,
 )
 
 @OptIn(ExperimentalUuidApi::class)
@@ -75,13 +74,13 @@ data class GamesListState(
     val games: List<GameWithPlayers> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val gameToDelete: GameSession? = null
+    val gameToDelete: GameSession? = null,
 )
 
 @OptIn(ExperimentalUuidApi::class)
 class GamesListScreenModel(
     private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
 ) : ScreenModel {
 
     private val log = Logger.withTag("GamesListScreenModel")
@@ -96,7 +95,7 @@ class GamesListScreenModel(
     private fun loadGames() {
         combine(
             playerRepository.getAllPlayers(),
-            gameRepository.getAllGameSessions()
+            gameRepository.getAllGameSessions(),
         ) { players, games ->
             games.map { session ->
                 val gamePlayers = session.config.playerIds.mapNotNull { playerId ->
@@ -104,16 +103,13 @@ class GamesListScreenModel(
                 }
                 GameWithPlayers(session, gamePlayers)
             }
-        }
-            .onEach { gamesWithPlayers ->
-                log.d { "Loaded ${gamesWithPlayers.size} games" }
-                _state.update { it.copy(games = gamesWithPlayers, isLoading = false) }
-            }
-            .catch { e ->
-                log.e(e) { "Error loading games" }
-                _state.update { it.copy(isLoading = false, error = e.message) }
-            }
-            .launchIn(screenModelScope)
+        }.onEach { gamesWithPlayers ->
+            log.d { "Loaded ${gamesWithPlayers.size} games" }
+            _state.update { it.copy(games = gamesWithPlayers, isLoading = false) }
+        }.catch { e ->
+            log.e(e) { "Error loading games" }
+            _state.update { it.copy(isLoading = false, error = e.message) }
+        }.launchIn(screenModelScope)
     }
 
     fun showDeleteConfirmation(session: GameSession) {
@@ -141,7 +137,7 @@ class GamesListScreenModel(
 @OptIn(ExperimentalUuidApi::class)
 class GamesListScreen(
     private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
 ) : Screen {
 
     @Composable
@@ -160,11 +156,12 @@ class GamesListScreen(
             onDeleteGame = { screenModel.showDeleteConfirmation(it) },
             onConfirmDelete = { screenModel.confirmDelete() },
             onDismissDelete = { screenModel.dismissDeleteConfirmation() },
-            onBack = { navigator.pop() }
+            onBack = { navigator.pop() },
         )
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
 @Composable
 fun GamesListContent(
@@ -173,7 +170,7 @@ fun GamesListContent(
     onDeleteGame: (GameSession) -> Unit,
     onConfirmDelete: () -> Unit,
     onDismissDelete: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -186,61 +183,64 @@ fun GamesListContent(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
-        }
+        },
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
         ) {
             when {
                 state.isLoading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
+
                 state.error != null -> {
                     Text(
                         text = "Error: ${state.error}",
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
+
                 state.games.isEmpty() -> {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.outline
+                            tint = MaterialTheme.colorScheme.outline,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "No games yet",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = "Start a new game from the home screen",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outline
+                            color = MaterialTheme.colorScheme.outline,
                         )
                     }
                 }
+
                 else -> {
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(state.games, key = { it.session.id }) { gameWithPlayers ->
                             GameCard(
                                 game = gameWithPlayers,
                                 onClick = { onGameClick(gameWithPlayers.session) },
-                                onDelete = { onDeleteGame(gameWithPlayers.session) }
+                                onDelete = { onDeleteGame(gameWithPlayers.session) },
                             )
                         }
                     }
@@ -264,17 +264,18 @@ fun GamesListContent(
                 TextButton(onClick = onDismissDelete) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
 fun GameCard(
     game: GameWithPlayers,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     val session = game.session
     val isInProgress = session.status == GameStatus.IN_PROGRESS
@@ -288,14 +289,14 @@ fun GameCard(
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             } else {
                 MaterialTheme.colorScheme.surface
-            }
-        )
+            },
+        ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Status icon
             Icon(
@@ -310,7 +311,7 @@ fun GameCard(
                     GameStatus.COMPLETED -> MaterialTheme.colorScheme.outline
                     GameStatus.ABANDONED -> MaterialTheme.colorScheme.error
                 },
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(32.dp),
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -321,7 +322,7 @@ fun GameCard(
                 Text(
                     text = game.players.joinToString(" vs ") { it.name },
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
 
                 // Game type and status
@@ -329,19 +330,21 @@ fun GameCard(
                     Text(
                         text = session.config.gameType.displayName,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = " • ",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = when (session.status) {
                             GameStatus.IN_PROGRESS -> "In Progress"
+
                             GameStatus.COMPLETED -> {
                                 val winner = game.players.find { it.id == session.winnerId }
                                 winner?.let { "${it.name} won" } ?: "Completed"
                             }
+
                             GameStatus.ABANDONED -> "Abandoned"
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -349,7 +352,7 @@ fun GameCard(
                             GameStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
                             GameStatus.COMPLETED -> MaterialTheme.colorScheme.onSurfaceVariant
                             GameStatus.ABANDONED -> MaterialTheme.colorScheme.error
-                        }
+                        },
                     )
                 }
 
@@ -358,7 +361,7 @@ fun GameCard(
                     Text(
                         text = "Best of ${session.config.legsToWin * 2 - 1} legs",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.outline,
                     )
                 }
             }
@@ -369,7 +372,7 @@ fun GameCard(
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = "Resume",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -378,7 +381,7 @@ fun GameCard(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error,
                 )
             }
         }

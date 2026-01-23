@@ -13,14 +13,14 @@ import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 data class ActiveGameState(
@@ -34,7 +34,7 @@ data class ActiveGameState(
     val isSaving: Boolean = false,
     val error: String? = null,
     val showGameCompleteDialog: Boolean = false,
-    val showLegWonDialog: Boolean = false
+    val showLegWonDialog: Boolean = false,
 ) {
     val currentPlayerId: Uuid?
         get() = engine?.getCurrentPlayerId()
@@ -60,24 +60,20 @@ data class ActiveGameState(
     val isGameComplete: Boolean
         get() = session?.status == GameStatus.COMPLETED
 
-    fun getPlayerScore(playerId: Uuid): Int {
-        return engine?.getPlayerScore(playerId) ?: session?.config?.startingScore ?: 0
-    }
+    fun getPlayerScore(playerId: Uuid): Int = engine?.getPlayerScore(playerId) ?: session?.config?.startingScore ?: 0
 
-    fun getLegsWon(playerId: Uuid): Int {
-        return engine?.getLegsWon(playerId) ?: 0
-    }
+    fun getLegsWon(playerId: Uuid): Int = engine?.getLegsWon(playerId) ?: 0
 
-    fun getPlayer(playerId: Uuid): Player? {
-        return players[playerId]
-    }
+    fun getPlayer(playerId: Uuid): Player? = players[playerId]
 
     fun getLastTurnScore(playerId: Uuid): Int? {
         val currentLeg = session?.currentLeg ?: return null
         val lastTurn = currentLeg.turns.lastOrNull { it.playerId == playerId }
         return if (lastTurn != null && !lastTurn.isBust) {
             lastTurn.totalScore
-        } else null
+        } else {
+            null
+        }
     }
 }
 
@@ -85,7 +81,7 @@ data class ActiveGameState(
 class ActiveGameScreenModel(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
-    private val sessionId: Uuid
+    private val sessionId: Uuid,
 ) : ScreenModel {
 
     private val log = Logger.withTag("ActiveGameScreenModel")
@@ -121,7 +117,7 @@ class ActiveGameScreenModel(
                         session = session,
                         players = playersMap,
                         engine = engine,
-                        isLoading = false
+                        isLoading = false,
                     )
                 }
 
@@ -158,7 +154,7 @@ class ActiveGameScreenModel(
             it.copy(
                 engine = newEngine,
                 selectedMultiplier = Multiplier.SINGLE,
-                lastThrowResult = result
+                lastThrowResult = result,
             )
         }
 
@@ -175,7 +171,7 @@ class ActiveGameScreenModel(
         _state.update {
             it.copy(
                 engine = newEngine,
-                lastThrowResult = null
+                lastThrowResult = null,
             )
         }
     }
@@ -193,7 +189,7 @@ class ActiveGameScreenModel(
                 showGameCompleteDialog = result is TurnResult.MatchWon,
                 showLegWonDialog = result is TurnResult.LegWon,
                 selectedMultiplier = Multiplier.SINGLE,
-                lastThrowResult = null
+                lastThrowResult = null,
             )
         }
 

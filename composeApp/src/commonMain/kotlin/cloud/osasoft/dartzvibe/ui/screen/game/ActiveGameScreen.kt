@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,14 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
@@ -59,7 +55,7 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 class ActiveGameScreen(
     private val gameRepository: GameRepository,
-    private val sessionId: Uuid
+    private val sessionId: Uuid,
 ) : Screen {
 
     @Composable
@@ -85,7 +81,7 @@ class ActiveGameScreen(
                 screenModel.abandonGame()
                 navigator.pop()
             },
-            onBack = { navigator.pop() }
+            onBack = { navigator.pop() },
         )
     }
 }
@@ -95,11 +91,10 @@ class ActiveGameScreen(
 fun rememberActiveGameScreenModel(
     gameRepository: GameRepository,
     playerRepository: cloud.osasoft.dartzvibe.data.repository.PlayerRepository,
-    sessionId: Uuid
-): ActiveGameScreenModel {
-    return remember { ActiveGameScreenModel(gameRepository, playerRepository, sessionId) }
-}
+    sessionId: Uuid,
+): ActiveGameScreenModel = remember { ActiveGameScreenModel(gameRepository, playerRepository, sessionId) }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
 @Composable
 fun ActiveGameContent(
@@ -112,15 +107,18 @@ fun ActiveGameContent(
     onDismissLegWon: () -> Unit,
     onDismissGameComplete: () -> Unit,
     onAbandonGame: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        state.session?.config?.gameType?.displayName ?: "Game",
-                        fontWeight = FontWeight.Bold
+                        state.session
+                            ?.config
+                            ?.gameType
+                            ?.displayName ?: "Game",
+                        fontWeight = FontWeight.Bold,
                     )
                 },
                 navigationIcon = {
@@ -135,40 +133,40 @@ fun ActiveGameContent(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
-        }
+        },
     ) { padding ->
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
         } else if (state.error != null) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "Error: ${state.error}",
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
+                    .padding(padding),
             ) {
                 // Player score cards
                 PlayerScoresRow(
                     state = state,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                 )
 
                 // Current turn display
@@ -178,7 +176,7 @@ fun ActiveGameContent(
                     lastThrowResult = state.lastThrowResult,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp),
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -194,7 +192,7 @@ fun ActiveGameContent(
                     onMiss = onMiss,
                     onUndo = onUndo,
                     onEndTurn = onEndTurn,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -213,7 +211,7 @@ fun ActiveGameContent(
                 TextButton(onClick = onDismissLegWon) {
                     Text("Continue")
                 }
-            }
+            },
         )
     }
 
@@ -230,7 +228,7 @@ fun ActiveGameContent(
                     Text(
                         text = "$winnerName wins the match!",
                         style = MaterialTheme.typography.titleLarge,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             },
@@ -238,16 +236,17 @@ fun ActiveGameContent(
                 TextButton(onClick = onDismissGameComplete) {
                     Text("Finish")
                 }
-            }
+            },
         )
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
 fun PlayerScoresRow(
     state: ActiveGameState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val session = state.session ?: return
     val playerIds = session.config.playerIds
@@ -255,7 +254,7 @@ fun PlayerScoresRow(
 
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         playerIds.forEach { playerId ->
             val player = state.getPlayer(playerId)
@@ -267,44 +266,45 @@ fun PlayerScoresRow(
                     legsToWin = legsToWin,
                     isCurrentPlayer = playerId == state.currentPlayerId,
                     lastTurnScore = state.getLastTurnScore(playerId),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun CurrentTurnDisplay(
     currentThrows: List<Throw>,
     selectedMultiplier: Multiplier,
     lastThrowResult: ThrowResult?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Current turn throws
             Text(
                 text = "Current Turn",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Show existing throws
                 currentThrows.forEachIndexed { index, throwObj ->
@@ -334,7 +334,7 @@ fun CurrentTurnDisplay(
                     text = resultText,
                     style = MaterialTheme.typography.bodySmall,
                     color = resultColor,
-                    fontWeight = if (result is ThrowResult.Checkout) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (result is ThrowResult.Checkout) FontWeight.Bold else FontWeight.Normal,
                 )
             }
 
@@ -345,13 +345,14 @@ fun CurrentTurnDisplay(
                 Text(
                     text = "Turn total: $total",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun ThrowDisplay(throwObj: Throw) {
     val displayText = when {
@@ -365,17 +366,18 @@ fun ThrowDisplay(throwObj: Throw) {
             .size(56.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = displayText,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimary,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun ThrowPlaceholder() {
     Box(
@@ -383,12 +385,12 @@ fun ThrowPlaceholder() {
             .size(56.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = "-",
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.outline
+            color = MaterialTheme.colorScheme.outline,
         )
     }
 }

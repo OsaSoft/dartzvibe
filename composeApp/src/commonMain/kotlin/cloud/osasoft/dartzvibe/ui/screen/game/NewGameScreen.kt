@@ -1,8 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.game
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,11 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -72,7 +67,7 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 class NewGameScreen(
     private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
 ) : Screen {
 
     @Composable
@@ -98,7 +93,7 @@ class NewGameScreen(
             onMoveUp = screenModel::movePlayerUp,
             onMoveDown = screenModel::movePlayerDown,
             onStartGame = screenModel::startGame,
-            onBack = { navigator.pop() }
+            onBack = { navigator.pop() },
         )
     }
 }
@@ -107,11 +102,10 @@ class NewGameScreen(
 @Composable
 fun rememberNewGameScreenModel(
     playerRepository: PlayerRepository,
-    gameRepository: GameRepository
-): NewGameScreenModel {
-    return remember { NewGameScreenModel(playerRepository, gameRepository) }
-}
+    gameRepository: GameRepository,
+): NewGameScreenModel = remember { NewGameScreenModel(playerRepository, gameRepository) }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
 @Composable
 fun NewGameContent(
@@ -124,7 +118,7 @@ fun NewGameContent(
     onMoveUp: (Uuid) -> Unit,
     onMoveDown: (Uuid) -> Unit,
     onStartGame: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -137,15 +131,15 @@ fun NewGameContent(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
-        }
+        },
     ) { padding ->
         if (state.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
@@ -156,12 +150,12 @@ fun NewGameContent(
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 // Game Type Selection
                 GameTypeSection(
                     selectedType = state.gameType,
-                    onTypeChange = onGameTypeChange
+                    onTypeChange = onGameTypeChange,
                 )
 
                 // Game Options
@@ -172,7 +166,7 @@ fun NewGameContent(
                     legsOptions = state.legsOptions,
                     onDoubleInChange = onDoubleInChange,
                     onDoubleOutChange = onDoubleOutChange,
-                    onLegsToWinChange = onLegsToWinChange
+                    onLegsToWinChange = onLegsToWinChange,
                 )
 
                 // Player Selection
@@ -181,7 +175,7 @@ fun NewGameContent(
                     selectedPlayerIds = state.selectedPlayerIds,
                     onPlayerToggle = onPlayerToggle,
                     onMoveUp = onMoveUp,
-                    onMoveDown = onMoveDown
+                    onMoveDown = onMoveDown,
                 )
 
                 // Error message
@@ -189,7 +183,7 @@ fun NewGameContent(
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
 
@@ -199,13 +193,13 @@ fun NewGameContent(
                 Button(
                     onClick = onStartGame,
                     enabled = state.isValid && !state.isSaving,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                 ) {
                     if (state.isSaving) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
                         )
                     } else {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -218,22 +212,23 @@ fun NewGameContent(
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameTypeSection(
     selectedType: GameType,
-    onTypeChange: (GameType) -> Unit
+    onTypeChange: (GameType) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "Game Type",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 GameType.entries.forEach { type ->
                     FilterChip(
@@ -242,11 +237,13 @@ fun GameTypeSection(
                         label = { Text(type.displayName) },
                         leadingIcon = if (selectedType == type) {
                             { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        } else null,
+                        } else {
+                            null
+                        },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
                     )
                 }
             }
@@ -254,6 +251,7 @@ fun GameTypeSection(
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun GameOptionsSection(
     doubleIn: Boolean,
@@ -262,14 +260,14 @@ fun GameOptionsSection(
     legsOptions: List<Int>,
     onDoubleInChange: (Boolean) -> Unit,
     onDoubleOutChange: (Boolean) -> Unit,
-    onLegsToWinChange: (Int) -> Unit
+    onLegsToWinChange: (Int) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "Game Options",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -277,14 +275,14 @@ fun GameOptionsSection(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text("Double In", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         "Must start with a double",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(checked = doubleIn, onCheckedChange = onDoubleInChange)
@@ -296,14 +294,14 @@ fun GameOptionsSection(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text("Double Out", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         "Must finish with a double",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(checked = doubleOut, onCheckedChange = onDoubleOutChange)
@@ -315,41 +313,42 @@ fun GameOptionsSection(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text("Legs to Win", style = MaterialTheme.typography.bodyLarge)
                     Text(
                         "First to $legsToWin leg${if (legsToWin > 1) "s" else ""} wins",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 LegsDropdown(
                     selectedLegs = legsToWin,
                     options = legsOptions,
-                    onLegsChange = onLegsToWinChange
+                    onLegsChange = onLegsToWinChange,
                 )
             }
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun LegsDropdown(
     selectedLegs: Int,
     options: List<Int>,
-    onLegsChange: (Int) -> Unit
+    onLegsChange: (Int) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
         OutlinedCard(
-            onClick = { expanded = true }
+            onClick = { expanded = true },
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("$selectedLegs")
                 Spacer(modifier = Modifier.width(4.dp))
@@ -358,7 +357,7 @@ fun LegsDropdown(
         }
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
         ) {
             options.forEach { legs ->
                 DropdownMenuItem(
@@ -366,13 +365,14 @@ fun LegsDropdown(
                     onClick = {
                         onLegsChange(legs)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
 fun PlayerSelectionSection(
@@ -380,19 +380,19 @@ fun PlayerSelectionSection(
     selectedPlayerIds: List<Uuid>,
     onPlayerToggle: (Uuid) -> Unit,
     onMoveUp: (Uuid) -> Unit,
-    onMoveDown: (Uuid) -> Unit
+    onMoveDown: (Uuid) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "Players (${selectedPlayerIds.size}/4)",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "Select 2-4 players. Order determines throwing order.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -400,7 +400,7 @@ fun PlayerSelectionSection(
                 Text(
                     text = "No players available. Add some players first!",
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
                 // Selected players (reorderable)
@@ -408,7 +408,7 @@ fun PlayerSelectionSection(
                     Text(
                         text = "Throwing Order:",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -422,7 +422,7 @@ fun PlayerSelectionSection(
                                 canMoveDown = index < selectedPlayerIds.size - 1,
                                 onMoveUp = { onMoveUp(playerId) },
                                 onMoveDown = { onMoveDown(playerId) },
-                                onRemove = { onPlayerToggle(playerId) }
+                                onRemove = { onPlayerToggle(playerId) },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                         }
@@ -437,7 +437,7 @@ fun PlayerSelectionSection(
                     Text(
                         text = "Available Players:",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -445,7 +445,7 @@ fun PlayerSelectionSection(
                         AvailablePlayerRow(
                             player = player,
                             isEnabled = selectedPlayerIds.size < 4,
-                            onSelect = { onPlayerToggle(player.id) }
+                            onSelect = { onPlayerToggle(player.id) },
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -455,6 +455,7 @@ fun PlayerSelectionSection(
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun SelectedPlayerRow(
     player: Player,
@@ -463,19 +464,19 @@ fun SelectedPlayerRow(
     canMoveDown: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
 ) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        )
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+        ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Position number
             Box(
@@ -483,12 +484,12 @@ fun SelectedPlayerRow(
                     .size(28.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "$position",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onPrimary,
                 )
             }
 
@@ -500,13 +501,13 @@ fun SelectedPlayerRow(
                     .size(36.dp)
                     .clip(CircleShape)
                     .background(AvatarColors.getColor(player.avatarColor)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = player.name.first().uppercase(),
                     style = MaterialTheme.typography.titleSmall,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
@@ -516,7 +517,7 @@ fun SelectedPlayerRow(
             Text(
                 text = player.name,
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
 
             // Reorder buttons
@@ -530,17 +531,18 @@ fun SelectedPlayerRow(
             // Remove checkbox
             Checkbox(
                 checked = true,
-                onCheckedChange = { onRemove() }
+                onCheckedChange = { onRemove() },
             )
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun AvailablePlayerRow(
     player: Player,
     isEnabled: Boolean,
-    onSelect: () -> Unit
+    onSelect: () -> Unit,
 ) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -550,14 +552,14 @@ fun AvailablePlayerRow(
                 MaterialTheme.colorScheme.surface
             } else {
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            }
-        )
+            },
+        ),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Player avatar
             Box(
@@ -565,13 +567,13 @@ fun AvailablePlayerRow(
                     .size(36.dp)
                     .clip(CircleShape)
                     .background(AvatarColors.getColor(player.avatarColor)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = player.name.first().uppercase(),
                     style = MaterialTheme.typography.titleSmall,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
@@ -586,14 +588,14 @@ fun AvailablePlayerRow(
                     MaterialTheme.colorScheme.onSurface
                 } else {
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                }
+                },
             )
 
             // Add checkbox
             Checkbox(
                 checked = false,
                 enabled = isEnabled,
-                onCheckedChange = { onSelect() }
+                onCheckedChange = { onSelect() },
             )
         }
     }

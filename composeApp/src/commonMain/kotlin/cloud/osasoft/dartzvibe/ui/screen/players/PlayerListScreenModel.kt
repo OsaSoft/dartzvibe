@@ -5,7 +5,6 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,17 +13,18 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
 
 data class PlayerListState(
     val players: List<Player> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val playerToDelete: Player? = null
+    val playerToDelete: Player? = null,
 )
 
 @OptIn(ExperimentalUuidApi::class)
 class PlayerListScreenModel(
-    private val playerRepository: PlayerRepository
+    private val playerRepository: PlayerRepository,
 ) : ScreenModel {
 
     private val log = Logger.withTag("PlayerListScreenModel")
@@ -37,16 +37,15 @@ class PlayerListScreenModel(
     }
 
     private fun loadPlayers() {
-        playerRepository.getAllPlayers()
+        playerRepository
+            .getAllPlayers()
             .onEach { players ->
                 log.d { "Loaded ${players.size} players" }
                 _state.update { it.copy(players = players, isLoading = false, error = null) }
-            }
-            .catch { e ->
+            }.catch { e ->
                 log.e(e) { "Error loading players" }
                 _state.update { it.copy(isLoading = false, error = e.message) }
-            }
-            .launchIn(screenModelScope)
+            }.launchIn(screenModelScope)
     }
 
     fun showDeleteConfirmation(player: Player) {

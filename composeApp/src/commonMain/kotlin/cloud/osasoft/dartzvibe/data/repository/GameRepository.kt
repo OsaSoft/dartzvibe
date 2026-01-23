@@ -9,9 +9,8 @@ import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Leg
+import cloud.osasoft.dartzvibe.util.currentTimeMillis
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
@@ -20,7 +19,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.tatarka.inject.annotations.Inject
-import cloud.osasoft.dartzvibe.util.currentTimeMillis
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Repository interface for GameSession data operations.
@@ -28,11 +28,17 @@ import cloud.osasoft.dartzvibe.util.currentTimeMillis
 @OptIn(ExperimentalUuidApi::class)
 interface GameRepository {
     fun getAllGameSessions(): Flow<List<GameSession>>
+
     fun getGameSessionById(id: Uuid): Flow<GameSession?>
+
     fun getGameSessionsByStatus(status: GameStatus): Flow<List<GameSession>>
+
     fun getInProgressGame(): Flow<GameSession?>
+
     suspend fun createGameSession(config: GameConfig): GameSession
+
     suspend fun updateGameSession(session: GameSession)
+
     suspend fun deleteGameSession(id: Uuid)
 }
 
@@ -42,7 +48,7 @@ interface GameRepository {
 @OptIn(ExperimentalUuidApi::class)
 @Inject
 class GameRepositoryImpl(
-    private val database: DartzVibeDatabase
+    private val database: DartzVibeDatabase,
 ) : GameRepository {
 
     private val log = Logger.withTag("GameRepository")
@@ -51,7 +57,8 @@ class GameRepositoryImpl(
 
     override fun getAllGameSessions(): Flow<List<GameSession>> {
         log.d { "Fetching all game sessions" }
-        return queries.selectAll()
+        return queries
+            .selectAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { list -> list.map { it.toGameSession() } }
@@ -59,7 +66,8 @@ class GameRepositoryImpl(
 
     override fun getGameSessionById(id: Uuid): Flow<GameSession?> {
         log.d { "Fetching game session by id: $id" }
-        return queries.selectById(id.toString())
+        return queries
+            .selectById(id.toString())
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
             .map { it?.toGameSession() }
@@ -67,7 +75,8 @@ class GameRepositoryImpl(
 
     override fun getGameSessionsByStatus(status: GameStatus): Flow<List<GameSession>> {
         log.d { "Fetching game sessions by status: $status" }
-        return queries.selectByStatus(status.name)
+        return queries
+            .selectByStatus(status.name)
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { list -> list.map { it.toGameSession() } }
@@ -75,7 +84,8 @@ class GameRepositoryImpl(
 
     override fun getInProgressGame(): Flow<GameSession?> {
         log.d { "Fetching in-progress game" }
-        return queries.selectByStatus(GameStatus.IN_PROGRESS.name)
+        return queries
+            .selectByStatus(GameStatus.IN_PROGRESS.name)
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { list -> list.firstOrNull()?.toGameSession() }
@@ -90,7 +100,7 @@ class GameRepositoryImpl(
             status = GameStatus.IN_PROGRESS,
             startedAt = currentTimeMillis(),
             finishedAt = null,
-            winnerId = null
+            winnerId = null,
         )
 
         log.d { "Creating game session: ${session.id}" }
@@ -107,7 +117,7 @@ class GameRepositoryImpl(
                 status = session.status.name,
                 startedAt = session.startedAt,
                 finishedAt = session.finishedAt,
-                winnerId = session.winnerId?.toString()
+                winnerId = session.winnerId?.toString(),
             )
         }
         return session
@@ -122,7 +132,7 @@ class GameRepositoryImpl(
                 status = session.status.name,
                 finishedAt = session.finishedAt,
                 winnerId = session.winnerId?.toString(),
-                id = session.id.toString()
+                id = session.id.toString(),
             )
         }
     }
@@ -145,14 +155,14 @@ class GameRepositoryImpl(
                 doubleIn = doubleIn != 0L,
                 doubleOut = doubleOut != 0L,
                 playerIds = playerIdList,
-                legsToWin = legsToWin.toInt()
+                legsToWin = legsToWin.toInt(),
             ),
             legs = legsList,
             currentLegIndex = currentLegIndex.toInt(),
             status = GameStatus.valueOf(status),
             startedAt = startedAt,
             finishedAt = finishedAt,
-            winnerId = winnerId?.let { Uuid.parse(it) }
+            winnerId = winnerId?.let { Uuid.parse(it) },
         )
     }
 }

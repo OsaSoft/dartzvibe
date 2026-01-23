@@ -18,12 +18,10 @@ object AvatarColors {
         Color(0xFF607D8B), // Blue Grey
         Color(0xFF3F51B5), // Indigo
         Color(0xFFCDDC39), // Lime
-        Color(0xFF009688)  // Teal
+        Color(0xFF009688), // Teal
     )
 
-    fun getColor(index: Int): Color {
-        return colors[index.coerceIn(0, colors.lastIndex)]
-    }
+    fun getColor(index: Int): Color = colors[index.coerceIn(0, colors.lastIndex)]
 
     fun getColorCount(): Int = colors.size
 

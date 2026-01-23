@@ -3,10 +3,10 @@ package cloud.osasoft.dartzvibe.data.model
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Tests for Player data model serialization.
@@ -29,7 +29,7 @@ class PlayerTest : FreeSpec({
                     name = "John Doe",
                     nickname = "Johnny",
                     avatarColor = 2,
-                    createdAt = 1705000000000L
+                    createdAt = 1705000000000L,
                 )
 
                 val jsonString = json.encodeToString(player)
@@ -43,7 +43,7 @@ class PlayerTest : FreeSpec({
                     name = "Jane Doe",
                     nickname = null,
                     avatarColor = 0,
-                    createdAt = 1705000000000L
+                    createdAt = 1705000000000L,
                 )
 
                 val jsonString = json.encodeToString(player)
@@ -52,7 +52,8 @@ class PlayerTest : FreeSpec({
             }
 
             "should deserialize player correctly" {
-                val jsonString = """
+                val jsonString =
+                    """
                     {
                         "id": "00000000-0000-0000-0000-000000000003",
                         "name": "Test Player",
@@ -60,7 +61,7 @@ class PlayerTest : FreeSpec({
                         "avatarColor": 5,
                         "createdAt": 1705000000000
                     }
-                """.trimIndent()
+                    """.trimIndent()
 
                 val player = json.decodeFromString<Player>(jsonString)
 
@@ -72,14 +73,15 @@ class PlayerTest : FreeSpec({
             }
 
             "should deserialize player with null nickname" {
-                val jsonString = """
+                val jsonString =
+                    """
                     {
                         "id": "00000000-0000-0000-0000-000000000004",
                         "name": "No Nickname",
                         "avatarColor": 0,
                         "createdAt": 1705000000000
                     }
-                """.trimIndent()
+                    """.trimIndent()
 
                 val player = json.decodeFromString<Player>(jsonString)
 
@@ -92,7 +94,7 @@ class PlayerTest : FreeSpec({
                 val player = Player(
                     id = testUuid5,
                     name = "Test",
-                    createdAt = 0L
+                    createdAt = 0L,
                 )
 
                 player.avatarColor shouldBe 0
@@ -102,7 +104,7 @@ class PlayerTest : FreeSpec({
                 val player = Player(
                     id = testUuid5,
                     name = "Test",
-                    createdAt = 0L
+                    createdAt = 0L,
                 )
 
                 player.nickname shouldBe null

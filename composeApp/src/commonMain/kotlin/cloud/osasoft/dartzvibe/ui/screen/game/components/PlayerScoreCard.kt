@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun PlayerScoreCard(
     player: Player,
@@ -36,7 +37,7 @@ fun PlayerScoreCard(
     legsToWin: Int,
     isCurrentPlayer: Boolean,
     lastTurnScore: Int? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier
@@ -45,44 +46,46 @@ fun PlayerScoreCard(
                     Modifier.border(
                         width = 3.dp,
                         color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
                     )
-                } else Modifier
+                } else {
+                    Modifier
+                },
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrentPlayer) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
-            }
+            },
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isCurrentPlayer) 4.dp else 1.dp
-        )
+            defaultElevation = if (isCurrentPlayer) 4.dp else 1.dp,
+        ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Player name with avatar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Center,
             ) {
                 Box(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(AvatarColors.getColor(player.avatarColor)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = player.name.first().uppercase(),
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -90,7 +93,7 @@ fun PlayerScoreCard(
                     text = player.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1
+                    maxLines = 1,
                 )
             }
 
@@ -105,18 +108,18 @@ fun PlayerScoreCard(
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                },
             )
 
             // Legs won indicator
             Row(
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Legs: $legsWon/$legsToWin",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -126,20 +129,21 @@ fun PlayerScoreCard(
                 Text(
                     text = "Last: -$turnScore",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.outline,
                 )
             }
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun CompactPlayerScoreCard(
     player: Player,
     score: Int,
     legsWon: Int,
     isCurrentPlayer: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier
@@ -148,21 +152,23 @@ fun CompactPlayerScoreCard(
                     Modifier.border(
                         width = 2.dp,
                         color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
                     )
-                } else Modifier
+                } else {
+                    Modifier
+                },
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrentPlayer) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
+            },
+        ),
     ) {
         Column(
             modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Player avatar
             Box(
@@ -170,13 +176,13 @@ fun CompactPlayerScoreCard(
                     .size(24.dp)
                     .clip(CircleShape)
                     .background(AvatarColors.getColor(player.avatarColor)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = player.name.first().uppercase(),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
 
@@ -191,7 +197,7 @@ fun CompactPlayerScoreCard(
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                },
             )
 
             // Legs indicator (dots)
@@ -202,7 +208,7 @@ fun CompactPlayerScoreCard(
                             modifier = Modifier
                                 .size(6.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(MaterialTheme.colorScheme.primary),
                         )
                     }
                 }

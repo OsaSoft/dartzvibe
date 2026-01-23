@@ -45,7 +45,7 @@ import kotlin.uuid.ExperimentalUuidApi
 @OptIn(ExperimentalUuidApi::class)
 class HomeScreen(
     private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
 ) : Screen {
 
     @Composable
@@ -67,7 +67,7 @@ class HomeScreen(
             },
             onManagePlayers = {
                 navigator.push(PlayerListScreen(playerRepository, gameRepository))
-            }
+            },
         )
     }
 }
@@ -75,11 +75,10 @@ class HomeScreen(
 @Composable
 fun rememberHomeScreenModel(
     playerRepository: PlayerRepository,
-    gameRepository: GameRepository
-): HomeScreenModel {
-    return remember { HomeScreenModel(playerRepository, gameRepository) }
-}
+    gameRepository: GameRepository,
+): HomeScreenModel = remember { HomeScreenModel(playerRepository, gameRepository) }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
 @Composable
 fun HomeScreenContent(
@@ -87,7 +86,7 @@ fun HomeScreenContent(
     onNewGame: () -> Unit,
     onResumeGame: (kotlin.uuid.Uuid) -> Unit,
     onViewGames: () -> Unit,
-    onManagePlayers: () -> Unit
+    onManagePlayers: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -95,10 +94,10 @@ fun HomeScreenContent(
                 title = { Text("DartzVibe") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
-        }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -106,14 +105,14 @@ fun HomeScreenContent(
                 .padding(padding)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
             // App title/logo area
             Text(
                 text = "DartzVibe",
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -121,7 +120,7 @@ fun HomeScreenContent(
             Text(
                 text = "Track your darts games",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -133,24 +132,24 @@ fun HomeScreenContent(
                     onClick = { onResumeGame(session.id) },
                     modifier = Modifier.fillMaxWidth().height(64.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary
-                    )
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                    ),
                 ) {
                     Icon(
                         Icons.Default.PlayArrow,
                         contentDescription = null,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(28.dp),
                     )
                     Spacer(modifier = Modifier.size(12.dp))
                     Column {
                         Text(
                             "Resume Game",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                         Text(
                             playerNames,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
@@ -163,7 +162,7 @@ fun HomeScreenContent(
                 text = "New Game",
                 icon = Icons.Default.PlayArrow,
                 enabled = state.playerCount >= 2,
-                onClick = onNewGame
+                onClick = onNewGame,
             )
 
             if (state.playerCount < 2) {
@@ -172,7 +171,7 @@ fun HomeScreenContent(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
 
@@ -184,7 +183,7 @@ fun HomeScreenContent(
                 subtitle = if (state.completedGameCount > 0) "${state.completedGameCount} completed" else null,
                 icon = Icons.Default.List,
                 onClick = onViewGames,
-                isPrimary = false
+                isPrimary = false,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -195,12 +194,13 @@ fun HomeScreenContent(
                 subtitle = "${state.playerCount} player${if (state.playerCount != 1) "s" else ""}",
                 icon = Icons.Default.Person,
                 onClick = onManagePlayers,
-                isPrimary = false
+                isPrimary = false,
             )
         }
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
 @Composable
 fun MenuButton(
     text: String,
@@ -209,13 +209,13 @@ fun MenuButton(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     enabled: Boolean = true,
-    isPrimary: Boolean = true
+    isPrimary: Boolean = true,
 ) {
     if (isPrimary) {
         Button(
             onClick = onClick,
             enabled = enabled,
-            modifier = modifier.fillMaxWidth().height(56.dp)
+            modifier = modifier.fillMaxWidth().height(56.dp),
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))
@@ -230,7 +230,7 @@ fun MenuButton(
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
-            modifier = modifier.fillMaxWidth().height(56.dp)
+            modifier = modifier.fillMaxWidth().height(56.dp),
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))

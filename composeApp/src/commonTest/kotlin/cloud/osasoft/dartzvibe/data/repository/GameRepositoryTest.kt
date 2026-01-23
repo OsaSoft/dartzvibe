@@ -11,9 +11,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.flow.first
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-import kotlinx.coroutines.flow.first
 
 /**
  * Tests for GameRepository using a fake implementation.
@@ -76,12 +76,12 @@ class GameRepositoryTest : FreeSpec({
                 val inProgressSession = createSession(
                     sessionId1,
                     listOf(playerId1, playerId2),
-                    status = GameStatus.IN_PROGRESS
+                    status = GameStatus.IN_PROGRESS,
                 )
                 val completedSession = createSession(
                     sessionId2,
                     listOf(playerId1, playerId2),
-                    status = GameStatus.COMPLETED
+                    status = GameStatus.COMPLETED,
                 )
                 repository.insertSession(inProgressSession)
                 repository.insertSession(completedSession)
@@ -101,7 +101,7 @@ class GameRepositoryTest : FreeSpec({
                 val completedSession = createSession(
                     sessionId1,
                     listOf(playerId1, playerId2),
-                    status = GameStatus.COMPLETED
+                    status = GameStatus.COMPLETED,
                 )
                 repository.insertSession(completedSession)
 
@@ -114,7 +114,7 @@ class GameRepositoryTest : FreeSpec({
                 val inProgressSession = createSession(
                     sessionId1,
                     listOf(playerId1, playerId2),
-                    status = GameStatus.IN_PROGRESS
+                    status = GameStatus.IN_PROGRESS,
                 )
                 repository.insertSession(inProgressSession)
 
@@ -132,7 +132,7 @@ class GameRepositoryTest : FreeSpec({
                     doubleIn = false,
                     doubleOut = true,
                     playerIds = listOf(playerId1, playerId2),
-                    legsToWin = 3
+                    legsToWin = 3,
                 )
 
                 val session = repository.createGameSession(config)
@@ -149,7 +149,7 @@ class GameRepositoryTest : FreeSpec({
             "should persist created session" {
                 val config = GameConfig(
                     gameType = GameType.CLASSIC_301,
-                    playerIds = listOf(playerId1, playerId2)
+                    playerIds = listOf(playerId1, playerId2),
                 )
 
                 val created = repository.createGameSession(config)
@@ -166,7 +166,7 @@ class GameRepositoryTest : FreeSpec({
 
                 val updatedSession = session.copy(
                     status = GameStatus.COMPLETED,
-                    winnerId = playerId1
+                    winnerId = playerId1,
                 )
                 repository.updateGameSession(updatedSession)
 
@@ -209,17 +209,15 @@ private fun createSession(
     playerIds: List<Uuid>,
     gameType: GameType = GameType.CLASSIC_501,
     status: GameStatus = GameStatus.IN_PROGRESS,
-    startedAt: Long = currentTimeMillis()
-): GameSession {
-    return GameSession(
-        id = id,
-        config = GameConfig(
-            gameType = gameType,
-            playerIds = playerIds
-        ),
-        legs = listOf(Leg()),
-        currentLegIndex = 0,
-        status = status,
-        startedAt = startedAt
-    )
-}
+    startedAt: Long = currentTimeMillis(),
+): GameSession = GameSession(
+    id = id,
+    config = GameConfig(
+        gameType = gameType,
+        playerIds = playerIds,
+    ),
+    legs = listOf(Leg()),
+    currentLegIndex = 0,
+    status = status,
+    startedAt = startedAt,
+)

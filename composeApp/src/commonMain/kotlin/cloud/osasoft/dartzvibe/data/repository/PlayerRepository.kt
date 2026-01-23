@@ -5,16 +5,16 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.util.currentTimeMillis
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import me.tatarka.inject.annotations.Inject
-import cloud.osasoft.dartzvibe.util.currentTimeMillis
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Repository interface for Player data operations.
@@ -22,10 +22,15 @@ import cloud.osasoft.dartzvibe.util.currentTimeMillis
 @OptIn(ExperimentalUuidApi::class)
 interface PlayerRepository {
     fun getAllPlayers(): Flow<List<Player>>
+
     fun getPlayerById(id: Uuid): Flow<Player?>
+
     suspend fun insertPlayer(player: Player)
+
     suspend fun updatePlayer(player: Player)
+
     suspend fun deletePlayer(id: Uuid)
+
     suspend fun createPlayer(name: String, nickname: String?, avatarColor: Int): Player
 }
 
@@ -35,7 +40,7 @@ interface PlayerRepository {
 @OptIn(ExperimentalUuidApi::class)
 @Inject
 class PlayerRepositoryImpl(
-    private val database: DartzVibeDatabase
+    private val database: DartzVibeDatabase,
 ) : PlayerRepository {
 
     private val log = Logger.withTag("PlayerRepository")
@@ -43,7 +48,8 @@ class PlayerRepositoryImpl(
 
     override fun getAllPlayers(): Flow<List<Player>> {
         log.d { "Fetching all players" }
-        return queries.selectAll()
+        return queries
+            .selectAll()
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { list -> list.map { it.toPlayer() } }
@@ -51,7 +57,8 @@ class PlayerRepositoryImpl(
 
     override fun getPlayerById(id: Uuid): Flow<Player?> {
         log.d { "Fetching player by id: $id" }
-        return queries.selectById(id.toString())
+        return queries
+            .selectById(id.toString())
             .asFlow()
             .mapToOneOrNull(Dispatchers.IO)
             .map { it?.toPlayer() }
@@ -65,7 +72,7 @@ class PlayerRepositoryImpl(
                 name = player.name,
                 nickname = player.nickname,
                 avatarColor = player.avatarColor.toLong(),
-                createdAt = player.createdAt
+                createdAt = player.createdAt,
             )
         }
     }
@@ -77,7 +84,7 @@ class PlayerRepositoryImpl(
                 name = player.name,
                 nickname = player.nickname,
                 avatarColor = player.avatarColor.toLong(),
-                id = player.id.toString()
+                id = player.id.toString(),
             )
         }
     }
@@ -95,19 +102,17 @@ class PlayerRepositoryImpl(
             name = name,
             nickname = nickname,
             avatarColor = avatarColor,
-            createdAt = currentTimeMillis()
+            createdAt = currentTimeMillis(),
         )
         insertPlayer(player)
         return player
     }
 
-    private fun cloud.osasoft.dartzvibe.data.local.Player.toPlayer(): Player {
-        return Player(
-            id = Uuid.parse(id),
-            name = name,
-            nickname = nickname,
-            avatarColor = avatarColor.toInt(),
-            createdAt = createdAt
-        )
-    }
+    private fun cloud.osasoft.dartzvibe.data.local.Player.toPlayer(): Player = Player(
+        id = Uuid.parse(id),
+        name = name,
+        nickname = nickname,
+        avatarColor = avatarColor.toInt(),
+        createdAt = createdAt,
+    )
 }

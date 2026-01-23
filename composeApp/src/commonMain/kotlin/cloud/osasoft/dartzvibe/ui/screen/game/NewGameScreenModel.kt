@@ -9,8 +9,6 @@ import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import co.touchlab.kermit.Logger
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +17,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 data class NewGameState(
@@ -31,7 +31,7 @@ data class NewGameState(
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val error: String? = null,
-    val createdSession: GameSession? = null
+    val createdSession: GameSession? = null,
 ) {
     val selectedPlayers: List<Player>
         get() = selectedPlayerIds.mapNotNull { id ->
@@ -47,7 +47,7 @@ data class NewGameState(
 @OptIn(ExperimentalUuidApi::class)
 class NewGameScreenModel(
     private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
 ) : ScreenModel {
 
     private val log = Logger.withTag("NewGameScreenModel")
@@ -60,16 +60,15 @@ class NewGameScreenModel(
     }
 
     private fun loadPlayers() {
-        playerRepository.getAllPlayers()
+        playerRepository
+            .getAllPlayers()
             .onEach { players ->
                 log.d { "Loaded ${players.size} players" }
                 _state.update { it.copy(availablePlayers = players, isLoading = false, error = null) }
-            }
-            .catch { e ->
+            }.catch { e ->
                 log.e(e) { "Error loading players" }
                 _state.update { it.copy(isLoading = false, error = e.message) }
-            }
-            .launchIn(screenModelScope)
+            }.launchIn(screenModelScope)
     }
 
     fun setGameType(gameType: GameType) {
@@ -141,7 +140,7 @@ class NewGameScreenModel(
                     doubleIn = currentState.doubleIn,
                     doubleOut = currentState.doubleOut,
                     playerIds = currentState.selectedPlayerIds,
-                    legsToWin = currentState.legsToWin
+                    legsToWin = currentState.legsToWin,
                 )
                 val session = gameRepository.createGameSession(config)
                 log.d { "Created game session: ${session.id}" }
