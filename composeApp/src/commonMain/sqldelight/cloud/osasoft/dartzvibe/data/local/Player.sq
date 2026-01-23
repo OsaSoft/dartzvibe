@@ -1,0 +1,33 @@
+-- Player table for storing player profiles
+CREATE TABLE Player (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    nickname TEXT,
+    avatarColor INTEGER NOT NULL DEFAULT 0,
+    createdAt INTEGER NOT NULL
+);
+
+-- Get all players ordered by name
+selectAll:
+SELECT * FROM Player ORDER BY name ASC;
+
+-- Get a player by ID
+selectById:
+SELECT * FROM Player WHERE id = ?;
+
+-- Insert a new player
+insert:
+INSERT INTO Player (id, name, nickname, avatarColor, createdAt)
+VALUES (?, ?, ?, ?, ?);
+
+-- Update a player
+update:
+UPDATE Player SET name = ?, nickname = ?, avatarColor = ? WHERE id = ?;
+
+-- Delete a player
+delete:
+DELETE FROM Player WHERE id = ?;
+
+-- Count all players
+countAll:
+SELECT COUNT(*) FROM Player;

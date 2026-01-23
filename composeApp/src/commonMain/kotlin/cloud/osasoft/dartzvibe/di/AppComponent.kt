@@ -1,7 +1,10 @@
 package cloud.osasoft.dartzvibe.di
 
+import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
 import cloud.osasoft.dartzvibe.data.repository.GreetingRepository
 import cloud.osasoft.dartzvibe.data.repository.GreetingRepositoryImpl
+import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.data.repository.PlayerRepositoryImpl
 import cloud.osasoft.dartzvibe.network.HttpClientFactory
 import io.ktor.client.HttpClient
 import me.tatarka.inject.annotations.Component
@@ -18,12 +21,15 @@ import me.tatarka.inject.annotations.Provides
  *
  * Usage:
  * ```
- * val component = AppComponent::class.create()
- * val repository = component.greetingRepository
+ * val database = DatabaseDriverFactory(context).createDriver().let { DartzVibeDatabase(it) }
+ * val component = AppComponent::class.create(database)
+ * val repository = component.playerRepository
  * ```
  */
 @Component
-abstract class AppComponent {
+abstract class AppComponent(
+    @get:Provides val database: DartzVibeDatabase
+) {
 
     /**
      * Provides the HTTP client - similar to defining a @Bean in Spring
@@ -33,14 +39,17 @@ abstract class AppComponent {
 
     /**
      * Binds the repository interface to its implementation.
-     * This is like Spring's component scanning but explicit.
      */
     abstract val greetingRepository: GreetingRepository
 
-    /**
-     * Provides the implementation for GreetingRepository.
-     * The @Provides annotation is like @Bean in Spring.
-     */
     @Provides
     fun provideGreetingRepository(impl: GreetingRepositoryImpl): GreetingRepository = impl
+
+    /**
+     * Player repository for managing player profiles.
+     */
+    abstract val playerRepository: PlayerRepository
+
+    @Provides
+    fun providePlayerRepository(impl: PlayerRepositoryImpl): PlayerRepository = impl
 }

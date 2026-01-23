@@ -1,0 +1,52 @@
+-- GameSession table for storing completed and in-progress games
+CREATE TABLE GameSession (
+    id TEXT NOT NULL PRIMARY KEY,
+    gameType TEXT NOT NULL,
+    doubleIn INTEGER NOT NULL DEFAULT 0,
+    doubleOut INTEGER NOT NULL DEFAULT 1,
+    playerIds TEXT NOT NULL,
+    legsToWin INTEGER NOT NULL DEFAULT 1,
+    legsJson TEXT NOT NULL,
+    currentLegIndex INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+    startedAt INTEGER NOT NULL,
+    finishedAt INTEGER,
+    winnerId TEXT
+);
+
+-- Get all game sessions ordered by start date (most recent first)
+selectAll:
+SELECT * FROM GameSession ORDER BY startedAt DESC;
+
+-- Get game session by ID
+selectById:
+SELECT * FROM GameSession WHERE id = ?;
+
+-- Get games by status
+selectByStatus:
+SELECT * FROM GameSession WHERE status = ? ORDER BY startedAt DESC;
+
+-- Get games involving a specific player
+selectByPlayerId:
+SELECT * FROM GameSession WHERE playerIds LIKE ? ORDER BY startedAt DESC;
+
+-- Insert a new game session
+insert:
+INSERT INTO GameSession (id, gameType, doubleIn, doubleOut, playerIds, legsToWin, legsJson, currentLegIndex, status, startedAt, finishedAt, winnerId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Update game session
+update:
+UPDATE GameSession SET legsJson = ?, currentLegIndex = ?, status = ?, finishedAt = ?, winnerId = ? WHERE id = ?;
+
+-- Delete a game session
+delete:
+DELETE FROM GameSession WHERE id = ?;
+
+-- Count completed games
+countCompleted:
+SELECT COUNT(*) FROM GameSession WHERE status = 'COMPLETED';
+
+-- Count games won by player
+countWonByPlayer:
+SELECT COUNT(*) FROM GameSession WHERE winnerId = ?;
