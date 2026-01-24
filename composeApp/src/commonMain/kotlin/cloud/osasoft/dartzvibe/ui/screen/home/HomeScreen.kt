@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -40,6 +41,7 @@ import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.players.PlayerListScreen
+import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -65,6 +67,9 @@ class HomeScreen(
             onViewGames = {
                 navigator.push(GamesListScreen(playerRepository, gameRepository))
             },
+            onViewStatistics = {
+                navigator.push(StatisticsScreen(playerRepository, gameRepository))
+            },
             onManagePlayers = {
                 navigator.push(PlayerListScreen(playerRepository, gameRepository))
             },
@@ -86,6 +91,7 @@ fun HomeScreenContent(
     onNewGame: () -> Unit,
     onResumeGame: (kotlin.uuid.Uuid) -> Unit,
     onViewGames: () -> Unit,
+    onViewStatistics: () -> Unit,
     onManagePlayers: () -> Unit,
 ) {
     Scaffold(
@@ -181,8 +187,19 @@ fun HomeScreenContent(
             MenuButton(
                 text = "Games",
                 subtitle = if (state.completedGameCount > 0) "${state.completedGameCount} completed" else null,
-                icon = Icons.Default.List,
+                icon = Icons.AutoMirrored.Filled.List,
                 onClick = onViewGames,
+                isPrimary = false,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Statistics button
+            MenuButton(
+                text = "Statistics",
+                icon = Icons.Default.BarChart,
+                onClick = onViewStatistics,
+                enabled = state.completedGameCount > 0,
                 isPrimary = false,
             )
 

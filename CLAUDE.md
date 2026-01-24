@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Always run `./gradlew spotlessApply` before committing code or after finishing a task.**
 
+**After completing a task, always provide a clickable list of changed files so they can be opened in the IDE.**
+
 ## Build Commands
 
 ```shell
@@ -106,3 +108,15 @@ Fake repositories exist in `commonTest/` for testing ScreenModels.
 - Use `val` over `var` wherever possible
 - Use named arguments for multi-line function calls
 - Prefer exhaustive `when` over `else` branch (compiler catches missing enum values)
+- For expression body functions where `=` is not at the end of the line, break parameters onto separate lines:
+  ```kotlin
+  // Preferred
+  fun createThrow(
+      segment: Int,
+      multiplier: Multiplier = Multiplier.SINGLE,
+  ): Throw = Throw(segment = segment, multiplier = multiplier)
+
+  // Avoid
+  fun createThrow(segment: Int, multiplier: Multiplier = Multiplier.SINGLE): Throw =
+      Throw(segment = segment, multiplier = multiplier)
+  ```
