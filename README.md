@@ -1,180 +1,152 @@
-# DartzVibe - Kotlin Multiplatform App
+# DartzVibe
 
-A Kotlin Multiplatform project targeting Android and iOS, built with Compose Multiplatform.
+A cross-platform darts scoring app built with Kotlin Multiplatform and Compose Multiplatform, targeting Android and iOS.
 
-## 🏗️ Project Architecture
+## Features
 
-This project follows a clean architecture pattern similar to Spring Boot applications:
+- **Player Management** - Create and manage player profiles with custom avatars
+- **Multiple Game Types** - Support for 301 and 501 game variants
+- **Configurable Rules** - Double-in, double-out, and configurable legs to win
+- **Live Scoring** - Interactive score input with real-time score tracking
+- **Game History** - View completed games and track statistics
+- **Resume Games** - Continue in-progress games at any time
 
-```
-composeApp/src/commonMain/kotlin/cloud/osasoft/dartzvibe/
-├── config/           # App configuration (like @ConfigurationProperties)
-├── data/
-│   ├── model/        # Data classes (like DTOs/Entities)
-│   └── repository/   # Data access layer (like @Repository)
-├── di/               # Dependency injection (like @Configuration)
-├── network/          # HTTP client setup (like RestTemplate/WebClient config)
-└── ui/
-    └── screen/       # UI screens with ScreenModels (like @Controller + ViewModels)
-```
+## Tech Stack
 
-## 📚 Libraries & Spring Boot Equivalents
+| Category | Technology |
+|----------|------------|
+| Language | Kotlin 2.3 |
+| UI Framework | Compose Multiplatform |
+| Navigation | Voyager |
+| Dependency Injection | kotlin-inject |
+| Database | SQLDelight |
+| Networking | Ktor Client |
+| Testing | Kotest |
 
-| Library | Purpose | Spring Boot Equivalent |
-|---------|---------|----------------------|
-| **kotlin-inject** | Compile-time DI | Spring DI (`@Component`, `@Autowired`) |
-| **Ktor Client** | HTTP networking | RestTemplate / WebClient |
-| **Kotlinx Serialization** | JSON serialization | Jackson |
-| **Kotest** | Testing framework | JUnit + AssertJ |
-| **Kermit** | Logging | SLF4J + Logback |
-| **Multiplatform Settings** | Key-value storage | `application.properties` |
-| **Voyager** | Navigation + ScreenModel | Spring MVC Controllers |
+## Prerequisites
 
-## 🚀 Quick Start
+### Android Development
+- [Android Studio](https://developer.android.com/studio) (Ladybug or newer recommended) or [IntelliJ IDEA](https://www.jetbrains.com/idea/) with Android plugin
+- JDK 17+
+- Android SDK 24+ (target SDK 36)
 
-### Dependency Injection (kotlin-inject)
+### iOS Development (macOS only)
+- [Xcode](https://developer.apple.com/xcode/) 15+
+- [Kotlin Multiplatform Mobile plugin](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform-mobile) for Android Studio (optional)
 
-Similar to Spring's `@Component` and `@Autowired`, but compile-time:
-
-```kotlin
-// Define a component (like @Configuration class)
-@Component
-abstract class AppComponent {
-    // Like @Bean
-    @Provides
-    fun provideHttpClient(): HttpClient = HttpClientFactory.create()
-    
-    // Like component scanning + @Autowired
-    abstract val greetingRepository: GreetingRepository
-}
-
-// Use @Inject like @Component + constructor injection
-@Inject
-class GreetingRepositoryImpl : GreetingRepository {
-    // ...
-}
-```
-
-### HTTP Client (Ktor)
-
-Similar to Spring's WebClient:
-
-```kotlin
-val client = HttpClient {
-    install(ContentNegotiation) { json() }  // Like Jackson config
-    install(Logging) { level = LogLevel.INFO }  // Like interceptors
-}
-
-// Making requests
-val user = client.get("https://api.example.com/users/1").body<User>()
-```
-
-### Testing with Kotest
-
-BDD-style assertions similar to AssertJ:
-
-```kotlin
-@Test
-fun `user should have valid email`() = runTest {
-    val user = repository.getUser(1)
-    
-    user.email shouldContain "@"
-    user.name shouldNotBe null
-    user.age shouldBeGreaterThan 0
-}
-```
-
-### Data Classes with Serialization
-
-Like Jackson's `@JsonProperty`:
-
-```kotlin
-@Serializable
-data class User(
-    val id: Long,
-    @SerialName("created_at")  // Like @JsonProperty
-    val createdAt: String
-)
-```
-
-## 📁 Project Structure
-
-* [/composeApp](./composeApp/src) - Shared Compose Multiplatform code
-    - [commonMain](./composeApp/src/commonMain/kotlin) - Code shared across all platforms
-    - [androidMain](./composeApp/src/androidMain/kotlin) - Android-specific code
-    - [iosMain](./composeApp/src/iosMain/kotlin) - iOS-specific code
-    - [commonTest](./composeApp/src/commonTest/kotlin) - Shared tests
-
-* [/iosApp](./iosApp/iosApp) - iOS application entry point
-
-## 🛠️ Build Commands
+## Running the App
 
 ### Android
 
+#### Option 1: Android Studio (Recommended)
+1. Open the project in Android Studio
+2. Wait for Gradle sync to complete
+3. Select the `composeApp` run configuration
+4. Choose an emulator or connected device
+5. Click **Run**
+
+#### Option 2: IntelliJ IDEA
+1. Install [IntelliJ IDEA](https://www.jetbrains.com/idea/) (Ultimate or Community Edition)
+2. Install the **Android** plugin (bundled with Ultimate, available in Community)
+3. Configure an Android SDK in **File > Project Structure > SDKs**
+4. Open the project and wait for Gradle sync
+5. Create a run configuration for `composeApp`
+6. Select an emulator or connected device
+7. Click **Run**
+
+#### Option 3: Command Line
 ```shell
-# Debug build
-.\gradlew.bat :composeApp:assembleDebug
+# Build debug APK
+./gradlew :composeApp:assembleDebug
 
-# Run tests
-.\gradlew.bat :composeApp:testDebugUnitTest
+# The APK will be at:
+# composeApp/build/outputs/apk/debug/composeApp-debug.apk
 
-# All common tests
-.\gradlew.bat :composeApp:allTests
+# Install on connected device
+adb install composeApp/build/outputs/apk/debug/composeApp-debug.apk
 ```
 
-### iOS (requires macOS)
+### iOS (macOS only)
+
+#### Option 1: Xcode (Recommended)
+1. Build the shared framework first:
+   ```shell
+   ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+   ```
+2. Open the iOS project in Xcode:
+   ```shell
+   open iosApp/iosApp.xcodeproj
+   ```
+3. Select a simulator or connected device
+4. Click **Run**
+
+#### Option 2: Android Studio with KMM Plugin
+1. Install the Kotlin Multiplatform Mobile plugin
+2. Open the project in Android Studio
+3. Select the `iosApp` run configuration
+4. Choose an iOS simulator
+5. Click **Run**
+
+## Project Structure
+
+```
+dartzvibe/
+├── composeApp/                    # Shared KMP module
+│   └── src/
+│       ├── commonMain/            # Shared Kotlin code
+│       │   ├── kotlin/.../
+│       │   │   ├── config/        # App settings
+│       │   │   ├── data/          # Models & repositories
+│       │   │   ├── di/            # Dependency injection
+│       │   │   ├── domain/game/   # Game engine logic
+│       │   │   ├── network/       # HTTP client
+│       │   │   └── ui/screen/     # Screens & ViewModels
+│       │   └── sqldelight/        # Database schemas
+│       ├── commonTest/            # Shared tests
+│       ├── androidMain/           # Android-specific code
+│       └── iosMain/               # iOS-specific code
+├── iosApp/                        # iOS application entry point
+├── build.gradle.kts               # Root build configuration
+└── gradle/libs.versions.toml      # Dependency versions
+```
+
+## Build Commands
 
 ```shell
-# Build iOS framework
+# Format code (required before commits)
+./gradlew spotlessApply
+
+# Check code formatting
+./gradlew spotlessCheck
+
+# Build Android debug APK
+./gradlew :composeApp:assembleDebug
+
+# Run all tests
+./gradlew :composeApp:allTests
+
+# Run Android unit tests only
+./gradlew :composeApp:testDebugUnitTest
+
+# Build iOS framework (macOS only)
 ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
 ```
 
-Or open `/iosApp` in Xcode.
+## Testing
 
-## 🔧 Key Concepts for Spring Developers
+The project uses Kotest with FreeSpec style for testing:
 
-### expect/actual Pattern
+```shell
+# Run all tests
+./gradlew :composeApp:allTests
 
-KMP's way of platform-specific code (like conditional beans):
-
-```kotlin
-// commonMain - declare expectation
-expect fun getPlatform(): Platform
-
-// androidMain - Android implementation
-actual fun getPlatform(): Platform = AndroidPlatform()
-
-// iosMain - iOS implementation  
-actual fun getPlatform(): Platform = IOSPlatform()
+# Run with detailed output
+./gradlew :composeApp:allTests --info
 ```
 
-### Coroutines = Reactive Streams
+## Learn More
 
-If you know Spring WebFlux:
-- `suspend fun` ≈ `Mono<T>`
-- `Flow<T>` ≈ `Flux<T>`
-- `runBlocking` ≈ `.block()`
-
-### ScreenModel = Controller + ViewModel
-
-```kotlin
-@Inject
-class HomeScreenModel(
-    private val repository: GreetingRepository  // Constructor injection
-) : ScreenModel {
-    
-    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
-    
-    fun loadData() {
-        screenModelScope.launch {  // Like @Async
-            val data = repository.getData()
-            _uiState.value = UiState.Success(data)
-        }
-    }
-}
-```
-
----
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)
+- [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)
+- [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/)
+- [SQLDelight](https://cashapp.github.io/sqldelight/)
+- [Voyager Navigation](https://voyager.adriel.cafe/)
