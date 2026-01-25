@@ -80,11 +80,11 @@ class StatisticsCalculator {
         games: List<GameSession>,
         playerId: Uuid,
         filter: StatisticsFilter,
-    ): List<GameSession> = games.filter { game ->
-        game.status == GameStatus.COMPLETED &&
-            game.config.playerIds.contains(playerId) &&
-            (filter.gameType == null || game.config.gameType == filter.gameType)
-    }
+    ): List<GameSession> = games.asSequence()
+        .filter { it.status == GameStatus.COMPLETED }
+        .filter { it.config.playerIds.contains(playerId) }
+        .filter { filter.gameType == null || it.config.gameType == filter.gameType }
+        .toList()
 
     private fun collectAllTurns(
         games: List<GameSession>,
@@ -303,12 +303,13 @@ class StatisticsCalculator {
         gameTypeFilter: GameType? = null,
     ): HeadToHeadStatistics {
         // Filter to games where BOTH players participated and game is completed
-        val h2hGames = games.filter { game ->
-            game.status == GameStatus.COMPLETED &&
-                game.config.playerIds.contains(player1Id) &&
-                game.config.playerIds.contains(player2Id) &&
-                (gameTypeFilter == null || game.config.gameType == gameTypeFilter)
-        }.sortedByDescending { it.startedAt }
+        val h2hGames = games.asSequence()
+            .filter { it.status == GameStatus.COMPLETED }
+            .filter { it.config.playerIds.contains(player1Id) }
+            .filter { it.config.playerIds.contains(player2Id) }
+            .filter { gameTypeFilter == null || it.config.gameType == gameTypeFilter }
+            .sortedByDescending { it.startedAt }
+            .toList()
 
         if (h2hGames.isEmpty()) {
             return HeadToHeadStatistics.empty(player1Id, player2Id)
@@ -355,36 +356,34 @@ class StatisticsCalculator {
         var count180s = 0
         var count140Plus = 0
 
-        games.forEach { game ->
-            game.legs.forEach { leg ->
-                val playerTurns = leg.turns.filter { it.playerId == playerId }
-                if (playerTurns.isNotEmpty()) {
-                    legsPlayed++
-                    if (leg.winnerId == playerId) {
-                        legsWon++
-                        // Calculate checkout score
-                        val winningTurn = playerTurns.last()
-                        if (!winningTurn.isBust) {
-                            val checkoutScore = winningTurn.scoreBeforeTurn
-                            if (bestCheckout == null || checkoutScore > bestCheckout!!) {
-                                bestCheckout = checkoutScore
-                            }
+        games.flatMap { it.legs }.forEach { leg ->
+            val playerTurns = leg.turns.filter { it.playerId == playerId }
+            if (playerTurns.isNotEmpty()) {
+                legsPlayed++
+                if (leg.winnerId == playerId) {
+                    legsWon++
+                    // Calculate checkout score
+                    val winningTurn = playerTurns.last()
+                    if (!winningTurn.isBust) {
+                        val checkoutScore = winningTurn.scoreBeforeTurn
+                        if (bestCheckout == null || checkoutScore > bestCheckout) {
+                            bestCheckout = checkoutScore
                         }
                     }
+                }
 
-                    // Count turns and scores
-                    playerTurns.forEach { turn ->
-                        if (!turn.isBust && turn.throws.size == 3) {
-                            totalScore += turn.totalScore
-                            turnCount++
+                // Count turns and scores
+                playerTurns.forEach { turn ->
+                    if (!turn.isBust && turn.throws.size == 3) {
+                        totalScore += turn.totalScore
+                        turnCount++
 
-                            val score = turn.totalScore
-                            if (score >= 180) {
-                                count180s++
-                                count140Plus++
-                            } else if (score >= 140) {
-                                count140Plus++
-                            }
+                        val score = turn.totalScore
+                        if (score >= 180) {
+                            count180s++
+                            count140Plus++
+                        } else if (score >= 140) {
+                            count140Plus++
                         }
                     }
                 }
