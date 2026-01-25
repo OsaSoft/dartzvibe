@@ -108,15 +108,28 @@ Fake repositories exist in `commonTest/` for testing ScreenModels.
 - Use `val` over `var` wherever possible
 - Use named arguments for multi-line function calls
 - Prefer exhaustive `when` over `else` branch (compiler catches missing enum values)
-- For expression body functions where `=` is not at the end of the line, break parameters onto separate lines:
+- For expression body syntax, `=` must NOT trail at the end of a line:
+  ```kotlin
+  // Correct - = on same line as expression
+  fun foo(): Int = when { ... }
+
+  // Correct - long args, = with expression on last line
+  fun foo(
+      param1: String,
+      param2: Int,
+  ): Int = when { ... }
+
+  // Incorrect - = trailing at end of line
+  fun foo(): Int =
+      when { ... }
+  ```
+- Prefer Kotlin collection functions over `for` loops:
   ```kotlin
   // Preferred
-  fun createThrow(
-      segment: Int,
-      multiplier: Multiplier = Multiplier.SINGLE,
-  ): Throw = Throw(segment = segment, multiplier = multiplier)
+  items.forEach { item -> process(item) }
+  (1..20).map { segment -> createThrow(segment) }
+  items.flatMap { item -> transform(item) }
 
   // Avoid
-  fun createThrow(segment: Int, multiplier: Multiplier = Multiplier.SINGLE): Throw =
-      Throw(segment = segment, multiplier = multiplier)
+  for (item in items) { process(item) }
   ```

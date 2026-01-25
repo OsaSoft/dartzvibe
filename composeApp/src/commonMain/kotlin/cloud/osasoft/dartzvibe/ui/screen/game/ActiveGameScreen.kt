@@ -47,6 +47,7 @@ import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
+import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
 import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
 import kotlin.uuid.ExperimentalUuidApi
@@ -178,6 +179,16 @@ fun ActiveGameContent(
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp),
                 )
+
+                // Checkout suggestions
+                state.checkoutOptions?.let { options ->
+                    CheckoutHint(
+                        checkoutOptions = options,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 

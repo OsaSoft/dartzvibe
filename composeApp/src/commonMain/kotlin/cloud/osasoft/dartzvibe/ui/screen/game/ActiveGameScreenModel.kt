@@ -9,6 +9,8 @@ import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
+import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
@@ -59,6 +61,17 @@ data class ActiveGameState(
 
     val isGameComplete: Boolean
         get() = session?.status == GameStatus.COMPLETED
+
+    val checkoutOptions: List<CheckoutPath>?
+        get() {
+            val score = currentPlayerScore
+            val doubleOut = session?.config?.doubleOut ?: true
+            return if (score in 2..170) {
+                CheckoutCalculator.getCheckoutOptions(score, doubleOut)
+            } else {
+                null
+            }
+        }
 
     fun getPlayerScore(playerId: Uuid): Int = engine?.getPlayerScore(playerId) ?: session?.config?.startingScore ?: 0
 
