@@ -4,6 +4,10 @@ import cloud.osasoft.dartzvibe.data.model.FixedDecimal
 import cloud.osasoft.dartzvibe.data.model.GameReference
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
+import cloud.osasoft.dartzvibe.data.model.GameType
+import cloud.osasoft.dartzvibe.data.model.H2HGameSummary
+import cloud.osasoft.dartzvibe.data.model.H2HPlayerStats
+import cloud.osasoft.dartzvibe.data.model.HeadToHeadStatistics
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.model.StatAchievement
@@ -280,6 +284,126 @@ class StatisticsCalculator {
             sessionId = game.id,
             timestamp = game.startedAt,
             opponentNames = opponentNames.ifEmpty { "Solo" },
+        )
+    }
+
+    /**
+     * Calculate head-to-head statistics between two players.
+     *
+     * @param player1Id First player
+     * @param player2Id Second player
+     * @param games List of all game sessions
+     * @param gameTypeFilter Optional game type filter
+     * @return Head-to-head statistics for the two players
+     */
+    fun calculateHeadToHeadStatistics(
+        player1Id: Uuid,
+        player2Id: Uuid,
+        games: List<GameSession>,
+        gameTypeFilter: GameType? = null,
+    ): HeadToHeadStatistics {
+        // Filter to games where BOTH players participated and game is completed
+        val h2hGames = games.filter { game ->
+            game.status == GameStatus.COMPLETED &&
+                game.config.playerIds.contains(player1Id) &&
+                game.config.playerIds.contains(player2Id) &&
+                (gameTypeFilter == null || game.config.gameType == gameTypeFilter)
+        }.sortedByDescending { it.startedAt }
+
+        if (h2hGames.isEmpty()) {
+            return HeadToHeadStatistics.empty(player1Id, player2Id)
+        }
+
+        val player1Stats = calculateH2HPlayerStats(player1Id, h2hGames)
+        val player2Stats = calculateH2HPlayerStats(player2Id, h2hGames)
+
+        val player1Wins = h2hGames.count { it.winnerId == player1Id }
+        val player2Wins = h2hGames.count { it.winnerId == player2Id }
+
+        val recentGames = h2hGames.take(10).map { game ->
+            H2HGameSummary(
+                sessionId = game.id,
+                timestamp = game.startedAt,
+                gameType = game.config.gameType,
+                winnerId = game.winnerId,
+                player1LegsWon = game.legs.count { it.winnerId == player1Id },
+                player2LegsWon = game.legs.count { it.winnerId == player2Id },
+            )
+        }
+
+        return HeadToHeadStatistics(
+            player1Id = player1Id,
+            player2Id = player2Id,
+            gamesPlayed = h2hGames.size,
+            player1Wins = player1Wins,
+            player2Wins = player2Wins,
+            player1Stats = player1Stats,
+            player2Stats = player2Stats,
+            recentGames = recentGames,
+        )
+    }
+
+    private fun calculateH2HPlayerStats(
+        playerId: Uuid,
+        games: List<GameSession>,
+    ): H2HPlayerStats {
+        var totalScore = 0
+        var turnCount = 0
+        var bestCheckout: Int? = null
+        var legsWon = 0
+        var legsPlayed = 0
+        var count180s = 0
+        var count140Plus = 0
+
+        games.forEach { game ->
+            game.legs.forEach { leg ->
+                val playerTurns = leg.turns.filter { it.playerId == playerId }
+                if (playerTurns.isNotEmpty()) {
+                    legsPlayed++
+                    if (leg.winnerId == playerId) {
+                        legsWon++
+                        // Calculate checkout score
+                        val winningTurn = playerTurns.last()
+                        if (!winningTurn.isBust) {
+                            val checkoutScore = winningTurn.scoreBeforeTurn
+                            if (bestCheckout == null || checkoutScore > bestCheckout!!) {
+                                bestCheckout = checkoutScore
+                            }
+                        }
+                    }
+
+                    // Count turns and scores
+                    playerTurns.forEach { turn ->
+                        if (!turn.isBust && turn.throws.size == 3) {
+                            totalScore += turn.totalScore
+                            turnCount++
+
+                            val score = turn.totalScore
+                            if (score >= 180) {
+                                count180s++
+                                count140Plus++
+                            } else if (score >= 140) {
+                                count140Plus++
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        val threeDartAverage = if (turnCount > 0) {
+            FixedDecimal.divide(totalScore, turnCount)
+        } else {
+            FixedDecimal.ZERO
+        }
+
+        return H2HPlayerStats(
+            threeDartAverage = threeDartAverage,
+            bestCheckout = bestCheckout,
+            legsWon = legsWon,
+            legsPlayed = legsPlayed,
+            count180s = count180s,
+            count140Plus = count140Plus,
         )
     }
 
