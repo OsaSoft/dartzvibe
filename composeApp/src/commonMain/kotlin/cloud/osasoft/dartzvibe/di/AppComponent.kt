@@ -1,6 +1,8 @@
 package cloud.osasoft.dartzvibe.di
 
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
+import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
+import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.GreetingRepository
@@ -8,6 +10,7 @@ import cloud.osasoft.dartzvibe.data.repository.GreetingRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepositoryImpl
 import cloud.osasoft.dartzvibe.network.HttpClientFactory
+import com.russhwolf.settings.ObservableSettings
 import io.ktor.client.HttpClient
 import me.tatarka.inject.annotations.Component
 import me.tatarka.inject.annotations.Provides
@@ -31,6 +34,7 @@ import me.tatarka.inject.annotations.Provides
 @Component
 abstract class AppComponent(
     @get:Provides val database: DartzVibeDatabase,
+    @get:Provides val settings: ObservableSettings,
 ) {
 
     /**
@@ -62,4 +66,12 @@ abstract class AppComponent(
 
     @Provides
     fun provideGameRepository(impl: GameRepositoryImpl): GameRepository = impl
+
+    /**
+     * App settings repository for user preferences.
+     */
+    abstract val appSettingsRepository: AppSettingsRepository
+
+    @Provides
+    fun provideAppSettingsRepository(impl: AppSettingsRepositoryImpl): AppSettingsRepository = impl
 }

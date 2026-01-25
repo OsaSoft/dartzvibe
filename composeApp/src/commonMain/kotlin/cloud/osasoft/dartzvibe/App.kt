@@ -9,6 +9,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
+import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.home.HomeScreen
@@ -27,19 +28,31 @@ val LocalGameRepository = staticCompositionLocalOf<GameRepository> {
     error("GameRepository not provided")
 }
 
+/**
+ * CompositionLocal for accessing the AppSettingsRepository throughout the app.
+ */
+val LocalAppSettingsRepository = staticCompositionLocalOf<AppSettingsRepository> {
+    error("AppSettingsRepository not provided")
+}
+
 @Suppress("ktlint:standard:function-naming")
 @Composable
-fun App(playerRepository: PlayerRepository, gameRepository: GameRepository) {
+fun App(
+    playerRepository: PlayerRepository,
+    gameRepository: GameRepository,
+    appSettingsRepository: AppSettingsRepository,
+) {
     CompositionLocalProvider(
         LocalPlayerRepository provides playerRepository,
         LocalGameRepository provides gameRepository,
+        LocalAppSettingsRepository provides appSettingsRepository,
     ) {
         MaterialTheme {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                Navigator(HomeScreen(playerRepository, gameRepository)) { navigator ->
+                Navigator(HomeScreen(playerRepository, gameRepository, appSettingsRepository)) { navigator ->
                     SlideTransition(navigator)
                 }
             }

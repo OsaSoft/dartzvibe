@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
 import cloud.osasoft.dartzvibe.data.local.DatabaseDriverFactory
+import cloud.osasoft.dartzvibe.data.local.SettingsFactory
 import cloud.osasoft.dartzvibe.di.AppComponent
 import cloud.osasoft.dartzvibe.di.create
 
@@ -17,15 +18,18 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Initialize database and DI
+        // Initialize database, settings, and DI
         val driverFactory = DatabaseDriverFactory(applicationContext)
         val database = DartzVibeDatabase(driverFactory.createDriver())
-        appComponent = AppComponent::class.create(database)
+        val settingsFactory = SettingsFactory(applicationContext)
+        val settings = settingsFactory.createSettings()
+        appComponent = AppComponent::class.create(database, settings)
 
         setContent {
             App(
                 playerRepository = appComponent.playerRepository,
                 gameRepository = appComponent.gameRepository,
+                appSettingsRepository = appComponent.appSettingsRepository,
             )
         }
     }

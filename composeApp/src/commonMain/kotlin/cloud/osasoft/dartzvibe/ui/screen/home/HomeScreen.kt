@@ -15,10 +15,12 @@ import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -38,12 +40,14 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.leaderboard.LeaderboardScreen
 import cloud.osasoft.dartzvibe.ui.screen.players.PlayerListScreen
+import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.HeadToHeadScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
 import kotlin.uuid.ExperimentalUuidApi
@@ -52,6 +56,7 @@ import kotlin.uuid.ExperimentalUuidApi
 class HomeScreen(
     private val playerRepository: PlayerRepository,
     private val gameRepository: GameRepository,
+    private val appSettingsRepository: AppSettingsRepository,
 ) : Screen {
 
     @Composable
@@ -83,6 +88,9 @@ class HomeScreen(
             onManagePlayers = {
                 navigator.push(PlayerListScreen(playerRepository, gameRepository))
             },
+            onSettings = {
+                navigator.push(SettingsScreen(appSettingsRepository))
+            },
         )
     }
 }
@@ -105,6 +113,7 @@ fun HomeScreenContent(
     onViewHeadToHead: () -> Unit,
     onViewLeaderboard: () -> Unit,
     onManagePlayers: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -114,6 +123,14 @@ fun HomeScreenContent(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                        )
+                    }
+                },
             )
         },
     ) { padding ->
