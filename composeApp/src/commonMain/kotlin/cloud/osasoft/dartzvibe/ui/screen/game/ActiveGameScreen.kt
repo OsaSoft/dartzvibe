@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -162,40 +164,44 @@ fun ActiveGameContent(
                     .fillMaxSize()
                     .padding(padding),
             ) {
-                // Player score cards
-                PlayerScoresRow(
-                    state = state,
+                // Scrollable top section containing scores, turn display, and checkout hints
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                )
-
-                // Current turn display
-                CurrentTurnDisplay(
-                    currentThrows = state.currentTurnThrows,
-                    selectedMultiplier = state.selectedMultiplier,
-                    lastThrowResult = state.lastThrowResult,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                )
-
-                // Checkout suggestions
-                state.checkoutOptions?.let { options ->
-                    CheckoutHint(
-                        checkoutOptions = options,
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    // Player score cards
+                    PlayerScoresRow(
+                        state = state,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                     )
+
+                    // Current turn display
+                    CurrentTurnDisplay(
+                        currentThrows = state.currentTurnThrows,
+                        selectedMultiplier = state.selectedMultiplier,
+                        lastThrowResult = state.lastThrowResult,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                    )
+
+                    // Checkout suggestions
+                    state.checkoutOptions?.let { options ->
+                        CheckoutHint(
+                            checkoutOptions = options,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Score input keypad
+                // Score input keypad - fixed at bottom
                 ScoreInputKeypad(
                     selectedMultiplier = state.selectedMultiplier,
-                    throwsRemaining = state.throwsRemaining,
                     canThrow = state.canThrow,
                     canUndo = state.canUndo,
                     onMultiplierChange = onMultiplierChange,
@@ -301,7 +307,7 @@ fun CurrentTurnDisplay(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Current turn throws
@@ -311,10 +317,10 @@ fun CurrentTurnDisplay(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Show existing throws
@@ -330,7 +336,7 @@ fun CurrentTurnDisplay(
 
             // Show last throw result
             lastThrowResult?.let { result ->
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 val resultText = when (result) {
                     is ThrowResult.Success -> "Score: ${result.newScore}"
                     is ThrowResult.Bust -> "BUST: ${result.reason}"
@@ -374,7 +380,7 @@ fun ThrowDisplay(throwObj: Throw) {
 
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center,
@@ -393,7 +399,7 @@ fun ThrowDisplay(throwObj: Throw) {
 fun ThrowPlaceholder() {
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
         contentAlignment = Alignment.Center,

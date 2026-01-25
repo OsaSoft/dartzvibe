@@ -45,7 +45,7 @@ fun CheckoutHint(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Header
@@ -71,7 +71,7 @@ private fun CheckoutOptionRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.padding(vertical = 2.dp),
+        modifier = modifier.padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

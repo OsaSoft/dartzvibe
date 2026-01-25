@@ -30,7 +30,6 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier
 @Composable
 fun ScoreInputKeypad(
     selectedMultiplier: Multiplier,
-    throwsRemaining: Int,
     canThrow: Boolean,
     canUndo: Boolean,
     onMultiplierChange: (Multiplier) -> Unit,
@@ -42,7 +41,7 @@ fun ScoreInputKeypad(
 ) {
     Column(
         modifier = modifier.padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         // Multiplier selection row
         Row(
@@ -106,9 +105,9 @@ fun ScoreInputKeypad(
             FilledTonalButton(
                 onClick = { onScoreSelect(25, Multiplier.SINGLE) },
                 enabled = canThrow,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(44.dp),
                 shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(4.dp),
+                contentPadding = PaddingValues(2.dp),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -127,9 +126,9 @@ fun ScoreInputKeypad(
             Button(
                 onClick = { onScoreSelect(25, Multiplier.DOUBLE) },
                 enabled = canThrow,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(44.dp),
                 shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(4.dp),
+                contentPadding = PaddingValues(2.dp),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -154,7 +153,7 @@ fun ScoreInputKeypad(
             OutlinedButton(
                 onClick = onMiss,
                 enabled = canThrow,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(40.dp),
                 shape = RoundedCornerShape(8.dp),
             ) {
                 Text("Miss")
@@ -164,7 +163,7 @@ fun ScoreInputKeypad(
             OutlinedButton(
                 onClick = onUndo,
                 enabled = canUndo,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(40.dp),
                 shape = RoundedCornerShape(8.dp),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -175,20 +174,12 @@ fun ScoreInputKeypad(
             // End Turn button
             FilledTonalButton(
                 onClick = onEndTurn,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1f).height(40.dp),
                 shape = RoundedCornerShape(8.dp),
             ) {
                 Text("End Turn")
             }
         }
-
-        // Throws remaining indicator
-        Text(
-            text = "$throwsRemaining throw${if (throwsRemaining != 1) "s" else ""} remaining",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
     }
 }
 
@@ -204,7 +195,7 @@ private fun MultiplierButton(
     if (isSelected) {
         Button(
             onClick = onClick,
-            modifier = modifier.height(48.dp),
+            modifier = modifier.height(40.dp),
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(8.dp),
         ) {
@@ -213,7 +204,7 @@ private fun MultiplierButton(
     } else {
         OutlinedButton(
             onClick = onClick,
-            modifier = modifier.height(48.dp),
+            modifier = modifier.height(40.dp),
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(8.dp),
         ) {
@@ -241,7 +232,7 @@ private fun ScoreButton(
     FilledTonalButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.height(40.dp),
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(2.dp),
     ) {

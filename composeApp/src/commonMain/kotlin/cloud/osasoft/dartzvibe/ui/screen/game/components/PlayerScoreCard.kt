@@ -66,7 +66,7 @@ fun PlayerScoreCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Player name with avatar
@@ -76,7 +76,7 @@ fun PlayerScoreCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .background(AvatarColors.getColor(player.avatarColor)),
                     contentAlignment = Alignment.Center,
@@ -97,12 +97,12 @@ fun PlayerScoreCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Current score
             Text(
                 text = "$score",
-                style = MaterialTheme.typography.displayMedium,
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = if (isCurrentPlayer) {
                     MaterialTheme.colorScheme.primary
