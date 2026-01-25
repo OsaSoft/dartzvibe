@@ -51,6 +51,7 @@ import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
+import cloud.osasoft.dartzvibe.ui.screen.gamedetail.GameDetailScreen
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -149,8 +150,18 @@ class GamesListScreen(
         GamesListContent(
             state = state,
             onGameClick = { session ->
-                if (session.status == GameStatus.IN_PROGRESS) {
-                    navigator.push(ActiveGameScreen(gameRepository, session.id))
+                when (session.status) {
+                    GameStatus.IN_PROGRESS -> {
+                        navigator.push(ActiveGameScreen(gameRepository, session.id))
+                    }
+
+                    GameStatus.COMPLETED,
+                    GameStatus.ABANDONED,
+                    -> {
+                        navigator.push(
+                            GameDetailScreen(playerRepository, gameRepository, session.id),
+                        )
+                    }
                 }
             },
             onDeleteGame = { screenModel.showDeleteConfirmation(it) },
@@ -282,7 +293,7 @@ fun GameCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = if (isInProgress) onClick else ({}),
+        onClick = onClick,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isInProgress) {
