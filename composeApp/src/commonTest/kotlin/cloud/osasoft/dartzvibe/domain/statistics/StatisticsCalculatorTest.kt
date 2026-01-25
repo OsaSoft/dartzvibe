@@ -619,4 +619,340 @@ class StatisticsCalculatorTest : FreeSpec({
             stats.winRate.format(1) shouldBe "0.6"
         }
     }
+
+    "Head-to-Head Statistics" - {
+        "Should return empty stats when no H2H games" {
+            // GIVEN no games
+            val games = emptyList<GameSession>()
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(playerId1, playerId2, games)
+
+            // THEN all stats are zero
+            stats.gamesPlayed shouldBe 0
+            stats.player1Wins shouldBe 0
+            stats.player2Wins shouldBe 0
+            stats.recentGames.size shouldBe 0
+        }
+
+        "Should only count games where both players participated" {
+            // GIVEN games with different player combinations
+            val playerId3 = Uuid.parse("00000000-0000-0000-0000-000000000003")
+            val h2hGame = createCompletedGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000101"),
+                legs = listOf(Leg(winnerId = playerId1)),
+                winnerId = playerId1,
+            ) // player1 vs player2
+            val otherGame = GameSession(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000102"),
+                config = GameConfig(
+                    gameType = GameType.CLASSIC_501,
+                    playerIds = listOf(playerId1, playerId3),
+                ),
+                legs = listOf(Leg(winnerId = playerId1)),
+                status = GameStatus.COMPLETED,
+                startedAt = currentTimeMillis(),
+                finishedAt = currentTimeMillis(),
+                winnerId = playerId1,
+            ) // player1 vs player3
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(
+                playerId1,
+                playerId2,
+                listOf(h2hGame, otherGame),
+            )
+
+            // THEN only the H2H game is counted
+            stats.gamesPlayed shouldBe 1
+        }
+
+        "Should count wins correctly for each player" {
+            // GIVEN 3 H2H games: player1 wins 2, player2 wins 1
+            val games = listOf(
+                createCompletedGame(
+                    id = Uuid.parse("00000000-0000-0000-0000-000000000101"),
+                    legs = listOf(Leg(winnerId = playerId1)),
+                    winnerId = playerId1,
+                ),
+                createCompletedGame(
+                    id = Uuid.parse("00000000-0000-0000-0000-000000000102"),
+                    legs = listOf(Leg(winnerId = playerId2)),
+                    winnerId = playerId2,
+                ),
+                createCompletedGame(
+                    id = Uuid.parse("00000000-0000-0000-0000-000000000103"),
+                    legs = listOf(Leg(winnerId = playerId1)),
+                    winnerId = playerId1,
+                ),
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(playerId1, playerId2, games)
+
+            // THEN wins are counted correctly
+            stats.gamesPlayed shouldBe 3
+            stats.player1Wins shouldBe 2
+            stats.player2Wins shouldBe 1
+        }
+
+        "Should calculate 3-dart average for each player" {
+            // GIVEN a game with known turn scores
+            val turns = listOf(
+                createTurn(
+                    playerId1,
+                    listOf(
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.TRIPLE),
+                    ),
+                    501,
+                ), // Player1: 180
+                createTurn(
+                    playerId2,
+                    listOf(
+                        createThrow(20, Multiplier.SINGLE),
+                        createThrow(20, Multiplier.SINGLE),
+                        createThrow(20, Multiplier.SINGLE),
+                    ),
+                    501,
+                ), // Player2: 60
+            )
+            val game = createCompletedGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(playerId1, playerId2, listOf(game))
+
+            // THEN averages are calculated correctly
+            stats.player1Stats.threeDartAverage shouldBe FixedDecimal.fromInt(180)
+            stats.player2Stats.threeDartAverage shouldBe FixedDecimal.fromInt(60)
+        }
+
+        "Should track legs won for each player" {
+            // GIVEN a game with 3 legs
+            val game = createCompletedGame(
+                legs = listOf(
+                    Leg(
+                        turns = listOf(
+                            createTurn(playerId1, listOf(createThrow(20)), 501),
+                            createTurn(playerId2, listOf(createThrow(20)), 501),
+                        ),
+                        winnerId = playerId1,
+                    ),
+                    Leg(
+                        turns = listOf(
+                            createTurn(playerId1, listOf(createThrow(20)), 501),
+                            createTurn(playerId2, listOf(createThrow(20)), 501),
+                        ),
+                        winnerId = playerId2,
+                    ),
+                    Leg(
+                        turns = listOf(
+                            createTurn(playerId1, listOf(createThrow(20)), 501),
+                            createTurn(playerId2, listOf(createThrow(20)), 501),
+                        ),
+                        winnerId = playerId1,
+                    ),
+                ),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(playerId1, playerId2, listOf(game))
+
+            // THEN leg counts are correct
+            stats.player1Stats.legsWon shouldBe 2
+            stats.player1Stats.legsPlayed shouldBe 3
+            stats.player2Stats.legsWon shouldBe 1
+            stats.player2Stats.legsPlayed shouldBe 3
+        }
+
+        "Should count 180s and 140+ for each player" {
+            // GIVEN a game with high scores
+            val turns = listOf(
+                createTurn(
+                    playerId1,
+                    listOf(
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.TRIPLE),
+                    ),
+                    501,
+                ), // Player1: 180
+                createTurn(
+                    playerId2,
+                    listOf(
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.SINGLE),
+                    ),
+                    501,
+                ), // Player2: 140
+            )
+            val game = createCompletedGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(playerId1, playerId2, listOf(game))
+
+            // THEN high score counts are correct
+            stats.player1Stats.count180s shouldBe 1
+            stats.player1Stats.count140Plus shouldBe 1
+            stats.player2Stats.count180s shouldBe 0
+            stats.player2Stats.count140Plus shouldBe 1
+        }
+
+        "Should find best checkout for each player" {
+            // GIVEN games where each player checked out
+            val game1 = createCompletedGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000101"),
+                legs = listOf(
+                    Leg(
+                        turns = listOf(
+                            createTurn(
+                                playerId1,
+                                listOf(
+                                    createThrow(20, Multiplier.TRIPLE),
+                                    createThrow(10, Multiplier.SINGLE),
+                                    createThrow(20, Multiplier.DOUBLE),
+                                ),
+                                110,
+                            ),
+                            createTurn(playerId2, listOf(createThrow(20)), 501),
+                        ),
+                        winnerId = playerId1,
+                    ),
+                ),
+                winnerId = playerId1,
+            )
+            val game2 = createCompletedGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000102"),
+                legs = listOf(
+                    Leg(
+                        turns = listOf(
+                            createTurn(playerId1, listOf(createThrow(20)), 501),
+                            createTurn(
+                                playerId2,
+                                listOf(
+                                    createThrow(20, Multiplier.DOUBLE),
+                                ),
+                                40,
+                            ),
+                        ),
+                        winnerId = playerId2,
+                    ),
+                ),
+                winnerId = playerId2,
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(
+                playerId1,
+                playerId2,
+                listOf(game1, game2),
+            )
+
+            // THEN best checkouts are correct
+            stats.player1Stats.bestCheckout shouldBe 110
+            stats.player2Stats.bestCheckout shouldBe 40
+        }
+
+        "Should filter by game type" {
+            // GIVEN H2H games of different types
+            val game501 = createCompletedGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000101"),
+                gameType = GameType.CLASSIC_501,
+                legs = listOf(Leg(winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+            val game301 = createCompletedGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000102"),
+                gameType = GameType.CLASSIC_301,
+                legs = listOf(Leg(winnerId = playerId2)),
+                winnerId = playerId2,
+            )
+
+            // WHEN filtering by 501 only
+            val stats = calculator.calculateHeadToHeadStatistics(
+                playerId1,
+                playerId2,
+                listOf(game501, game301),
+                gameTypeFilter = GameType.CLASSIC_501,
+            )
+
+            // THEN only 501 game is counted
+            stats.gamesPlayed shouldBe 1
+            stats.player1Wins shouldBe 1
+            stats.player2Wins shouldBe 0
+        }
+
+        "Should return recent games sorted by date" {
+            // GIVEN multiple H2H games with different timestamps
+            val oldGame = GameSession(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000101"),
+                config = GameConfig(
+                    gameType = GameType.CLASSIC_501,
+                    playerIds = listOf(playerId1, playerId2),
+                ),
+                legs = listOf(Leg(winnerId = playerId1)),
+                status = GameStatus.COMPLETED,
+                startedAt = 1000L,
+                finishedAt = 2000L,
+                winnerId = playerId1,
+            )
+            val newGame = GameSession(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000102"),
+                config = GameConfig(
+                    gameType = GameType.CLASSIC_501,
+                    playerIds = listOf(playerId1, playerId2),
+                ),
+                legs = listOf(Leg(winnerId = playerId2)),
+                status = GameStatus.COMPLETED,
+                startedAt = 3000L,
+                finishedAt = 4000L,
+                winnerId = playerId2,
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(
+                playerId1,
+                playerId2,
+                listOf(oldGame, newGame),
+            )
+
+            // THEN recent games are sorted by date (newest first)
+            stats.recentGames.size shouldBe 2
+            stats.recentGames[0].timestamp shouldBe 3000L
+            stats.recentGames[1].timestamp shouldBe 1000L
+        }
+
+        "Should ignore in-progress games" {
+            // GIVEN an in-progress H2H game
+            val inProgressGame = GameSession(
+                id = sessionId,
+                config = GameConfig(
+                    gameType = GameType.CLASSIC_501,
+                    playerIds = listOf(playerId1, playerId2),
+                ),
+                legs = listOf(Leg()),
+                status = GameStatus.IN_PROGRESS,
+                startedAt = currentTimeMillis(),
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(
+                playerId1,
+                playerId2,
+                listOf(inProgressGame),
+            )
+
+            // THEN no games are counted
+            stats.gamesPlayed shouldBe 0
+        }
+    }
 })
