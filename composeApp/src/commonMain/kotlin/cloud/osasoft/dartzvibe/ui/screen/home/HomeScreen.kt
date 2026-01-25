@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -40,7 +42,9 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
+import cloud.osasoft.dartzvibe.ui.screen.leaderboard.LeaderboardScreen
 import cloud.osasoft.dartzvibe.ui.screen.players.PlayerListScreen
+import cloud.osasoft.dartzvibe.ui.screen.statistics.HeadToHeadScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -70,6 +74,12 @@ class HomeScreen(
             onViewStatistics = {
                 navigator.push(StatisticsScreen(playerRepository, gameRepository))
             },
+            onViewHeadToHead = {
+                navigator.push(HeadToHeadScreen(playerRepository, gameRepository))
+            },
+            onViewLeaderboard = {
+                navigator.push(LeaderboardScreen(playerRepository, gameRepository))
+            },
             onManagePlayers = {
                 navigator.push(PlayerListScreen(playerRepository, gameRepository))
             },
@@ -92,6 +102,8 @@ fun HomeScreenContent(
     onResumeGame: (kotlin.uuid.Uuid) -> Unit,
     onViewGames: () -> Unit,
     onViewStatistics: () -> Unit,
+    onViewHeadToHead: () -> Unit,
+    onViewLeaderboard: () -> Unit,
     onManagePlayers: () -> Unit,
 ) {
     Scaffold(
@@ -199,6 +211,28 @@ fun HomeScreenContent(
                 text = "Statistics",
                 icon = Icons.Default.BarChart,
                 onClick = onViewStatistics,
+                enabled = state.completedGameCount > 0,
+                isPrimary = false,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Head-to-Head button
+            MenuButton(
+                text = "Head-to-Head",
+                icon = Icons.Default.People,
+                onClick = onViewHeadToHead,
+                enabled = state.completedGameCount > 0 && state.playerCount >= 2,
+                isPrimary = false,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Leaderboard button
+            MenuButton(
+                text = "Leaderboard",
+                icon = Icons.Default.Leaderboard,
+                onClick = onViewLeaderboard,
                 enabled = state.completedGameCount > 0,
                 isPrimary = false,
             )
