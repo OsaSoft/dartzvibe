@@ -24,6 +24,7 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 data class HeadToHeadScreenState(
     val players: List<Player> = emptyList(),
+    val allGames: List<GameSession> = emptyList(),
     val selectedPlayer1: Player? = null,
     val selectedPlayer2: Player? = null,
     val selectedGameType: GameType? = null,
@@ -44,8 +45,6 @@ class HeadToHeadScreenModel(
     private val _state = MutableStateFlow(HeadToHeadScreenState())
     val state: StateFlow<HeadToHeadScreenState> = _state.asStateFlow()
 
-    private var allGames: List<GameSession> = emptyList()
-
     init {
         loadData()
     }
@@ -55,11 +54,11 @@ class HeadToHeadScreenModel(
             playerRepository.getAllPlayers(),
             gameRepository.getAllGameSessions(),
         ) { players, games ->
-            allGames = games
             val sortedPlayers = players.sortedBy { it.name }
 
             HeadToHeadScreenState(
                 players = sortedPlayers,
+                allGames = games,
                 selectedPlayer1 = sortedPlayers.getOrNull(0),
                 selectedPlayer2 = sortedPlayers.getOrNull(1),
                 selectedGameType = null,
@@ -67,7 +66,7 @@ class HeadToHeadScreenModel(
             )
         }.onEach { newState ->
             log.d { "Loaded ${newState.players.size} players" }
-            _state.value = newState
+            _state.update { newState }
             calculateStatistics()
         }.catch { e ->
             log.e(e) { "Error loading data" }
@@ -120,7 +119,7 @@ class HeadToHeadScreenModel(
         val stats = calculator.calculateHeadToHeadStatistics(
             player1Id = player1.id,
             player2Id = player2.id,
-            games = allGames,
+            games = currentState.allGames,
             gameTypeFilter = currentState.selectedGameType,
         )
 

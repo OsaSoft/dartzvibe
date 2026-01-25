@@ -35,6 +35,7 @@ data class LeaderboardEntry(
 @OptIn(ExperimentalUuidApi::class)
 data class LeaderboardScreenState(
     val entries: List<LeaderboardEntry> = emptyList(),
+    val allPlayerStats: Map<Player, PlayerStatistics> = emptyMap(),
     val sortMetric: LeaderboardSortMetric = LeaderboardSortMetric.WIN_RATE,
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -52,8 +53,6 @@ class LeaderboardScreenModel(
     private val _state = MutableStateFlow(LeaderboardScreenState())
     val state: StateFlow<LeaderboardScreenState> = _state.asStateFlow()
 
-    private var allPlayerStats: Map<Player, PlayerStatistics> = emptyMap()
-
     init {
         loadData()
     }
@@ -63,17 +62,23 @@ class LeaderboardScreenModel(
             playerRepository.getAllPlayers(),
             gameRepository.getAllGameSessions(),
         ) { players, games ->
-            allPlayerStats = players.associateWith { player ->
+            val playerStats = players.associateWith { player ->
                 calculator.calculatePlayerStatistics(
                     playerId = player.id,
                     games = games,
                     players = players,
                 )
             }
-            sortAndRank(_state.value.sortMetric)
-        }.onEach { entries ->
+            playerStats to sortAndRank(playerStats, _state.value.sortMetric)
+        }.onEach { (playerStats, entries) ->
             log.d { "Calculated stats for ${entries.size} players" }
-            _state.update { it.copy(entries = entries, isLoading = false) }
+            _state.update {
+                it.copy(
+                    allPlayerStats = playerStats,
+                    entries = entries,
+                    isLoading = false,
+                )
+            }
         }.catch { e ->
             log.e(e) { "Error loading leaderboard data" }
             _state.update { it.copy(isLoading = false, error = e.message) }
@@ -83,7 +88,8 @@ class LeaderboardScreenModel(
     fun selectSortMetric(metric: LeaderboardSortMetric) {
         if (metric == _state.value.sortMetric) return
 
-        val sortedEntries = sortAndRank(metric)
+        val currentState = _state.value
+        val sortedEntries = sortAndRank(currentState.allPlayerStats, metric)
         _state.update {
             it.copy(
                 sortMetric = metric,
@@ -92,8 +98,11 @@ class LeaderboardScreenModel(
         }
     }
 
-    private fun sortAndRank(metric: LeaderboardSortMetric): List<LeaderboardEntry> {
-        val playersWithGames = allPlayerStats.filter { it.value.gamesPlayed > 0 }
+    private fun sortAndRank(
+        playerStats: Map<Player, PlayerStatistics>,
+        metric: LeaderboardSortMetric,
+    ): List<LeaderboardEntry> {
+        val playersWithGames = playerStats.filter { it.value.gamesPlayed > 0 }
 
         val sorted = when (metric) {
             LeaderboardSortMetric.WIN_RATE -> {

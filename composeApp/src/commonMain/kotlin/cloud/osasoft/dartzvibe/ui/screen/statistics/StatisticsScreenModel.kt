@@ -10,6 +10,7 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.statistics.StatisticsCalculator
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,12 +53,15 @@ class StatisticsScreenModel(
     private val _state = MutableStateFlow(StatisticsScreenState())
     val state: StateFlow<StatisticsScreenState> = _state.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init {
         loadData()
     }
 
     private fun loadData() {
-        combine(
+        loadJob?.cancel()
+        loadJob = combine(
             playerRepository.getAllPlayers(),
             gameRepository.getAllGameSessions(),
         ) { players, games ->
@@ -85,7 +89,7 @@ class StatisticsScreenModel(
             )
         }.onEach { newState ->
             log.d { "Statistics loaded for player ${newState.selectedPlayerId}" }
-            _state.value = newState
+            _state.update { newState }
         }.catch { e ->
             log.e(e) { "Error loading statistics" }
             _state.update { it.copy(isLoading = false, error = e.message) }

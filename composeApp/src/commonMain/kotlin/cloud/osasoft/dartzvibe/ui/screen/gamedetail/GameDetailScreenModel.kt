@@ -58,7 +58,7 @@ class GameDetailScreenModel(
             )
         }.onEach { newState ->
             log.d { "Loaded game detail: ${newState.session?.id}" }
-            _state.value = newState
+            _state.update { newState }
         }.catch { e ->
             log.e(e) { "Error loading game detail" }
             _state.update { it.copy(isLoading = false, error = e.message) }

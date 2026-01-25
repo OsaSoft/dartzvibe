@@ -62,7 +62,7 @@ class HomeScreenModel(
             )
         }.onEach { newState ->
             log.d { "Loaded: ${newState.playerCount} players, ${newState.completedGameCount} completed games" }
-            _state.value = newState
+            _state.update { newState }
         }.catch { e ->
             log.e(e) { "Error loading data" }
             _state.update { it.copy(isLoading = false, error = e.message) }
