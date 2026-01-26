@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -71,6 +72,7 @@ class PlayerListScreen(
 
         PlayerListContent(
             state = state,
+            onBack = { navigator.pop() },
             onAddPlayer = { navigator.push(AddEditPlayerScreen(playerRepository = playerRepository)) },
             onEditPlayer = { player ->
                 navigator.push(AddEditPlayerScreen(playerRepository = playerRepository, playerId = player.id))
@@ -93,6 +95,7 @@ fun rememberPlayerListScreenModel(
 @Composable
 fun PlayerListContent(
     state: PlayerListState,
+    onBack: () -> Unit,
     onAddPlayer: () -> Unit,
     onEditPlayer: (Player) -> Unit,
     onDeletePlayer: (Player) -> Unit,
@@ -104,6 +107,14 @@ fun PlayerListContent(
         topBar = {
             TopAppBar(
                 title = { Text("DartzVibe") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
+                },
                 actions = {
                     IconButton(
                         onClick = onNewGame,
