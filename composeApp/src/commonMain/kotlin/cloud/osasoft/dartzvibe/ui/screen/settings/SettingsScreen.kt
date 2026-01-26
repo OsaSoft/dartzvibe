@@ -15,6 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -29,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 
 class SettingsScreen(
@@ -44,6 +48,7 @@ class SettingsScreen(
         SettingsScreenContent(
             state = state,
             onBackClick = { navigator.pop() },
+            onThemeModeChange = screenModel::setThemeMode,
             onKeepScreenOnChange = screenModel::setKeepScreenOn,
             onShowCheckoutHintsChange = screenModel::setShowCheckoutHints,
         )
@@ -61,6 +66,7 @@ fun rememberSettingsScreenModel(
 fun SettingsScreenContent(
     state: SettingsState,
     onBackClick: () -> Unit,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onShowCheckoutHintsChange: (Boolean) -> Unit,
 ) {
@@ -89,6 +95,17 @@ fun SettingsScreenContent(
                 .padding(padding)
                 .padding(16.dp),
         ) {
+            SettingSectionHeader(title = "Appearance")
+
+            ThemeModeSettingItem(
+                selectedMode = state.settings.themeMode,
+                onThemeModeChange = onThemeModeChange,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SettingSectionHeader(title = "Game")
+
             SwitchSettingItem(
                 title = "Keep Screen On",
                 description = "Prevent screen from sleeping during games",
@@ -104,6 +121,63 @@ fun SettingsScreenContent(
                 checked = state.settings.showCheckoutHints,
                 onCheckedChange = onShowCheckoutHintsChange,
             )
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@Composable
+fun SettingSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(vertical = 8.dp),
+    )
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThemeModeSettingItem(
+    selectedMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+    ) {
+        Text(
+            text = "Theme",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            ThemeMode.entries.forEachIndexed { index, mode ->
+                SegmentedButton(
+                    selected = selectedMode == mode,
+                    onClick = { onThemeModeChange(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = ThemeMode.entries.size,
+                    ),
+                ) {
+                    Text(
+                        text = when (mode) {
+                            ThemeMode.LIGHT -> "Light"
+                            ThemeMode.DARK -> "Dark"
+                            ThemeMode.SYSTEM -> "System"
+                        },
+                    )
+                }
+            }
         }
     }
 }

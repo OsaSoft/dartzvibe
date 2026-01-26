@@ -1,6 +1,7 @@
 package cloud.osasoft.dartzvibe.data.repository
 
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
+import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +15,10 @@ class FakeAppSettingsRepository : AppSettingsRepository {
     private val _settings = MutableStateFlow(AppSettingsData())
 
     override fun getSettings(): Flow<AppSettingsData> = _settings.asStateFlow()
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        _settings.update { it.copy(themeMode = mode) }
+    }
 
     override suspend fun setKeepScreenOn(value: Boolean) {
         _settings.update { it.copy(keepScreenOn = value) }

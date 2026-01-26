@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.settings
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
+import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,12 @@ class SettingsScreenModel(
                 _state.update { it.copy(isLoading = false, error = e.message) }
             }
             .launchIn(screenModelScope)
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        screenModelScope.launch {
+            appSettingsRepository.setThemeMode(mode)
+        }
     }
 
     fun setKeepScreenOn(value: Boolean) {

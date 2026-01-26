@@ -1,6 +1,7 @@
 package cloud.osasoft.dartzvibe.data.repository
 
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
+import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.coroutines.FlowSettings
@@ -11,6 +12,7 @@ import me.tatarka.inject.annotations.Inject
 
 interface AppSettingsRepository {
     fun getSettings(): Flow<AppSettingsData>
+    suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setKeepScreenOn(value: Boolean)
     suspend fun setShowCheckoutHints(value: Boolean)
 }
@@ -23,13 +25,19 @@ class AppSettingsRepositoryImpl(
     private val flowSettings: FlowSettings = settings.toFlowSettings()
 
     override fun getSettings(): Flow<AppSettingsData> = combine(
+        flowSettings.getStringFlow(KEY_THEME_MODE, defaultValue = ThemeMode.SYSTEM.value),
         flowSettings.getBooleanFlow(KEY_KEEP_SCREEN_ON, defaultValue = false),
         flowSettings.getBooleanFlow(KEY_SHOW_CHECKOUT_HINTS, defaultValue = true),
-    ) { keepScreenOn, showCheckoutHints ->
+    ) { themeMode, keepScreenOn, showCheckoutHints ->
         AppSettingsData(
+            themeMode = ThemeMode.fromValue(themeMode),
             keepScreenOn = keepScreenOn,
             showCheckoutHints = showCheckoutHints,
         )
+    }
+
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        flowSettings.putString(KEY_THEME_MODE, mode.value)
     }
 
     override suspend fun setKeepScreenOn(value: Boolean) {
@@ -41,6 +49,7 @@ class AppSettingsRepositoryImpl(
     }
 
     companion object {
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_SHOW_CHECKOUT_HINTS = "show_checkout_hints"
     }

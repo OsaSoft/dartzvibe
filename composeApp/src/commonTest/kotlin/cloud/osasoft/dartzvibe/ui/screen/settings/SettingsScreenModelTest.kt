@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.settings
 
+import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.FakeAppSettingsRepository
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
@@ -39,10 +40,28 @@ class SettingsScreenModelTest : FreeSpec({
                 advanceUntilIdle()
                 val state = screenModel.state.first()
 
-                // THEN keepScreenOn is false and showCheckoutHints is true (defaults)
+                // THEN themeMode is SYSTEM, keepScreenOn is false and showCheckoutHints is true (defaults)
+                state.settings.themeMode shouldBe ThemeMode.SYSTEM
                 state.settings.keepScreenOn shouldBe false
                 state.settings.showCheckoutHints shouldBe true
                 state.isLoading shouldBe false
+            }
+        }
+
+        "Should update theme mode setting" {
+            runTest {
+                // GIVEN a SettingsScreenModel
+                val repository = FakeAppSettingsRepository()
+                val screenModel = SettingsScreenModel(repository)
+                advanceUntilIdle()
+
+                // WHEN setThemeMode(DARK) is called
+                screenModel.setThemeMode(ThemeMode.DARK)
+                advanceUntilIdle()
+
+                // THEN state.settings.themeMode should be DARK
+                val state = screenModel.state.first()
+                state.settings.themeMode shouldBe ThemeMode.DARK
             }
         }
 
