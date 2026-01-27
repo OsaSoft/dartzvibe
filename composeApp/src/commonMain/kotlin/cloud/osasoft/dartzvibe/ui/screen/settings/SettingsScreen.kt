@@ -51,6 +51,8 @@ class SettingsScreen(
             onThemeModeChange = screenModel::setThemeMode,
             onKeepScreenOnChange = screenModel::setKeepScreenOn,
             onShowCheckoutHintsChange = screenModel::setShowCheckoutHints,
+            onUseRadialKeypadChange = screenModel::setUseRadialKeypad,
+            onShowMultiplierButtonsChange = screenModel::setShowMultiplierButtons,
         )
     }
 }
@@ -69,6 +71,8 @@ fun SettingsScreenContent(
     onThemeModeChange: (ThemeMode) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onShowCheckoutHintsChange: (Boolean) -> Unit,
+    onUseRadialKeypadChange: (Boolean) -> Unit,
+    onShowMultiplierButtonsChange: (Boolean) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -120,6 +124,24 @@ fun SettingsScreenContent(
                 description = "Display possible checkouts during game",
                 checked = state.settings.showCheckoutHints,
                 onCheckedChange = onShowCheckoutHintsChange,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SwitchSettingItem(
+                title = "Radial Dartboard Keypad",
+                description = "Use a dartboard-style input instead of grid",
+                checked = state.settings.useRadialKeypad,
+                onCheckedChange = onUseRadialKeypadChange,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SwitchSettingItem(
+                title = "Show Multiplier Buttons",
+                description = "Show S/D/T buttons (off = use swipe gestures on both keypads)",
+                checked = state.settings.showMultiplierButtons,
+                onCheckedChange = onShowMultiplierButtonsChange,
             )
         }
     }

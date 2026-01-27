@@ -28,6 +28,14 @@ class FakeAppSettingsRepository : AppSettingsRepository {
         _settings.update { it.copy(showCheckoutHints = value) }
     }
 
+    override suspend fun setUseRadialKeypad(value: Boolean) {
+        _settings.update { it.copy(useRadialKeypad = value) }
+    }
+
+    override suspend fun setShowMultiplierButtons(value: Boolean) {
+        _settings.update { it.copy(showMultiplierButtons = value) }
+    }
+
     // Test helpers
     fun reset() {
         _settings.value = AppSettingsData()

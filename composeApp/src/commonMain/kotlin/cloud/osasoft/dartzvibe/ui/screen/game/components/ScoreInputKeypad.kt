@@ -1,5 +1,7 @@
 package cloud.osasoft.dartzvibe.ui.screen.game.components
 
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,17 +16,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+
+private const val SWIPE_THRESHOLD_DP = 30f
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
@@ -32,6 +43,7 @@ fun ScoreInputKeypad(
     selectedMultiplier: Multiplier,
     canThrow: Boolean,
     canUndo: Boolean,
+    showMultiplierButtons: Boolean,
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
@@ -43,32 +55,34 @@ fun ScoreInputKeypad(
         modifier = modifier.padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // Multiplier selection row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            MultiplierButton(
-                text = "Single",
-                shortText = "S",
-                isSelected = selectedMultiplier == Multiplier.SINGLE,
-                onClick = { onMultiplierChange(Multiplier.SINGLE) },
-                modifier = Modifier.weight(1f),
-            )
-            MultiplierButton(
-                text = "Double",
-                shortText = "D",
-                isSelected = selectedMultiplier == Multiplier.DOUBLE,
-                onClick = { onMultiplierChange(Multiplier.DOUBLE) },
-                modifier = Modifier.weight(1f),
-            )
-            MultiplierButton(
-                text = "Triple",
-                shortText = "T",
-                isSelected = selectedMultiplier == Multiplier.TRIPLE,
-                onClick = { onMultiplierChange(Multiplier.TRIPLE) },
-                modifier = Modifier.weight(1f),
-            )
+        // Multiplier selection row (optional)
+        if (showMultiplierButtons) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MultiplierButton(
+                    text = "Single",
+                    shortText = "S",
+                    isSelected = selectedMultiplier == Multiplier.SINGLE,
+                    onClick = { onMultiplierChange(Multiplier.SINGLE) },
+                    modifier = Modifier.weight(1f),
+                )
+                MultiplierButton(
+                    text = "Double",
+                    shortText = "D",
+                    isSelected = selectedMultiplier == Multiplier.DOUBLE,
+                    onClick = { onMultiplierChange(Multiplier.DOUBLE) },
+                    modifier = Modifier.weight(1f),
+                )
+                MultiplierButton(
+                    text = "Triple",
+                    shortText = "T",
+                    isSelected = selectedMultiplier == Multiplier.TRIPLE,
+                    onClick = { onMultiplierChange(Multiplier.TRIPLE) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         // Score buttons grid: 1-20 in 4 rows of 5
@@ -87,9 +101,10 @@ fun ScoreInputKeypad(
                 row.forEach { score ->
                     ScoreButton(
                         score = score,
-                        multiplier = selectedMultiplier,
+                        selectedMultiplier = selectedMultiplier,
+                        showMultiplierButtons = showMultiplierButtons,
                         enabled = canThrow,
-                        onClick = { onScoreSelect(score, selectedMultiplier) },
+                        onScoreSelect = { segment, multiplier -> onScoreSelect(segment, multiplier) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -180,6 +195,16 @@ fun ScoreInputKeypad(
                 Text("End Turn")
             }
         }
+
+        // Swipe hint (only when multiplier buttons are hidden)
+        if (!showMultiplierButtons) {
+            Text(
+                text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            )
+        }
     }
 }
 
@@ -217,24 +242,107 @@ private fun MultiplierButton(
 @Composable
 private fun ScoreButton(
     score: Int,
-    multiplier: Multiplier,
+    selectedMultiplier: Multiplier,
+    showMultiplierButtons: Boolean,
     enabled: Boolean,
-    onClick: () -> Unit,
+    onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val displayScore = score * multiplier.value
-    val prefix = when (multiplier) {
+    var dragStartY by remember { mutableStateOf<Float?>(null) }
+    var currentDragY by remember { mutableStateOf<Float?>(null) }
+    var isPressed by remember { mutableStateOf(false) }
+
+    // Determine the current multiplier based on drag state (for display)
+    val displayMultiplier = if (showMultiplierButtons || dragStartY == null || currentDragY == null) {
+        if (showMultiplierButtons) selectedMultiplier else Multiplier.SINGLE
+    } else {
+        val deltaY = currentDragY!! - dragStartY!!
+        when {
+            deltaY < -SWIPE_THRESHOLD_DP -> Multiplier.DOUBLE
+            deltaY > SWIPE_THRESHOLD_DP -> Multiplier.TRIPLE
+            else -> Multiplier.SINGLE
+        }
+    }
+
+    val displayScore = score * displayMultiplier.value
+    val prefix = when (displayMultiplier) {
         Multiplier.SINGLE -> ""
         Multiplier.DOUBLE -> "D"
         Multiplier.TRIPLE -> "T"
     }
 
+    // Determine button colors based on drag state
+    val containerColor = when {
+        !isPressed -> MaterialTheme.colorScheme.secondaryContainer
+        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.primary
+        displayMultiplier == Multiplier.TRIPLE -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    }
+    val contentColor = when {
+        !isPressed -> MaterialTheme.colorScheme.onSecondaryContainer
+        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.onPrimary
+        displayMultiplier == Multiplier.TRIPLE -> MaterialTheme.colorScheme.onTertiary
+        else -> MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
+    val gestureModifier = if (!showMultiplierButtons && enabled) {
+        modifier
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    onScoreSelect(score, Multiplier.SINGLE)
+                }
+            }
+            .pointerInput(Unit) {
+                val swipeThresholdPx = SWIPE_THRESHOLD_DP * density
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        dragStartY = offset.y
+                        currentDragY = offset.y
+                        isPressed = true
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        currentDragY = change.position.y
+                    },
+                    onDragEnd = {
+                        val startY = dragStartY
+                        val endY = currentDragY
+                        if (startY != null && endY != null) {
+                            val deltaY = endY - startY
+                            val multiplier = when {
+                                deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
+                                deltaY > swipeThresholdPx -> Multiplier.TRIPLE
+                                else -> Multiplier.SINGLE
+                            }
+                            onScoreSelect(score, multiplier)
+                        }
+                        dragStartY = null
+                        currentDragY = null
+                        isPressed = false
+                    },
+                    onDragCancel = {
+                        dragStartY = null
+                        currentDragY = null
+                        isPressed = false
+                    },
+                )
+            }
+    } else {
+        modifier
+    }
+
     FilledTonalButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(40.dp),
+        onClick = { onScoreSelect(score, selectedMultiplier) },
+        enabled = enabled && showMultiplierButtons,
+        modifier = gestureModifier.height(40.dp),
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(2.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = containerColor,
+            disabledContentColor = contentColor,
+        ),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -242,11 +350,11 @@ private fun ScoreButton(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
-            if (multiplier != Multiplier.SINGLE) {
+            if (displayMultiplier != Multiplier.SINGLE) {
                 Text(
                     text = "=$displayScore",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                    color = contentColor.copy(alpha = 0.7f),
                 )
             }
         }

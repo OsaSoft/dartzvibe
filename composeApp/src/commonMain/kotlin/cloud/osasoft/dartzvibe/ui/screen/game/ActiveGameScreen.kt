@@ -43,7 +43,9 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
+import cloud.osasoft.dartzvibe.data.model.AppSettingsData
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -51,6 +53,7 @@ import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
 import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
+import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -64,12 +67,15 @@ class ActiveGameScreen(
     @Composable
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
+        val appSettingsRepository = LocalAppSettingsRepository.current
         val screenModel = rememberActiveGameScreenModel(gameRepository, playerRepository, sessionId)
         val state by screenModel.state.collectAsState()
+        val settings by appSettingsRepository.getSettings().collectAsState(initial = AppSettingsData())
         val navigator = LocalNavigator.currentOrThrow
 
         ActiveGameContent(
             state = state,
+            settings = settings,
             onMultiplierChange = screenModel::setMultiplier,
             onScoreSelect = screenModel::onScoreSelect,
             onMiss = screenModel::onMiss,
@@ -102,6 +108,7 @@ fun rememberActiveGameScreenModel(
 @Composable
 fun ActiveGameContent(
     state: ActiveGameState,
+    settings: AppSettingsData,
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
@@ -162,55 +169,65 @@ fun ActiveGameContent(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                // Scrollable top section containing scores, turn display, and checkout hints
-                Column(
+                // Player score cards
+                PlayerScoresRow(
+                    state = state,
                     modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    // Player score cards
-                    PlayerScoresRow(
-                        state = state,
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+
+                // Current turn display
+                CurrentTurnDisplay(
+                    currentThrows = state.currentTurnThrows,
+                    selectedMultiplier = state.selectedMultiplier,
+                    lastThrowResult = state.lastThrowResult,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                )
+
+                // Checkout suggestions
+                state.checkoutOptions?.let { options ->
+                    CheckoutHint(
+                        checkoutOptions = options,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                     )
-
-                    // Current turn display
-                    CurrentTurnDisplay(
-                        currentThrows = state.currentTurnThrows,
-                        selectedMultiplier = state.selectedMultiplier,
-                        lastThrowResult = state.lastThrowResult,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                    )
-
-                    // Checkout suggestions
-                    state.checkoutOptions?.let { options ->
-                        CheckoutHint(
-                            checkoutOptions = options,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                        )
-                    }
                 }
 
-                // Score input keypad - fixed at bottom
-                ScoreInputKeypad(
-                    selectedMultiplier = state.selectedMultiplier,
-                    canThrow = state.canThrow,
-                    canUndo = state.canUndo,
-                    onMultiplierChange = onMultiplierChange,
-                    onScoreSelect = onScoreSelect,
-                    onMiss = onMiss,
-                    onUndo = onUndo,
-                    onEndTurn = onEndTurn,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // Score input keypad
+                if (settings.useRadialKeypad) {
+                    RadialDartboard(
+                        selectedMultiplier = state.selectedMultiplier,
+                        canThrow = state.canThrow,
+                        canUndo = state.canUndo,
+                        showMultiplierButtons = settings.showMultiplierButtons,
+                        onMultiplierChange = onMultiplierChange,
+                        onScoreSelect = onScoreSelect,
+                        onMiss = onMiss,
+                        onUndo = onUndo,
+                        onEndTurn = onEndTurn,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    ScoreInputKeypad(
+                        selectedMultiplier = state.selectedMultiplier,
+                        canThrow = state.canThrow,
+                        canUndo = state.canUndo,
+                        showMultiplierButtons = settings.showMultiplierButtons,
+                        onMultiplierChange = onMultiplierChange,
+                        onScoreSelect = onScoreSelect,
+                        onMiss = onMiss,
+                        onUndo = onUndo,
+                        onEndTurn = onEndTurn,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }

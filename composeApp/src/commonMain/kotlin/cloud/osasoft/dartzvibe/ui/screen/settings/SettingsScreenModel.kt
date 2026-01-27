@@ -59,4 +59,16 @@ class SettingsScreenModel(
             appSettingsRepository.setShowCheckoutHints(value)
         }
     }
+
+    fun setUseRadialKeypad(value: Boolean) {
+        screenModelScope.launch {
+            appSettingsRepository.setUseRadialKeypad(value)
+        }
+    }
+
+    fun setShowMultiplierButtons(value: Boolean) {
+        screenModelScope.launch {
+            appSettingsRepository.setShowMultiplierButtons(value)
+        }
+    }
 }
