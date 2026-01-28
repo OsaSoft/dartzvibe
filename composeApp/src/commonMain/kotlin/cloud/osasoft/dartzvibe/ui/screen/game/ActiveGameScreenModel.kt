@@ -47,6 +47,9 @@ data class ActiveGameState(
     val currentTurnThrows: List<Throw>
         get() = engine?.getCurrentTurnThrows() ?: emptyList()
 
+    val currentTurnNumber: Int
+        get() = session?.currentLeg?.turns?.size?.let { it + 1 } ?: 1
+
     val throwsRemaining: Int
         get() = 3 - currentTurnThrows.size
 

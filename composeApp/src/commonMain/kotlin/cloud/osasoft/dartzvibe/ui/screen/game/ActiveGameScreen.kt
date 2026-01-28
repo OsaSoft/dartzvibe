@@ -184,6 +184,7 @@ fun ActiveGameContent(
 
                 // Current turn display
                 CurrentTurnDisplay(
+                    turnNumber = state.currentTurnNumber,
                     currentThrows = state.currentTurnThrows,
                     selectedMultiplier = state.selectedMultiplier,
                     lastThrowResult = state.lastThrowResult,
@@ -313,6 +314,7 @@ fun PlayerScoresRow(
 @Suppress("ktlint:standard:function-naming")
 @Composable
 fun CurrentTurnDisplay(
+    turnNumber: Int,
     currentThrows: List<Throw>,
     selectedMultiplier: Multiplier,
     lastThrowResult: ThrowResult?,
@@ -332,7 +334,7 @@ fun CurrentTurnDisplay(
         ) {
             // Current turn throws
             Text(
-                text = "Current Turn",
+                text = "Turn $turnNumber",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
