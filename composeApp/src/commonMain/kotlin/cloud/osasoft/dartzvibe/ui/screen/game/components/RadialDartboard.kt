@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -190,10 +191,19 @@ fun RadialDartboard(
                                 val startY = gestureState.startPosition?.y ?: 0f
                                 val deltaY = lastPosition.y - startY
 
-                                val multiplier = when {
-                                    deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
-                                    deltaY > swipeThresholdPx -> Multiplier.TRIPLE
-                                    else -> Multiplier.SINGLE
+                                val multiplier = if (hit.isBull) {
+                                    // Bull has no triple - both up and down are double
+                                    if (abs(deltaY) > swipeThresholdPx) {
+                                        Multiplier.DOUBLE
+                                    } else {
+                                        Multiplier.SINGLE
+                                    }
+                                } else {
+                                    when {
+                                        deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
+                                        deltaY > swipeThresholdPx -> Multiplier.TRIPLE
+                                        else -> Multiplier.SINGLE
+                                    }
                                 }
                                 onScoreSelect(hit.segment, multiplier)
 
@@ -227,6 +237,20 @@ fun RadialDartboard(
                     colorScheme = colorScheme,
                 )
             }
+
+            // Floating multiplier indicator overlay
+            // Bull has no triple - both directions show DOUBLE
+            val indicatorMultiplier = when {
+                swipeIndicator == null -> null
+                highlightedBull -> Multiplier.DOUBLE
+                swipeIndicator == SwipeDirection.UP -> Multiplier.DOUBLE
+                swipeIndicator == SwipeDirection.DOWN -> Multiplier.TRIPLE
+                else -> null
+            }
+            MultiplierIndicator(
+                multiplier = indicatorMultiplier,
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
 
         // Action row: Miss, Undo, End Turn

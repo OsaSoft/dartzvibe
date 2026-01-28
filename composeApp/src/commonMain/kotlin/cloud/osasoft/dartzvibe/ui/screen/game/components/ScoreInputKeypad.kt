@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game.components
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -29,11 +30,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import kotlin.math.abs
 
 private const val SWIPE_THRESHOLD_DP = 30f
 
@@ -51,160 +52,132 @@ fun ScoreInputKeypad(
     onEndTurn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        // Multiplier selection row (optional)
-        if (showMultiplierButtons) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MultiplierButton(
-                    text = "Single",
-                    shortText = "S",
-                    isSelected = selectedMultiplier == Multiplier.SINGLE,
-                    onClick = { onMultiplierChange(Multiplier.SINGLE) },
-                    modifier = Modifier.weight(1f),
-                )
-                MultiplierButton(
-                    text = "Double",
-                    shortText = "D",
-                    isSelected = selectedMultiplier == Multiplier.DOUBLE,
-                    onClick = { onMultiplierChange(Multiplier.DOUBLE) },
-                    modifier = Modifier.weight(1f),
-                )
-                MultiplierButton(
-                    text = "Triple",
-                    shortText = "T",
-                    isSelected = selectedMultiplier == Multiplier.TRIPLE,
-                    onClick = { onMultiplierChange(Multiplier.TRIPLE) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
+    var activeSwipeMultiplier by remember { mutableStateOf<Multiplier?>(null) }
 
-        // Score buttons grid: 1-20 in 4 rows of 5
-        val scoreRows = listOf(
-            listOf(1, 2, 3, 4, 5),
-            listOf(6, 7, 8, 9, 10),
-            listOf(11, 12, 13, 14, 15),
-            listOf(16, 17, 18, 19, 20),
-        )
-
-        scoreRows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                row.forEach { score ->
-                    ScoreButton(
-                        score = score,
-                        selectedMultiplier = selectedMultiplier,
-                        showMultiplierButtons = showMultiplierButtons,
-                        enabled = canThrow,
-                        onScoreSelect = { segment, multiplier -> onScoreSelect(segment, multiplier) },
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            // Multiplier selection row (optional)
+            if (showMultiplierButtons) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MultiplierButton(
+                        text = "Single",
+                        shortText = "S",
+                        isSelected = selectedMultiplier == Multiplier.SINGLE,
+                        onClick = { onMultiplierChange(Multiplier.SINGLE) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    MultiplierButton(
+                        text = "Double",
+                        shortText = "D",
+                        isSelected = selectedMultiplier == Multiplier.DOUBLE,
+                        onClick = { onMultiplierChange(Multiplier.DOUBLE) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    MultiplierButton(
+                        text = "Triple",
+                        shortText = "T",
+                        isSelected = selectedMultiplier == Multiplier.TRIPLE,
+                        onClick = { onMultiplierChange(Multiplier.TRIPLE) },
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
-        }
 
-        // Bull row: 25 (outer bull) and BULL (inner bull = D25)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            // Outer bull (25, always single)
-            FilledTonalButton(
-                onClick = { onScoreSelect(25, Multiplier.SINGLE) },
-                enabled = canThrow,
-                modifier = Modifier.weight(1f).height(44.dp),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(2.dp),
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "25",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "Outer",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            }
-
-            // Inner bull (50, always double)
-            Button(
-                onClick = { onScoreSelect(25, Multiplier.DOUBLE) },
-                enabled = canThrow,
-                modifier = Modifier.weight(1f).height(44.dp),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(2.dp),
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "BULL",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "50",
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            }
-        }
-
-        // Action row: Miss, Undo, End Turn
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Miss button
-            OutlinedButton(
-                onClick = onMiss,
-                enabled = canThrow,
-                modifier = Modifier.weight(1f).height(40.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text("Miss")
-            }
-
-            // Undo button
-            OutlinedButton(
-                onClick = onUndo,
-                enabled = canUndo,
-                modifier = Modifier.weight(1f).height(40.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Undo")
-            }
-
-            // End Turn button
-            FilledTonalButton(
-                onClick = onEndTurn,
-                modifier = Modifier.weight(1f).height(40.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text("End Turn")
-            }
-        }
-
-        // Swipe hint (only when multiplier buttons are hidden)
-        if (!showMultiplierButtons) {
-            Text(
-                text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            // Score buttons grid: 1-20 in 4 rows of 5
+            val scoreRows = listOf(
+                listOf(1, 2, 3, 4, 5),
+                listOf(6, 7, 8, 9, 10),
+                listOf(11, 12, 13, 14, 15),
+                listOf(16, 17, 18, 19, 20),
             )
+
+            scoreRows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    row.forEach { score ->
+                        ScoreButton(
+                            score = score,
+                            selectedMultiplier = selectedMultiplier,
+                            showMultiplierButtons = showMultiplierButtons,
+                            enabled = canThrow,
+                            onScoreSelect = { segment, multiplier -> onScoreSelect(segment, multiplier) },
+                            onSwipeChange = { activeSwipeMultiplier = it },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
+            // Bull row: Tap = 25 (single), Swipe = 50 (double)
+            BullButton(
+                showMultiplierButtons = showMultiplierButtons,
+                selectedMultiplier = selectedMultiplier,
+                enabled = canThrow,
+                onScoreSelect = onScoreSelect,
+                onSwipeChange = { activeSwipeMultiplier = it },
+            )
+
+            // Action row: Miss, Undo, End Turn
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Miss button
+                OutlinedButton(
+                    onClick = onMiss,
+                    enabled = canThrow,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Text("Miss")
+                }
+
+                // Undo button
+                OutlinedButton(
+                    onClick = onUndo,
+                    enabled = canUndo,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Undo")
+                }
+
+                // End Turn button
+                FilledTonalButton(
+                    onClick = onEndTurn,
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Text("End Turn")
+                }
+            }
+
+            // Swipe hint (only when multiplier buttons are hidden)
+            if (!showMultiplierButtons) {
+                Text(
+                    text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
         }
+
+        // Floating multiplier indicator overlay
+        MultiplierIndicator(
+            multiplier = activeSwipeMultiplier,
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }
 
@@ -246,6 +219,7 @@ private fun ScoreButton(
     showMultiplierButtons: Boolean,
     enabled: Boolean,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
+    onSwipeChange: (Multiplier?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var dragStartY by remember { mutableStateOf<Float?>(null) }
@@ -299,10 +273,19 @@ private fun ScoreButton(
                         dragStartY = offset.y
                         currentDragY = offset.y
                         isPressed = true
+                        onSwipeChange(null)
                     },
                     onDrag = { change, _ ->
                         change.consume()
                         currentDragY = change.position.y
+                        val startY = dragStartY ?: return@detectDragGestures
+                        val deltaY = change.position.y - startY
+                        val multiplier = when {
+                            deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
+                            deltaY > swipeThresholdPx -> Multiplier.TRIPLE
+                            else -> null
+                        }
+                        onSwipeChange(multiplier)
                     },
                     onDragEnd = {
                         val startY = dragStartY
@@ -319,11 +302,13 @@ private fun ScoreButton(
                         dragStartY = null
                         currentDragY = null
                         isPressed = false
+                        onSwipeChange(null)
                     },
                     onDragCancel = {
                         dragStartY = null
                         currentDragY = null
                         isPressed = false
+                        onSwipeChange(null)
                     },
                 )
             }
@@ -357,6 +342,145 @@ private fun ScoreButton(
                     color = contentColor.copy(alpha = 0.7f),
                 )
             }
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun BullButton(
+    showMultiplierButtons: Boolean,
+    selectedMultiplier: Multiplier,
+    enabled: Boolean,
+    onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
+    onSwipeChange: (Multiplier?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var dragStartY by remember { mutableStateOf<Float?>(null) }
+    var currentDragY by remember { mutableStateOf<Float?>(null) }
+    var isPressed by remember { mutableStateOf(false) }
+
+    // Bull only has single (25) and double (50), no triple
+    // Determine the current multiplier based on drag state (for display)
+    val displayMultiplier = if (showMultiplierButtons || dragStartY == null || currentDragY == null) {
+        if (showMultiplierButtons) {
+            // Clamp to SINGLE or DOUBLE only for bull
+            if (selectedMultiplier == Multiplier.TRIPLE) Multiplier.DOUBLE else selectedMultiplier
+        } else {
+            Multiplier.SINGLE
+        }
+    } else {
+        val deltaY = currentDragY!! - dragStartY!!
+        // Both up and down swipe result in DOUBLE for bull
+        if (abs(deltaY) > SWIPE_THRESHOLD_DP) {
+            Multiplier.DOUBLE
+        } else {
+            Multiplier.SINGLE
+        }
+    }
+
+    val displayScore = 25 * displayMultiplier.value
+    val displayText = if (displayMultiplier == Multiplier.DOUBLE) "BULL" else "25"
+    val subtitleText = if (displayMultiplier == Multiplier.DOUBLE) "50" else "Outer"
+
+    // Determine button colors based on drag state
+    val containerColor = when {
+        !isPressed -> MaterialTheme.colorScheme.secondaryContainer
+        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    }
+    val contentColor = when {
+        !isPressed -> MaterialTheme.colorScheme.onSecondaryContainer
+        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
+    val gestureModifier = if (!showMultiplierButtons && enabled) {
+        modifier
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    onScoreSelect(25, Multiplier.SINGLE)
+                }
+            }
+            .pointerInput(Unit) {
+                val swipeThresholdPx = SWIPE_THRESHOLD_DP * density
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        dragStartY = offset.y
+                        currentDragY = offset.y
+                        isPressed = true
+                        onSwipeChange(null)
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        currentDragY = change.position.y
+                        val startY = dragStartY ?: return@detectDragGestures
+                        val deltaY = change.position.y - startY
+                        // Both up and down show DOUBLE indicator for bull
+                        val multiplier = if (abs(deltaY) > swipeThresholdPx) {
+                            Multiplier.DOUBLE
+                        } else {
+                            null
+                        }
+                        onSwipeChange(multiplier)
+                    },
+                    onDragEnd = {
+                        val startY = dragStartY
+                        val endY = currentDragY
+                        if (startY != null && endY != null) {
+                            val deltaY = endY - startY
+                            // Both up and down result in DOUBLE for bull
+                            val multiplier = if (abs(deltaY) > swipeThresholdPx) {
+                                Multiplier.DOUBLE
+                            } else {
+                                Multiplier.SINGLE
+                            }
+                            onScoreSelect(25, multiplier)
+                        }
+                        dragStartY = null
+                        currentDragY = null
+                        isPressed = false
+                        onSwipeChange(null)
+                    },
+                    onDragCancel = {
+                        dragStartY = null
+                        currentDragY = null
+                        isPressed = false
+                        onSwipeChange(null)
+                    },
+                )
+            }
+    } else {
+        modifier
+    }
+
+    FilledTonalButton(
+        onClick = {
+            // Clamp to SINGLE or DOUBLE only for bull
+            val multiplier = if (selectedMultiplier == Multiplier.TRIPLE) Multiplier.DOUBLE else selectedMultiplier
+            onScoreSelect(25, multiplier)
+        },
+        enabled = enabled && showMultiplierButtons,
+        modifier = gestureModifier.fillMaxWidth().height(44.dp),
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(2.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = containerColor,
+            disabledContentColor = contentColor,
+        ),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = displayText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = subtitleText,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }
