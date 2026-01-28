@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -26,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -188,6 +190,8 @@ fun ActiveGameContent(
                     currentThrows = state.currentTurnThrows,
                     selectedMultiplier = state.selectedMultiplier,
                     lastThrowResult = state.lastThrowResult,
+                    canUndo = state.canUndo,
+                    onUndo = onUndo,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp),
@@ -208,12 +212,10 @@ fun ActiveGameContent(
                     RadialDartboard(
                         selectedMultiplier = state.selectedMultiplier,
                         canThrow = state.canThrow,
-                        canUndo = state.canUndo,
                         showMultiplierButtons = settings.showMultiplierButtons,
                         onMultiplierChange = onMultiplierChange,
                         onScoreSelect = onScoreSelect,
                         onMiss = onMiss,
-                        onUndo = onUndo,
                         onEndTurn = onEndTurn,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -221,12 +223,10 @@ fun ActiveGameContent(
                     ScoreInputKeypad(
                         selectedMultiplier = state.selectedMultiplier,
                         canThrow = state.canThrow,
-                        canUndo = state.canUndo,
                         showMultiplierButtons = settings.showMultiplierButtons,
                         onMultiplierChange = onMultiplierChange,
                         onScoreSelect = onScoreSelect,
                         onMiss = onMiss,
-                        onUndo = onUndo,
                         onEndTurn = onEndTurn,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -318,6 +318,8 @@ fun CurrentTurnDisplay(
     currentThrows: List<Throw>,
     selectedMultiplier: Multiplier,
     lastThrowResult: ThrowResult?,
+    canUndo: Boolean,
+    onUndo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -377,6 +379,23 @@ fun CurrentTurnDisplay(
                         fontWeight = FontWeight.Bold,
                     )
                 }
+            }
+
+            // Undo button
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onUndo,
+                enabled = canUndo,
+                modifier = Modifier.height(36.dp),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Undo")
             }
         }
     }

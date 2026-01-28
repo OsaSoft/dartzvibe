@@ -7,19 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -43,12 +37,10 @@ private const val SWIPE_THRESHOLD_DP = 30f
 fun ScoreInputKeypad(
     selectedMultiplier: Multiplier,
     canThrow: Boolean,
-    canUndo: Boolean,
     showMultiplierButtons: Boolean,
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
-    onUndo: () -> Unit,
     onEndTurn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -125,7 +117,7 @@ fun ScoreInputKeypad(
                 onSwipeChange = { activeSwipeMultiplier = it },
             )
 
-            // Action row: Miss, Undo, End Turn
+            // Action row: Miss, End Turn
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -138,18 +130,6 @@ fun ScoreInputKeypad(
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Text("Miss")
-                }
-
-                // Undo button
-                OutlinedButton(
-                    onClick = onUndo,
-                    enabled = canUndo,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Undo")
                 }
 
                 // End Turn button

@@ -10,21 +10,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -75,12 +70,10 @@ private enum class SwipeDirection { UP, DOWN }
 fun RadialDartboard(
     selectedMultiplier: Multiplier,
     canThrow: Boolean,
-    canUndo: Boolean,
     showMultiplierButtons: Boolean,
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
-    onUndo: () -> Unit,
     onEndTurn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -267,29 +260,13 @@ fun RadialDartboard(
             }
         }
 
-        // Action row: Undo, End Turn
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // Action row: End Turn
+        FilledTonalButton(
+            onClick = onEndTurn,
+            modifier = Modifier.fillMaxWidth().height(40.dp),
+            shape = RoundedCornerShape(8.dp),
         ) {
-            OutlinedButton(
-                onClick = onUndo,
-                enabled = canUndo,
-                modifier = Modifier.weight(1f).height(40.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Undo")
-            }
-
-            FilledTonalButton(
-                onClick = onEndTurn,
-                modifier = Modifier.weight(1f).height(40.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text("End Turn")
-            }
+            Text("End Turn")
         }
 
         // Swipe hint (only when multiplier buttons are hidden)
