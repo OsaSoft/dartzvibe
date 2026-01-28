@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -251,22 +252,26 @@ fun RadialDartboard(
                 multiplier = indicatorMultiplier,
                 modifier = Modifier.align(Alignment.Center),
             )
+
+            // Round Miss button in top-left corner
+            OutlinedButton(
+                onClick = onMiss,
+                enabled = canThrow,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(48.dp),
+                shape = CircleShape,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text("Miss", style = MaterialTheme.typography.labelSmall)
+            }
         }
 
-        // Action row: Miss, Undo, End Turn
+        // Action row: Undo, End Turn
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedButton(
-                onClick = onMiss,
-                enabled = canThrow,
-                modifier = Modifier.weight(1f).height(40.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text("Miss")
-            }
-
             OutlinedButton(
                 onClick = onUndo,
                 enabled = canUndo,
