@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -293,13 +294,14 @@ fun PlayerScoresRow(
     ) {
         playerIds.forEach { playerId ->
             val player = state.getPlayer(playerId)
+            val isCurrentPlayer = playerId == state.currentPlayerId
             if (player != null) {
                 PlayerScoreCard(
                     player = player,
-                    score = state.getPlayerScore(playerId),
+                    score = if (isCurrentPlayer) state.currentPlayerScore else state.getPlayerScore(playerId),
                     legsWon = state.getLegsWon(playerId),
                     legsToWin = legsToWin,
-                    isCurrentPlayer = playerId == state.currentPlayerId,
+                    isCurrentPlayer = isCurrentPlayer,
                     lastTurnScore = state.getLastTurnScore(playerId),
                     modifier = Modifier.weight(1f),
                 )
@@ -338,50 +340,41 @@ fun CurrentTurnDisplay(
             Spacer(modifier = Modifier.height(4.dp))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Show existing throws
-                currentThrows.forEachIndexed { index, throwObj ->
+                // Throw boxes
+                currentThrows.forEach { throwObj ->
                     ThrowDisplay(throwObj)
                 }
 
-                // Show placeholder for remaining throws
+                // Placeholder for remaining throws
                 repeat(3 - currentThrows.size) {
                     ThrowPlaceholder()
                 }
-            }
 
-            // Show last throw result
-            lastThrowResult?.let { result ->
-                Spacer(modifier = Modifier.height(4.dp))
-                val resultText = when (result) {
-                    is ThrowResult.Success -> "Score: ${result.newScore}"
-                    is ThrowResult.Bust -> "BUST: ${result.reason}"
-                    is ThrowResult.Checkout -> "CHECKOUT!"
+                // Turn total or status (BUST/OUT!)
+                if (currentThrows.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    val isBust = lastThrowResult is ThrowResult.Bust
+                    val isCheckout = lastThrowResult is ThrowResult.Checkout
+                    val displayText = when {
+                        isBust -> "BUST"
+                        isCheckout -> "OUT!"
+                        else -> "${currentThrows.sumOf { it.score }}"
+                    }
+                    val displayColor = when {
+                        isBust -> MaterialTheme.colorScheme.error
+                        isCheckout -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Text(
+                        text = displayText,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = displayColor,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
-                val resultColor = when (result) {
-                    is ThrowResult.Success -> MaterialTheme.colorScheme.onSurfaceVariant
-                    is ThrowResult.Bust -> MaterialTheme.colorScheme.error
-                    is ThrowResult.Checkout -> MaterialTheme.colorScheme.primary
-                }
-                Text(
-                    text = resultText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = resultColor,
-                    fontWeight = if (result is ThrowResult.Checkout) FontWeight.Bold else FontWeight.Normal,
-                )
-            }
-
-            // Turn total
-            if (currentThrows.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                val total = currentThrows.sumOf { it.score }
-                Text(
-                    text = "Turn total: $total",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
             }
         }
     }
@@ -398,14 +391,14 @@ fun ThrowDisplay(throwObj: Throw) {
 
     Box(
         modifier = Modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .size(36.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = displayText,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimary,
             fontWeight = FontWeight.Bold,
         )
@@ -417,14 +410,14 @@ fun ThrowDisplay(throwObj: Throw) {
 fun ThrowPlaceholder() {
     Box(
         modifier = Modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .size(36.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = "-",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.outline,
         )
     }
