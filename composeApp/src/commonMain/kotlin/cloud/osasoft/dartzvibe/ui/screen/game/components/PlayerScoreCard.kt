@@ -123,15 +123,17 @@ fun PlayerScoreCard(
                 )
             }
 
-            // Last turn score (if available)
-            lastTurnScore?.let { turnScore ->
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Last: -$turnScore",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-            }
+            // Last turn score (always reserve space for consistent card height)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = lastTurnScore?.let { "Last: -$it" } ?: "Last: -",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (lastTurnScore != null) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    Color.Transparent
+                },
+            )
         }
     }
 }
