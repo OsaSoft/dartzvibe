@@ -46,19 +46,20 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalGameRepository
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
-class LeaderboardScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-) : Screen {
+class LeaderboardScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val screenModel = rememberLeaderboardScreenModel(playerRepository, gameRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow

@@ -51,21 +51,19 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.Player
-import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
-class PlayerListScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-) : Screen {
+class PlayerListScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
         val screenModel = rememberPlayerListScreenModel(playerRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
@@ -73,14 +71,14 @@ class PlayerListScreen(
         PlayerListContent(
             state = state,
             onBack = { navigator.pop() },
-            onAddPlayer = { navigator.push(AddEditPlayerScreen(playerRepository = playerRepository)) },
+            onAddPlayer = { navigator.push(AddEditPlayerScreen()) },
             onEditPlayer = { player ->
-                navigator.push(AddEditPlayerScreen(playerRepository = playerRepository, playerId = player.id))
+                navigator.push(AddEditPlayerScreen(playerId = player.id))
             },
             onDeletePlayer = { screenModel.showDeleteConfirmation(it) },
             onConfirmDelete = { screenModel.confirmDeletePlayer() },
             onDismissDelete = { screenModel.dismissDeleteConfirmation() },
-            onNewGame = { navigator.push(NewGameScreen(playerRepository, gameRepository)) },
+            onNewGame = { navigator.push(NewGameScreen()) },
         )
     }
 }

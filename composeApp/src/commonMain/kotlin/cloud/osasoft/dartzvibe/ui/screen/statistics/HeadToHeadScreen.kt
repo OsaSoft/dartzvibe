@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalGameRepository
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
 import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.H2HGameSummary
@@ -70,13 +72,12 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-class HeadToHeadScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-) : Screen {
+class HeadToHeadScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val screenModel = rememberHeadToHeadScreenModel(playerRepository, gameRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow

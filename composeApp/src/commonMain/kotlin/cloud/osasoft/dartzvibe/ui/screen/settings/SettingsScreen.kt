@@ -32,15 +32,15 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 
-class SettingsScreen(
-    private val appSettingsRepository: AppSettingsRepository,
-) : Screen {
+class SettingsScreen : Screen {
 
     @Composable
     override fun Content() {
+        val appSettingsRepository = LocalAppSettingsRepository.current
         val screenModel = rememberSettingsScreenModel(appSettingsRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow

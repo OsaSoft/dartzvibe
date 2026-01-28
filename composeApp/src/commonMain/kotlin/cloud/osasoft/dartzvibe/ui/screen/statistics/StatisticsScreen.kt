@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalGameRepository
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
 import cloud.osasoft.dartzvibe.data.model.GameReference
 import cloud.osasoft.dartzvibe.data.model.GameType
@@ -62,13 +64,12 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-class StatisticsScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-) : Screen {
+class StatisticsScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val screenModel = rememberStatisticsScreenModel(playerRepository, gameRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow

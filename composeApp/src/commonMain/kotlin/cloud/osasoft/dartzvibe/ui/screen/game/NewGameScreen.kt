@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalGameRepository
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -65,13 +67,12 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
-class NewGameScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-) : Screen {
+class NewGameScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val screenModel = rememberNewGameScreenModel(playerRepository, gameRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
@@ -79,7 +80,7 @@ class NewGameScreen(
         // Navigate to active game when session is created
         LaunchedEffect(state.createdSession) {
             state.createdSession?.let { session ->
-                navigator.replace(ActiveGameScreen(gameRepository, session.id))
+                navigator.replace(ActiveGameScreen(session.id))
             }
         }
 

@@ -8,18 +8,27 @@ import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.GameRepositoryImpl
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepositoryImpl
 
-@Suppress("ktlint:standard:function-naming")
+private object IosAppDependencies {
+    private val database: DartzVibeDatabase by lazy {
+        val driverFactory = DatabaseDriverFactory()
+        DartzVibeDatabase(driverFactory.createDriver())
+    }
+
+    private val settings by lazy {
+        val settingsFactory = SettingsFactory()
+        settingsFactory.createSettings()
+    }
+
+    val playerRepository by lazy { PlayerRepositoryImpl(database) }
+    val gameRepository by lazy { GameRepositoryImpl(database) }
+    val appSettingsRepository by lazy { AppSettingsRepositoryImpl(settings) }
+}
+
+@Suppress("ktlint:standard:function-naming", "unused")
 fun MainViewController() = ComposeUIViewController {
-    val driverFactory = DatabaseDriverFactory()
-    val database = DartzVibeDatabase(driverFactory.createDriver())
-    val settingsFactory = SettingsFactory()
-    val settings = settingsFactory.createSettings()
-    val playerRepository = PlayerRepositoryImpl(database)
-    val gameRepository = GameRepositoryImpl(database)
-    val appSettingsRepository = AppSettingsRepositoryImpl(settings)
     App(
-        playerRepository = playerRepository,
-        gameRepository = gameRepository,
-        appSettingsRepository = appSettingsRepository,
+        playerRepository = IosAppDependencies.playerRepository,
+        gameRepository = IosAppDependencies.gameRepository,
+        appSettingsRepository = IosAppDependencies.appSettingsRepository,
     )
 }

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
@@ -51,12 +52,12 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class AddEditPlayerScreen(
-    private val playerRepository: PlayerRepository,
     private val playerId: Uuid? = null,
 ) : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
         val screenModel = rememberAddEditPlayerScreenModel(playerRepository, playerId)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow

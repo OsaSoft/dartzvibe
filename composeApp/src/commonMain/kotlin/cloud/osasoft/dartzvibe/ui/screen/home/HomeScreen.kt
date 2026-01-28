@@ -40,7 +40,8 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
+import cloud.osasoft.dartzvibe.LocalGameRepository
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
@@ -53,14 +54,12 @@ import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
-class HomeScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-    private val appSettingsRepository: AppSettingsRepository,
-) : Screen {
+class HomeScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val screenModel = rememberHomeScreenModel(playerRepository, gameRepository)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
@@ -68,28 +67,28 @@ class HomeScreen(
         HomeScreenContent(
             state = state,
             onNewGame = {
-                navigator.push(NewGameScreen(playerRepository, gameRepository))
+                navigator.push(NewGameScreen())
             },
             onResumeGame = { sessionId ->
-                navigator.push(ActiveGameScreen(gameRepository, sessionId))
+                navigator.push(ActiveGameScreen(sessionId))
             },
             onViewGames = {
-                navigator.push(GamesListScreen(playerRepository, gameRepository))
+                navigator.push(GamesListScreen())
             },
             onViewStatistics = {
-                navigator.push(StatisticsScreen(playerRepository, gameRepository))
+                navigator.push(StatisticsScreen())
             },
             onViewHeadToHead = {
-                navigator.push(HeadToHeadScreen(playerRepository, gameRepository))
+                navigator.push(HeadToHeadScreen())
             },
             onViewLeaderboard = {
-                navigator.push(LeaderboardScreen(playerRepository, gameRepository))
+                navigator.push(LeaderboardScreen())
             },
             onManagePlayers = {
-                navigator.push(PlayerListScreen(playerRepository, gameRepository))
+                navigator.push(PlayerListScreen())
             },
             onSettings = {
-                navigator.push(SettingsScreen(appSettingsRepository))
+                navigator.push(SettingsScreen())
             },
         )
     }

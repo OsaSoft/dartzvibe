@@ -45,6 +45,8 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cloud.osasoft.dartzvibe.LocalGameRepository
+import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Player
@@ -136,13 +138,12 @@ class GamesListScreenModel(
 }
 
 @OptIn(ExperimentalUuidApi::class)
-class GamesListScreen(
-    private val playerRepository: PlayerRepository,
-    private val gameRepository: GameRepository,
-) : Screen {
+class GamesListScreen : Screen {
 
     @Composable
     override fun Content() {
+        val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val screenModel = remember { GamesListScreenModel(playerRepository, gameRepository) }
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
@@ -152,15 +153,13 @@ class GamesListScreen(
             onGameClick = { session ->
                 when (session.status) {
                     GameStatus.IN_PROGRESS -> {
-                        navigator.push(ActiveGameScreen(gameRepository, session.id))
+                        navigator.push(ActiveGameScreen(session.id))
                     }
 
                     GameStatus.COMPLETED,
                     GameStatus.ABANDONED,
                     -> {
-                        navigator.push(
-                            GameDetailScreen(playerRepository, gameRepository, session.id),
-                        )
+                        navigator.push(GameDetailScreen(session.id))
                     }
                 }
             },

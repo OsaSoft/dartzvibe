@@ -44,6 +44,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
+import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
 import cloud.osasoft.dartzvibe.data.model.Multiplier
@@ -60,13 +61,13 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class ActiveGameScreen(
-    private val gameRepository: GameRepository,
     private val sessionId: Uuid,
 ) : Screen {
 
     @Composable
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
+        val gameRepository = LocalGameRepository.current
         val appSettingsRepository = LocalAppSettingsRepository.current
         val screenModel = rememberActiveGameScreenModel(gameRepository, playerRepository, sessionId)
         val state by screenModel.state.collectAsState()
