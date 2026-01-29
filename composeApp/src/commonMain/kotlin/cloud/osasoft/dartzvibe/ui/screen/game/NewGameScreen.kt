@@ -244,45 +244,35 @@ fun GameTypeSection(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (selectedMode == GameMode.CRICKET) {
-                    // Cricket mode shows "Regular" chip only
+                selectedMode.supportedTypes.forEach { type ->
                     FilterChip(
-                        selected = true,
-                        onClick = { },
-                        label = { Text("Regular") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        selected = selectedType == type,
+                        onClick = { onTypeChange(type) },
+                        label = { Text(type.displayName) },
+                        leadingIcon = if (selectedType == type) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        } else {
+                            null
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                     )
-                } else {
-                    // Classic/Parcheesi modes show 501/301 options
-                    GameType.entries.forEach { type ->
-                        FilterChip(
-                            selected = selectedType == type,
-                            onClick = { onTypeChange(type) },
-                            label = { Text(type.displayName) },
-                            leadingIcon = if (selectedType == type) {
-                                {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
-                        )
-                    }
                 }
+            }
+            selectedType.description?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -358,7 +348,7 @@ fun GameModeSection(
                     "Count up to $targetScore. Match another player's score to knock them back to 0!"
 
                 GameMode.CRICKET ->
-                    "Close 15-20 and Bull. Score points on closed numbers!"
+                    "Close segments and score points on closed numbers!"
             }
             Text(
                 text = modeDescription,

@@ -564,6 +564,48 @@ class CricketGameEngineTest : FreeSpec({
         }
     }
 
+    "Random Cricket" - {
+        "Should use random segments when configured" {
+            // GIVEN a random cricket config
+            val randomSegments = CricketSegments.random()
+            val engine = createCricketEngine(cricketSegments = randomSegments)
+
+            // THEN the engine uses those segments
+            engine.getCricketState()!!.segments shouldBe randomSegments
+        }
+
+        "Should only mark configured random segments" {
+            // GIVEN random segments that DON'T include 20
+            val segmentsWithout20 = CricketSegments(listOf(19, 18, 17, 16, 15, 14, 25))
+            val engine = createCricketEngine(cricketSegments = segmentsWithout20)
+
+            // WHEN hitting segment 20
+            val (newEngine, result) = engine.addThrow(20, Multiplier.TRIPLE)
+
+            // THEN no marks are added (20 is not a target)
+            result.shouldBeInstanceOf<ThrowResult.CricketMarks>()
+            (result as ThrowResult.CricketMarks).marksAdded shouldBe 0
+            newEngine.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 0
+        }
+
+        "Random segments should generate 7 unique segments" {
+            // WHEN generating random segments
+            val segments = CricketSegments.random()
+
+            // THEN 7 unique segments are generated
+            segments.segments shouldHaveSize 7
+            segments.segments.toSet().size shouldBe 7
+        }
+
+        "Random segments should be sorted descending" {
+            // WHEN generating random segments
+            val segments = CricketSegments.random()
+
+            // THEN segments are sorted descending
+            segments.segments shouldBe segments.segments.sortedDescending()
+        }
+    }
+
     "Match winning" - {
         "Should win match with Cricket" {
             // GIVEN a Cricket game (1 leg to win)

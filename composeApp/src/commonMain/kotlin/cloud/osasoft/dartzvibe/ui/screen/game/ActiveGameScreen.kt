@@ -54,6 +54,7 @@ import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -224,6 +225,7 @@ fun ActiveGameContent(
                     lastThrowResult = state.lastThrowResult,
                     canUndo = state.canUndo,
                     onUndo = onUndo,
+                    isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp),
@@ -411,6 +413,7 @@ fun CurrentTurnDisplay(
     lastThrowResult: ThrowResult?,
     canUndo: Boolean,
     onUndo: () -> Unit,
+    isCricket: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -466,7 +469,7 @@ fun CurrentTurnDisplay(
                         isCricketWin -> "WIN!"
 
                         isCricketMarks -> {
-                            val cricketResult = lastThrowResult as ThrowResult.CricketMarks
+                            val cricketResult = lastThrowResult
                             if (cricketResult.pointsScored > 0) {
                                 "+${cricketResult.pointsScored}"
                             } else if (cricketResult.marksAdded > 0) {
@@ -476,7 +479,7 @@ fun CurrentTurnDisplay(
                             }
                         }
 
-                        else -> "${currentThrows.sumOf { it.score }}"
+                        else -> if (isCricket) "-" else "${currentThrows.sumOf { it.score }}"
                     }
                     val displayColor = when {
                         isBust -> MaterialTheme.colorScheme.error
@@ -487,7 +490,7 @@ fun CurrentTurnDisplay(
 
                         isCricketWin -> MaterialTheme.colorScheme.primary
 
-                        isCricketMarks && (lastThrowResult as ThrowResult.CricketMarks).pointsScored > 0 ->
+                        isCricketMarks && lastThrowResult.pointsScored > 0 ->
                             MaterialTheme.colorScheme.primary
 
                         else -> MaterialTheme.colorScheme.onSurfaceVariant

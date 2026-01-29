@@ -79,7 +79,14 @@ class NewGameScreenModel(
     }
 
     fun setGameMode(gameMode: GameMode) {
-        _state.update { it.copy(gameMode = gameMode) }
+        _state.update { state ->
+            val newType = if (state.gameType in gameMode.supportedTypes) {
+                state.gameType
+            } else {
+                gameMode.supportedTypes.first()
+            }
+            state.copy(gameMode = gameMode, gameType = newType)
+        }
     }
 
     fun setDoubleIn(enabled: Boolean) {
@@ -142,10 +149,10 @@ class NewGameScreenModel(
         _state.update { it.copy(isSaving = true, error = null) }
         screenModelScope.launch {
             try {
-                val cricketSegments = if (currentState.gameMode == GameMode.CRICKET) {
-                    CricketSegments.standard()
-                } else {
-                    null
+                val cricketSegments = when (currentState.gameType) {
+                    GameType.CRICKET_REGULAR -> CricketSegments.standard()
+                    GameType.CRICKET_RANDOM -> CricketSegments.random()
+                    else -> null
                 }
                 val config = GameConfig(
                     gameType = currentState.gameType,

@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
+import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.GameConfig
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
@@ -17,7 +18,6 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import me.tatarka.inject.annotations.Inject
 import kotlin.uuid.ExperimentalUuidApi
@@ -120,6 +120,7 @@ class GameRepositoryImpl(
                 startedAt = session.startedAt,
                 finishedAt = session.finishedAt,
                 winnerId = session.winnerId?.toString(),
+                cricketSegments = config.cricketSegments?.let { json.encodeToString(it) },
             )
         }
         return session
@@ -159,6 +160,7 @@ class GameRepositoryImpl(
                 doubleOut = doubleOut != 0L,
                 playerIds = playerIdList,
                 legsToWin = legsToWin.toInt(),
+                cricketSegments = cricketSegments?.let { json.decodeFromString<CricketSegments>(it) },
             ),
             legs = legsList,
             currentLegIndex = currentLegIndex.toInt(),

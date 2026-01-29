@@ -1,0 +1,2 @@
+-- Migration 3: Add cricketSegments column for Random Cricket support
+ALTER TABLE GameSession ADD COLUMN cricketSegments TEXT;

@@ -7,18 +7,38 @@ import kotlin.uuid.Uuid
 /**
  * Type of darts game.
  */
-enum class GameType(val displayName: String, val startingScore: Int) {
-    CLASSIC_501("501", 501),
-    CLASSIC_301("301", 301),
+enum class GameType(
+    val displayName: String,
+    val description: String? = null,
+    val startingScore: Int,
+) {
+    CLASSIC_501(
+        displayName = "501",
+        startingScore = 501,
+    ),
+    CLASSIC_301(
+        displayName = "301",
+        startingScore = 301,
+    ),
+    CRICKET_REGULAR(
+        displayName = "Regular",
+        description = "Standard Cricket with segments 15-20 and bull",
+        startingScore = 0,
+    ),
+    CRICKET_RANDOM(
+        displayName = "Random",
+        description = "Cricket with 7 random segments",
+        startingScore = 0,
+    ),
 }
 
 /**
  * Game mode variant.
  */
-enum class GameMode(val displayName: String) {
-    CLASSIC("Classic"), // Count-down (traditional X01)
-    PARCHEESI("Parcheesi"), // Count-up with knockout mechanics
-    CRICKET("Cricket"), // Close segments 15-20 and bull, score points
+enum class GameMode(val displayName: String, val supportedTypes: List<GameType>) {
+    CLASSIC("Classic", listOf(GameType.CLASSIC_501, GameType.CLASSIC_301)),
+    PARCHEESI("Parcheesi", listOf(GameType.CLASSIC_501, GameType.CLASSIC_301)),
+    CRICKET("Cricket", listOf(GameType.CRICKET_REGULAR, GameType.CRICKET_RANDOM)),
 }
 
 /**
@@ -125,11 +145,9 @@ data class GameConfig(
     val displayDescription: String
         get() = buildString {
             append(gameMode.displayName)
-            if (gameMode != GameMode.CRICKET) {
-                append(" ")
-                append(gameType.displayName)
-            }
-            if (gameMode != GameMode.CRICKET) {
+            append(" ")
+            append(gameType.displayName)
+            if (gameMode in listOf(GameMode.CLASSIC, GameMode.PARCHEESI)) {
                 if (doubleIn) append(" Double-In")
                 if (doubleOut) append(" Double-Out")
             }

@@ -384,7 +384,7 @@ class GameEngine private constructor(
         )
     }
 
-    private fun undoLastThrowCricket(): GameEngine? {
+    private fun undoLastThrowCricket(): GameEngine {
         val newThrows = currentTurnThrows.dropLast(1)
 
         // Recalculate cricket state by replaying remaining throws
