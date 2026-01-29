@@ -256,16 +256,16 @@ fun RadialDartboard(
             ) {
                 Text("Miss", style = MaterialTheme.typography.labelSmall)
             }
-        }
 
-        // Swipe hint (only when multiplier buttons are hidden)
-        if (!showMultiplierButtons) {
-            Text(
-                text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
+            // Swipe hint (only when multiplier buttons are hidden)
+            if (!showMultiplierButtons) {
+                Text(
+                    text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
         }
     }
 }

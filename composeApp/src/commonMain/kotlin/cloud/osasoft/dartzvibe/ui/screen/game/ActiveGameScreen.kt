@@ -38,7 +38,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -128,6 +130,8 @@ fun ActiveGameContent(
     onSettings: () -> Unit,
     onBack: () -> Unit,
 ) {
+    var showAbandonConfirmDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -149,7 +153,7 @@ fun ActiveGameContent(
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
-                    IconButton(onClick = onAbandonGame) {
+                    IconButton(onClick = { showAbandonConfirmDialog = true }) {
                         Icon(Icons.Default.Close, contentDescription = "Abandon game")
                     }
                 },
@@ -292,6 +296,30 @@ fun ActiveGameContent(
             confirmButton = {
                 TextButton(onClick = onDismissGameComplete) {
                     Text("Finish")
+                }
+            },
+        )
+    }
+
+    // Abandon game confirmation dialog
+    if (showAbandonConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showAbandonConfirmDialog = false },
+            title = { Text("Abandon Game") },
+            text = { Text("Are you sure you want to abandon this game? It cannot be resumed.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAbandonConfirmDialog = false
+                        onAbandonGame()
+                    },
+                ) {
+                    Text("Yes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAbandonConfirmDialog = false }) {
+                    Text("No")
                 }
             },
         )
