@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import cloud.osasoft.dartzvibe.data.local.DartzVibeDatabase
 import cloud.osasoft.dartzvibe.data.model.GameConfig
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.GameType
@@ -108,6 +109,7 @@ class GameRepositoryImpl(
             queries.insert(
                 id = session.id.toString(),
                 gameType = session.config.gameType.name,
+                gameMode = session.config.gameMode.name,
                 doubleIn = if (session.config.doubleIn) 1L else 0L,
                 doubleOut = if (session.config.doubleOut) 1L else 0L,
                 playerIds = session.config.playerIds.joinToString(",") { it.toString() },
@@ -152,6 +154,7 @@ class GameRepositoryImpl(
             id = Uuid.parse(id),
             config = GameConfig(
                 gameType = GameType.valueOf(gameType),
+                gameMode = GameMode.valueOf(gameMode),
                 doubleIn = doubleIn != 0L,
                 doubleOut = doubleOut != 0L,
                 playerIds = playerIdList,

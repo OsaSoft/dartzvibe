@@ -37,6 +37,8 @@ fun PlayerScoreCard(
     legsToWin: Int,
     isCurrentPlayer: Boolean,
     lastTurnScore: Int? = null,
+    isCountUp: Boolean = false,
+    targetScore: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -100,16 +102,41 @@ fun PlayerScoreCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Current score
-            Text(
-                text = "$score",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (isCurrentPlayer) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
+            if (isCountUp && targetScore != null) {
+                // Parcheesi mode: show "125 / 301"
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = "$score",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCurrentPlayer) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Text(
+                        text = " / $targetScore",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                }
+            } else {
+                // Classic mode: show just the score
+                Text(
+                    text = "$score",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCurrentPlayer) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
 
             // Legs won indicator
             Row(
@@ -125,8 +152,9 @@ fun PlayerScoreCard(
 
             // Last turn score (always reserve space for consistent card height)
             Spacer(modifier = Modifier.height(4.dp))
+            val lastTurnPrefix = if (isCountUp) "+" else "-"
             Text(
-                text = lastTurnScore?.let { "Last: -$it" } ?: "Last: -",
+                text = lastTurnScore?.let { "Last: $lastTurnPrefix$it" } ?: "Last: -",
                 style = MaterialTheme.typography.labelSmall,
                 color = if (lastTurnScore != null) {
                     MaterialTheme.colorScheme.onSurfaceVariant

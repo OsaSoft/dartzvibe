@@ -58,6 +58,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -87,6 +88,7 @@ class NewGameScreen : Screen {
         NewGameContent(
             state = state,
             onGameTypeChange = screenModel::setGameType,
+            onGameModeChange = screenModel::setGameMode,
             onDoubleInChange = screenModel::setDoubleIn,
             onDoubleOutChange = screenModel::setDoubleOut,
             onLegsToWinChange = screenModel::setLegsToWin,
@@ -112,6 +114,7 @@ fun rememberNewGameScreenModel(
 fun NewGameContent(
     state: NewGameState,
     onGameTypeChange: (GameType) -> Unit,
+    onGameModeChange: (GameMode) -> Unit,
     onDoubleInChange: (Boolean) -> Unit,
     onDoubleOutChange: (Boolean) -> Unit,
     onLegsToWinChange: (Int) -> Unit,
@@ -157,6 +160,13 @@ fun NewGameContent(
                 GameTypeSection(
                     selectedType = state.gameType,
                     onTypeChange = onGameTypeChange,
+                )
+
+                // Game Mode Selection
+                GameModeSection(
+                    selectedMode = state.gameMode,
+                    targetScore = state.gameType.startingScore,
+                    onModeChange = onGameModeChange,
                 )
 
                 // Game Options
@@ -248,6 +258,70 @@ fun GameTypeSection(
                     )
                 }
             }
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GameModeSection(
+    selectedMode: GameMode,
+    targetScore: Int,
+    onModeChange: (GameMode) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Game Mode",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                FilterChip(
+                    selected = selectedMode == GameMode.CLASSIC,
+                    onClick = { onModeChange(GameMode.CLASSIC) },
+                    label = { Text("Classic") },
+                    leadingIcon = if (selectedMode == GameMode.CLASSIC) {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    } else {
+                        null
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+                FilterChip(
+                    selected = selectedMode == GameMode.PARCHEESI,
+                    onClick = { onModeChange(GameMode.PARCHEESI) },
+                    label = { Text("Parcheesi") },
+                    leadingIcon = if (selectedMode == GameMode.PARCHEESI) {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    } else {
+                        null
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            val modeDescription = when (selectedMode) {
+                GameMode.CLASSIC -> "Count down from $targetScore to 0"
+
+                GameMode.PARCHEESI ->
+                    "Count up to $targetScore. Match another player's score to knock them back to 0!"
+            }
+            Text(
+                text = modeDescription,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

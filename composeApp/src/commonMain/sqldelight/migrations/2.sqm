@@ -1,0 +1,2 @@
+-- Migration 2: Add gameMode column for Parcheesi mode support
+ALTER TABLE GameSession ADD COLUMN gameMode TEXT NOT NULL DEFAULT 'CLASSIC';

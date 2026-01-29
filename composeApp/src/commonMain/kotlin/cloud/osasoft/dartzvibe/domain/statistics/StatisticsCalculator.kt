@@ -94,7 +94,7 @@ class StatisticsCalculator {
         for (game in games) {
             val gameRef = createGameReference(game, playerId, playerNameMap)
             for (leg in game.legs) {
-                leg.turns
+                leg.playerTurns
                     .filter { it.playerId == playerId }
                     .forEachIndexed { index, turn ->
                         add(TurnWithContext(turn = turn, legTurnIndex = index, gameRef = gameRef))
@@ -190,7 +190,7 @@ class StatisticsCalculator {
             for (leg in game.legs) {
                 if (leg.winnerId != playerId) continue
 
-                val playerTurns = leg.turns.filter { it.playerId == playerId }
+                val playerTurns = leg.playerTurns.filter { it.playerId == playerId }
                 val winningTurn = playerTurns.lastOrNull() ?: continue
 
                 if (!winningTurn.isBust) {
@@ -357,7 +357,7 @@ class StatisticsCalculator {
         var count140Plus = 0
 
         games.flatMap { it.legs }.forEach { leg ->
-            val playerTurns = leg.turns.filter { it.playerId == playerId }
+            val playerTurns = leg.playerTurns.filter { it.playerId == playerId }
             if (playerTurns.isNotEmpty()) {
                 legsPlayed++
                 if (leg.winnerId == playerId) {

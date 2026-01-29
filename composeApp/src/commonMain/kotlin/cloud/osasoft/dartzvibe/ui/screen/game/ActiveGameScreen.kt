@@ -95,6 +95,7 @@ class ActiveGameScreen(
                 screenModel.dismissGameCompleteDialog()
                 navigator.pop()
             },
+            onDismissKnockout = screenModel::dismissKnockoutDialog,
             onAbandonGame = {
                 screenModel.abandonGame()
                 navigator.pop()
@@ -126,6 +127,7 @@ fun ActiveGameContent(
     onEndTurn: () -> Unit,
     onDismissLegWon: () -> Unit,
     onDismissGameComplete: () -> Unit,
+    onDismissKnockout: () -> Unit,
     onAbandonGame: () -> Unit,
     onSettings: () -> Unit,
     onBack: () -> Unit,
@@ -324,6 +326,27 @@ fun ActiveGameContent(
             },
         )
     }
+
+    // Knockout dialog (Parcheesi mode)
+    if (state.showKnockoutDialog) {
+        val knockedOutNames = state.knockedOutPlayerIds.mapNotNull { state.getPlayer(it)?.name }
+        val knockedOutText = when (knockedOutNames.size) {
+            1 -> "${knockedOutNames.first()} was knocked back to 0!"
+            2 -> "${knockedOutNames[0]} and ${knockedOutNames[1]} were knocked back to 0!"
+            else -> knockedOutNames.joinToString(", ") + " were knocked back to 0!"
+        }
+
+        AlertDialog(
+            onDismissRequest = onDismissKnockout,
+            title = { Text("Knockout!") },
+            text = { Text(knockedOutText) },
+            confirmButton = {
+                TextButton(onClick = onDismissKnockout) {
+                    Text("Continue")
+                }
+            },
+        )
+    }
 }
 
 @Suppress("ktlint:standard:function-naming")
@@ -352,6 +375,8 @@ fun PlayerScoresRow(
                     legsToWin = legsToWin,
                     isCurrentPlayer = isCurrentPlayer,
                     lastTurnScore = state.getLastTurnScore(playerId),
+                    isCountUp = state.isCountUp,
+                    targetScore = if (state.isCountUp) state.targetScore else null,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -405,18 +430,21 @@ fun CurrentTurnDisplay(
                     ThrowPlaceholder()
                 }
 
-                // Turn total or status (BUST/OUT!)
+                // Turn total or status (BUST/BOUNCE/OUT!)
                 if (currentThrows.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(8.dp))
                     val isBust = lastThrowResult is ThrowResult.Bust
+                    val isBounce = lastThrowResult is ThrowResult.BounceBack
                     val isCheckout = lastThrowResult is ThrowResult.Checkout
                     val displayText = when {
                         isBust -> "BUST"
+                        isBounce -> "BOUNCE"
                         isCheckout -> "OUT!"
                         else -> "${currentThrows.sumOf { it.score }}"
                     }
                     val displayColor = when {
                         isBust -> MaterialTheme.colorScheme.error
+                        isBounce -> MaterialTheme.colorScheme.tertiary
                         isCheckout -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }

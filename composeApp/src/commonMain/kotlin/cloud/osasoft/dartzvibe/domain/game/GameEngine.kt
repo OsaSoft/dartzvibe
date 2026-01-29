@@ -21,6 +21,13 @@ sealed class ThrowResult {
     data class Bust(val reason: String) : ThrowResult()
 
     data class Checkout(val winnerId: Uuid) : ThrowResult()
+
+    data class BounceBack(val newScore: Int, val overshoot: Int) : ThrowResult()
+
+    data class SuccessWithKnockout(
+        val newScore: Int,
+        val knockedOutPlayerIds: List<Uuid>,
+    ) : ThrowResult()
 }
 
 /**
@@ -33,6 +40,11 @@ sealed class TurnResult {
     data class LegWon(val winnerId: Uuid, val matchContinues: Boolean) : TurnResult()
 
     data class MatchWon(val winnerId: Uuid) : TurnResult()
+
+    data class NextPlayerWithKnockout(
+        val playerId: Uuid,
+        val knockedOutPlayerIds: List<Uuid>,
+    ) : TurnResult()
 }
 
 /**
@@ -45,6 +57,7 @@ class GameEngine private constructor(
     private val currentTurnThrows: List<Throw> = emptyList(),
     private val pendingScore: Int? = null,
     private val isBusted: Boolean = false,
+    private val isBounced: Boolean = false,
 ) {
 
     companion object {
@@ -57,7 +70,7 @@ class GameEngine private constructor(
     fun getCurrentPlayerId(): Uuid {
         val currentLeg = session.currentLeg
         val playerCount = config.playerIds.size
-        val turnCount = currentLeg.turns.size
+        val turnCount = currentLeg.playerTurns.size
         return config.playerIds[turnCount % playerCount]
     }
 
@@ -73,13 +86,30 @@ class GameEngine private constructor(
 
     fun getLegsWon(playerId: Uuid): Int = session.legs.count { it.winnerId == playerId }
 
+    fun isTurnBusted(): Boolean = isBusted
+
+    fun isTurnBounced(): Boolean = isBounced
+
+    fun isTurnEnded(): Boolean = isBusted || isBounced
+
     fun addThrow(segment: Int, multiplier: Multiplier): Pair<GameEngine, ThrowResult> {
-        if (isBusted || currentTurnThrows.size >= 3) {
+        if (isBusted || isBounced || currentTurnThrows.size >= 3) {
             return this to ThrowResult.Bust("Turn already ended")
         }
 
         val throwObj = Throw(segment, multiplier)
         val currentScore = pendingScore ?: getPlayerScore(getCurrentPlayerId())
+
+        return when (config.gameMode) {
+            cloud.osasoft.dartzvibe.data.model.GameMode.CLASSIC ->
+                addThrowClassic(throwObj, currentScore)
+
+            cloud.osasoft.dartzvibe.data.model.GameMode.PARCHEESI ->
+                addThrowParcheesi(throwObj, currentScore)
+        }
+    }
+
+    private fun addThrowClassic(throwObj: Throw, currentScore: Int): Pair<GameEngine, ThrowResult> {
         val newScore = currentScore - throwObj.score
 
         // Check for bust conditions
@@ -108,6 +138,69 @@ class GameEngine private constructor(
             pendingScore = newScore,
         )
         return newEngine to ThrowResult.Success(newScore)
+    }
+
+    private fun addThrowParcheesi(throwObj: Throw, currentScore: Int): Pair<GameEngine, ThrowResult> {
+        val rawNewScore = currentScore + throwObj.score
+        val targetScore = config.targetScore
+
+        return when {
+            rawNewScore < targetScore -> {
+                // Check for knockouts at this score
+                val knockedOut = detectKnockouts(rawNewScore, getCurrentPlayerId())
+                if (knockedOut.isNotEmpty()) {
+                    // Apply knockouts to session immediately
+                    val updatedSession = applyKnockoutsToSession(knockedOut)
+                    val newEngine = GameEngine(
+                        updatedSession,
+                        currentTurnThrows + throwObj,
+                        rawNewScore,
+                        isBusted = false,
+                        isBounced = false,
+                    )
+                    newEngine to ThrowResult.SuccessWithKnockout(rawNewScore, knockedOut)
+                } else {
+                    // Normal success
+                    val newEngine = copy(
+                        currentTurnThrows = currentTurnThrows + throwObj,
+                        pendingScore = rawNewScore,
+                    )
+                    newEngine to ThrowResult.Success(rawNewScore)
+                }
+            }
+
+            rawNewScore == targetScore -> {
+                // Potential checkout
+                if (config.doubleOut && throwObj.multiplier != Multiplier.DOUBLE) {
+                    // Reached target without double - bounce back to target, turn ends
+                    val newEngine = copy(
+                        currentTurnThrows = currentTurnThrows + throwObj,
+                        pendingScore = targetScore,
+                        isBounced = true,
+                    )
+                    newEngine to ThrowResult.BounceBack(targetScore, 0)
+                } else {
+                    // Checkout!
+                    val newEngine = copy(
+                        currentTurnThrows = currentTurnThrows + throwObj,
+                        pendingScore = targetScore,
+                    )
+                    newEngine to ThrowResult.Checkout(getCurrentPlayerId())
+                }
+            }
+
+            else -> {
+                // Overshoot - bounce back
+                val overshoot = rawNewScore - targetScore
+                val bouncedScore = targetScore - overshoot
+                val newEngine = copy(
+                    currentTurnThrows = currentTurnThrows + throwObj,
+                    pendingScore = bouncedScore,
+                    isBounced = true,
+                )
+                newEngine to ThrowResult.BounceBack(bouncedScore, overshoot)
+            }
+        }
     }
 
     private fun checkBust(newScore: Int, lastThrow: Throw): ThrowResult.Bust? {
@@ -139,13 +232,18 @@ class GameEngine private constructor(
             getPlayerScore(getCurrentPlayerId())
         } else {
             val originalScore = getPlayerScore(getCurrentPlayerId())
-            originalScore - newThrows.sumOf { it.score }
+            if (config.isCountUp) {
+                originalScore + newThrows.sumOf { it.score }
+            } else {
+                originalScore - newThrows.sumOf { it.score }
+            }
         }
 
         return copy(
             currentTurnThrows = newThrows,
             pendingScore = if (newThrows.isEmpty()) null else newScore,
             isBusted = false,
+            isBounced = false,
         )
     }
 
@@ -160,15 +258,20 @@ class GameEngine private constructor(
             scoreBeforeTurn = scoreBeforeTurn,
             scoreAfterTurn = scoreAfterTurn,
             isBust = isBusted,
+            isBounce = isBounced,
         )
 
         val currentLeg = session.currentLeg
         val updatedLeg = currentLeg.copy(turns = currentLeg.turns + turn)
 
-        // Check if leg is won (score reached 0)
-        if (scoreAfterTurn == 0 && !isBusted) {
+        // Check if leg is won
+        val winScore = if (config.isCountUp) config.targetScore else 0
+        if (scoreAfterTurn == winScore && !isBusted && !isBounced) {
             return handleLegWon(updatedLeg, currentPlayerId)
         }
+
+        // Knockouts are now handled per-throw in addThrowParcheesi(),
+        // so we no longer check for them here.
 
         // Continue to next player
         val updatedLegs = session.legs.toMutableList()
@@ -178,6 +281,40 @@ class GameEngine private constructor(
         val newEngine = GameEngine(newSession)
 
         return newEngine to TurnResult.NextPlayer(newEngine.getCurrentPlayerId())
+    }
+
+    private fun detectKnockouts(newScore: Int, currentPlayerId: Uuid): List<Uuid> {
+        // Can't knock out at score 0
+        if (newScore == 0) return emptyList()
+
+        return config.playerIds
+            .filter { it != currentPlayerId }
+            .filter { getPlayerScore(it) == newScore }
+    }
+
+    private fun applyKnockoutsToSession(knockedOutPlayerIds: List<Uuid>): GameSession {
+        val currentLeg = session.currentLeg
+        val updatedLeg = applyKnockouts(currentLeg, knockedOutPlayerIds)
+        val updatedLegs = session.legs.toMutableList()
+        updatedLegs[session.currentLegIndex] = updatedLeg
+        return session.copy(legs = updatedLegs)
+    }
+
+    private fun applyKnockouts(leg: Leg, knockedOutPlayerIds: List<Uuid>): Leg {
+        // Create phantom turns to reset knocked out players to 0
+        val knockoutTurns = knockedOutPlayerIds.map { playerId ->
+            val playerScore = getPlayerScore(playerId)
+            Turn(
+                playerId = playerId,
+                throws = emptyList(),
+                scoreBeforeTurn = playerScore,
+                scoreAfterTurn = 0,
+                isBust = false,
+                isBounce = false,
+                isPhantom = true,
+            )
+        }
+        return leg.copy(turns = leg.turns + knockoutTurns)
     }
 
     private fun handleLegWon(completedLeg: Leg, winnerId: Uuid): Pair<GameEngine, TurnResult> {
@@ -215,7 +352,8 @@ class GameEngine private constructor(
         currentTurnThrows: List<Throw> = this.currentTurnThrows,
         pendingScore: Int? = this.pendingScore,
         isBusted: Boolean = this.isBusted,
-    ): GameEngine = GameEngine(session, currentTurnThrows, pendingScore, isBusted)
+        isBounced: Boolean = this.isBounced,
+    ): GameEngine = GameEngine(session, currentTurnThrows, pendingScore, isBusted, isBounced)
 
     fun hasFirstThrowWithDouble(): Boolean {
         if (!config.doubleIn) return true // No double-in requirement

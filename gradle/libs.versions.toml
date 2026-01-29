@@ -41,7 +41,7 @@ voyager = "1.1.0-beta03"
 ksp = "2.3.4"
 
 # SQLDelight for local database
-sqldelight = "2.0.2"
+sqldelight = "2.2.1"
 
 # Date/Time
 kotlinxDatetime = "0.6.1"

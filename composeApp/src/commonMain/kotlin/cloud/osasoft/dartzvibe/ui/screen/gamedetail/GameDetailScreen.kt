@@ -393,7 +393,7 @@ private fun LegSection(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "${leg.turns.size} turns",
+                        text = "${leg.playerTurns.size} turns",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -423,7 +423,7 @@ private fun LegSection(
                         .padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    leg.turns.forEach { turn ->
+                    leg.playerTurns.forEach { turn ->
                         TurnRow(
                             turn = turn,
                             playerName = players[turn.playerId]?.name ?: "Unknown",

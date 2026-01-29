@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.GameConfig
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Player
@@ -25,6 +26,7 @@ data class NewGameState(
     val availablePlayers: List<Player> = emptyList(),
     val selectedPlayerIds: List<Uuid> = emptyList(),
     val gameType: GameType = GameType.CLASSIC_501,
+    val gameMode: GameMode = GameMode.CLASSIC,
     val doubleIn: Boolean = false,
     val doubleOut: Boolean = true,
     val legsToWin: Int = 1,
@@ -73,6 +75,10 @@ class NewGameScreenModel(
 
     fun setGameType(gameType: GameType) {
         _state.update { it.copy(gameType = gameType) }
+    }
+
+    fun setGameMode(gameMode: GameMode) {
+        _state.update { it.copy(gameMode = gameMode) }
     }
 
     fun setDoubleIn(enabled: Boolean) {
@@ -137,6 +143,7 @@ class NewGameScreenModel(
             try {
                 val config = GameConfig(
                     gameType = currentState.gameType,
+                    gameMode = currentState.gameMode,
                     doubleIn = currentState.doubleIn,
                     doubleOut = currentState.doubleOut,
                     playerIds = currentState.selectedPlayerIds,

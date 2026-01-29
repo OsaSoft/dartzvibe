@@ -37,6 +37,8 @@ data class ActiveGameState(
     val error: String? = null,
     val showGameCompleteDialog: Boolean = false,
     val showLegWonDialog: Boolean = false,
+    val showKnockoutDialog: Boolean = false,
+    val knockedOutPlayerIds: List<Uuid> = emptyList(),
 ) {
     val currentPlayerId: Uuid?
         get() = engine?.getCurrentPlayerId()
@@ -48,7 +50,7 @@ data class ActiveGameState(
         get() = engine?.getCurrentTurnThrows() ?: emptyList()
 
     val currentTurnNumber: Int
-        get() = session?.currentLeg?.turns?.size?.let { it + 1 } ?: 1
+        get() = session?.currentLeg?.playerTurns?.size?.let { it + 1 } ?: 1
 
     val throwsRemaining: Int
         get() = 3 - currentTurnThrows.size
@@ -56,8 +58,14 @@ data class ActiveGameState(
     val isBusted: Boolean
         get() = lastThrowResult is ThrowResult.Bust
 
+    val isBounced: Boolean
+        get() = lastThrowResult is ThrowResult.BounceBack
+
+    val isTurnEnded: Boolean
+        get() = isBusted || isBounced
+
     val canThrow: Boolean
-        get() = throwsRemaining > 0 && !isBusted
+        get() = throwsRemaining > 0 && !isTurnEnded
 
     val canUndo: Boolean
         get() = currentTurnThrows.isNotEmpty()
@@ -65,12 +73,23 @@ data class ActiveGameState(
     val isGameComplete: Boolean
         get() = session?.status == GameStatus.COMPLETED
 
+    val isCountUp: Boolean
+        get() = session?.config?.isCountUp == true
+
+    val targetScore: Int
+        get() = session?.config?.targetScore ?: 501
+
     val checkoutOptions: List<CheckoutPath>?
         get() {
-            val score = currentPlayerScore
             val doubleOut = session?.config?.doubleOut ?: true
-            return if (score in 2..170) {
-                CheckoutCalculator.getCheckoutOptions(score, doubleOut)
+            // For Parcheesi, calculate remaining to target
+            val remaining = if (isCountUp) {
+                targetScore - currentPlayerScore
+            } else {
+                currentPlayerScore
+            }
+            return if (remaining in 2..170) {
+                CheckoutCalculator.getCheckoutOptions(remaining, doubleOut)
             } else {
                 null
             }
@@ -166,17 +185,29 @@ class ActiveGameScreenModel(
 
         val (newEngine, result) = engine.addThrow(segment, multiplier)
 
+        // Check for knockout in throw result (Parcheesi mode)
+        val knockedOutIds = if (result is ThrowResult.SuccessWithKnockout) {
+            result.knockedOutPlayerIds
+        } else {
+            emptyList()
+        }
+
         _state.update {
             it.copy(
                 engine = newEngine,
+                session = newEngine.toGameSession(),
                 selectedMultiplier = Multiplier.SINGLE,
                 lastThrowResult = result,
+                showKnockoutDialog = knockedOutIds.isNotEmpty(),
+                knockedOutPlayerIds = knockedOutIds,
             )
         }
 
-        // Only auto-end turn on checkout (leg won)
-        if (result is ThrowResult.Checkout) {
-            endTurn()
+        // Auto-end turn on checkout (leg won) or bounce-back (Parcheesi overshoot)
+        when (result) {
+            is ThrowResult.Checkout -> endTurn()
+            is ThrowResult.BounceBack -> endTurn()
+            else -> {}
         }
     }
 
@@ -197,6 +228,12 @@ class ActiveGameScreenModel(
 
         val (newEngine, result) = engine.endTurn()
 
+        val knockedOutIds = if (result is TurnResult.NextPlayerWithKnockout) {
+            result.knockedOutPlayerIds
+        } else {
+            emptyList()
+        }
+
         _state.update {
             it.copy(
                 engine = newEngine,
@@ -204,6 +241,8 @@ class ActiveGameScreenModel(
                 lastTurnResult = result,
                 showGameCompleteDialog = result is TurnResult.MatchWon,
                 showLegWonDialog = result is TurnResult.LegWon,
+                showKnockoutDialog = knockedOutIds.isNotEmpty(),
+                knockedOutPlayerIds = knockedOutIds,
                 selectedMultiplier = Multiplier.SINGLE,
                 lastThrowResult = null,
             )
@@ -235,6 +274,10 @@ class ActiveGameScreenModel(
 
     fun dismissGameCompleteDialog() {
         _state.update { it.copy(showGameCompleteDialog = false, lastTurnResult = null) }
+    }
+
+    fun dismissKnockoutDialog() {
+        _state.update { it.copy(showKnockoutDialog = false, knockedOutPlayerIds = emptyList()) }
     }
 
     fun abandonGame() {

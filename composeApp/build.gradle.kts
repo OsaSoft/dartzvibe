@@ -169,6 +169,7 @@ sqldelight {
     databases {
         create("DartzVibeDatabase") {
             packageName.set("cloud.osasoft.dartzvibe.data.local")
+            verifyMigrations.set(!System.getProperty("os.name").lowercase().contains("win"))
         }
     }
 }

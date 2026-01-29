@@ -2,6 +2,7 @@
 CREATE TABLE GameSession (
     id TEXT NOT NULL PRIMARY KEY,
     gameType TEXT NOT NULL,
+    gameMode TEXT NOT NULL DEFAULT 'CLASSIC',
     doubleIn INTEGER NOT NULL DEFAULT 0,
     doubleOut INTEGER NOT NULL DEFAULT 1,
     playerIds TEXT NOT NULL,
@@ -32,8 +33,8 @@ SELECT * FROM GameSession WHERE playerIds LIKE ? ORDER BY startedAt DESC;
 
 -- Insert a new game session
 insert:
-INSERT INTO GameSession (id, gameType, doubleIn, doubleOut, playerIds, legsToWin, legsJson, currentLegIndex, status, startedAt, finishedAt, winnerId)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO GameSession (id, gameType, gameMode, doubleIn, doubleOut, playerIds, legsToWin, legsJson, currentLegIndex, status, startedAt, finishedAt, winnerId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Update game session
 update:
