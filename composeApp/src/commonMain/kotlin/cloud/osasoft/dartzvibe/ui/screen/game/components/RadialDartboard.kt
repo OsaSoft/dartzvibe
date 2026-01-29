@@ -250,7 +250,7 @@ fun RadialDartboard(
                 enabled = canThrow,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .size(48.dp),
+                    .size(65.dp),
                 shape = CircleShape,
                 contentPadding = PaddingValues(0.dp),
             ) {
