@@ -182,7 +182,7 @@ fun HomeScreenContent(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            playerNames,
+                            "${session.config.displayDescription} - $playerNames",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

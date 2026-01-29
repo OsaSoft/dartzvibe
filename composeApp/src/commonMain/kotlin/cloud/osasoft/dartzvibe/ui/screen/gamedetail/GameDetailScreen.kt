@@ -279,7 +279,7 @@ private fun GameSummaryHeader(
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                     )
                     Text(
-                        text = session.config.gameType.displayName,
+                        text = session.config.displayDescription,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,

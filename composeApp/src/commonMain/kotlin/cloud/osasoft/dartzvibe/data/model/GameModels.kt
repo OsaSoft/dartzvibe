@@ -15,9 +15,9 @@ enum class GameType(val displayName: String, val startingScore: Int) {
 /**
  * Game mode variant.
  */
-enum class GameMode {
-    CLASSIC, // Count-down (traditional X01)
-    PARCHEESI, // Count-up with knockout mechanics
+enum class GameMode(val displayName: String) {
+    CLASSIC("Classic"), // Count-down (traditional X01)
+    PARCHEESI("Parcheesi"), // Count-up with knockout mechanics
 }
 
 /**
@@ -60,6 +60,19 @@ data class GameConfig(
     val targetScore: Int get() = gameType.startingScore
 
     val isCountUp: Boolean get() = gameMode == GameMode.PARCHEESI
+
+    /**
+     * Human-readable description of the game configuration.
+     * Example: "Classic 501 Double-Out" or "Parcheesi 301"
+     */
+    val displayDescription: String
+        get() = buildString {
+            append(gameMode.displayName)
+            append(" ")
+            append(gameType.displayName)
+            if (doubleIn) append(" Double-In")
+            if (doubleOut) append(" Double-Out")
+        }
 }
 
 /**

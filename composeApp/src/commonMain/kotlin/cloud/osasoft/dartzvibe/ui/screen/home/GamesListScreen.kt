@@ -336,36 +336,32 @@ fun GameCard(
                     fontWeight = FontWeight.SemiBold,
                 )
 
-                // Game type and status
-                Row {
-                    Text(
-                        text = session.config.gameType.displayName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = " • ",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = when (session.status) {
-                            GameStatus.IN_PROGRESS -> "In Progress"
+                // Status
+                Text(
+                    text = when (session.status) {
+                        GameStatus.IN_PROGRESS -> "In Progress"
 
-                            GameStatus.COMPLETED -> {
-                                val winner = game.players.find { it.id == session.winnerId }
-                                winner?.let { "${it.name} won" } ?: "Completed"
-                            }
+                        GameStatus.COMPLETED -> {
+                            val winner = game.players.find { it.id == session.winnerId }
+                            winner?.let { "${it.name} won" } ?: "Completed"
+                        }
 
-                            GameStatus.ABANDONED -> "Abandoned"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = when (session.status) {
-                            GameStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
-                            GameStatus.COMPLETED -> MaterialTheme.colorScheme.onSurfaceVariant
-                            GameStatus.ABANDONED -> MaterialTheme.colorScheme.error
-                        },
-                    )
-                }
+                        GameStatus.ABANDONED -> "Abandoned"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = when (session.status) {
+                        GameStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
+                        GameStatus.COMPLETED -> MaterialTheme.colorScheme.onSurfaceVariant
+                        GameStatus.ABANDONED -> MaterialTheme.colorScheme.error
+                    },
+                )
+
+                // Game type
+                Text(
+                    text = session.config.displayDescription,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
                 // Legs info
                 if (session.config.legsToWin > 1) {
