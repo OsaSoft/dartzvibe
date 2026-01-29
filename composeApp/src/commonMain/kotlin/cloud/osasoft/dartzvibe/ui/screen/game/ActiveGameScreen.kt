@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,6 +61,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
 import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -95,6 +97,7 @@ class ActiveGameScreen(
                 screenModel.abandonGame()
                 navigator.pop()
             },
+            onSettings = { navigator.push(SettingsScreen()) },
             onBack = { navigator.pop() },
         )
     }
@@ -122,6 +125,7 @@ fun ActiveGameContent(
     onDismissLegWon: () -> Unit,
     onDismissGameComplete: () -> Unit,
     onAbandonGame: () -> Unit,
+    onSettings: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -142,6 +146,9 @@ fun ActiveGameContent(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
                     IconButton(onClick = onAbandonGame) {
                         Icon(Icons.Default.Close, contentDescription = "Abandon game")
                     }
