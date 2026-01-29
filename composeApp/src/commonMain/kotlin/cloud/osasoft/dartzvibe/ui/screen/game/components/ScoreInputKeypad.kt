@@ -41,7 +41,6 @@ fun ScoreInputKeypad(
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
-    onEndTurn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var activeSwipeMultiplier by remember { mutableStateOf<Multiplier?>(null) }
@@ -117,29 +116,14 @@ fun ScoreInputKeypad(
                 onSwipeChange = { activeSwipeMultiplier = it },
             )
 
-            // Action row: Miss, End Turn
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // Miss button
+            OutlinedButton(
+                onClick = onMiss,
+                enabled = canThrow,
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                shape = RoundedCornerShape(8.dp),
             ) {
-                // Miss button
-                OutlinedButton(
-                    onClick = onMiss,
-                    enabled = canThrow,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Text("Miss")
-                }
-
-                // End Turn button
-                FilledTonalButton(
-                    onClick = onEndTurn,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Text("End Turn")
-                }
+                Text("Miss")
             }
 
             // Swipe hint (only when multiplier buttons are hidden)

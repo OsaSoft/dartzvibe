@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -74,7 +73,6 @@ fun RadialDartboard(
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
-    onEndTurn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = wheelColorScheme()
@@ -258,15 +256,6 @@ fun RadialDartboard(
             ) {
                 Text("Miss", style = MaterialTheme.typography.labelSmall)
             }
-        }
-
-        // Action row: End Turn
-        FilledTonalButton(
-            onClick = onEndTurn,
-            modifier = Modifier.fillMaxWidth().height(40.dp),
-            shape = RoundedCornerShape(8.dp),
-        ) {
-            Text("End Turn")
         }
 
         // Swipe hint (only when multiplier buttons are hidden)
