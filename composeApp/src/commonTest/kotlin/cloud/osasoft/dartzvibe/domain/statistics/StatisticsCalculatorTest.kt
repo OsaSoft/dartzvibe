@@ -2,6 +2,7 @@ package cloud.osasoft.dartzvibe.domain.statistics
 
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
 import cloud.osasoft.dartzvibe.data.model.GameConfig
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.GameType
@@ -953,6 +954,209 @@ class StatisticsCalculatorTest : FreeSpec({
 
             // THEN no games are counted
             stats.gamesPlayed shouldBe 0
+        }
+    }
+
+    "Parcheesi Knockout Statistics" - {
+        fun createParcheesiGame(
+            id: Uuid = sessionId,
+            legs: List<Leg>,
+            winnerId: Uuid,
+        ): GameSession = GameSession(
+            id = id,
+            config = GameConfig(
+                gameType = GameType.CLASSIC_501,
+                gameMode = GameMode.PARCHEESI,
+                playerIds = listOf(playerId1, playerId2),
+            ),
+            legs = legs,
+            status = GameStatus.COMPLETED,
+            startedAt = currentTimeMillis(),
+            finishedAt = currentTimeMillis(),
+            winnerId = winnerId,
+        )
+
+        fun createPhantomTurn(
+            playerId: Uuid,
+            scoreBeforeTurn: Int,
+        ): Turn = Turn(
+            playerId = playerId,
+            throws = emptyList(),
+            scoreBeforeTurn = scoreBeforeTurn,
+            scoreAfterTurn = 0,
+            isPhantom = true,
+        )
+
+        "Should count knockouts dealt correctly" {
+            // GIVEN a Parcheesi game where player1 knocks out player2
+            // Player1 scores 100 (hitting player2's score of 100)
+            // Then a phantom turn records player2 being knocked out
+            val turns = listOf(
+                createTurn(
+                    playerId1,
+                    listOf(
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.SINGLE),
+                        createThrow(20, Multiplier.SINGLE),
+                    ),
+                    scoreBeforeTurn = 0,
+                ).copy(scoreAfterTurn = 100),
+                createPhantomTurn(playerId2, scoreBeforeTurn = 100), // Player2 knocked out
+            )
+            val game = createParcheesiGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating stats for player1
+            val stats = calculator.calculatePlayerStatistics(playerId1, listOf(game), players)
+
+            // THEN knockouts dealt is 1
+            stats.knockoutsDealt shouldBe 1
+            stats.timesKnockedOut shouldBe 0
+        }
+
+        "Should count times knocked out correctly" {
+            // GIVEN a Parcheesi game where player1 is knocked out by player2
+            val turns = listOf(
+                createTurn(
+                    playerId2,
+                    listOf(
+                        createThrow(20, Multiplier.TRIPLE),
+                        createThrow(20, Multiplier.SINGLE),
+                        createThrow(20, Multiplier.SINGLE),
+                    ),
+                    scoreBeforeTurn = 0,
+                ).copy(scoreAfterTurn = 100),
+                createPhantomTurn(playerId1, scoreBeforeTurn = 100), // Player1 knocked out
+            )
+            val game = createParcheesiGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId2)),
+                winnerId = playerId2,
+            )
+
+            // WHEN calculating stats for player1
+            val stats = calculator.calculatePlayerStatistics(playerId1, listOf(game), players)
+
+            // THEN times knocked out is 1
+            stats.knockoutsDealt shouldBe 0
+            stats.timesKnockedOut shouldBe 1
+        }
+
+        "Should handle multiple knockouts in same game" {
+            // GIVEN a Parcheesi game with multiple knockouts
+            val turns = listOf(
+                // Player1 knocks out Player2 at score 100
+                createTurn(
+                    playerId1,
+                    listOf(createThrow(20, Multiplier.TRIPLE)),
+                    scoreBeforeTurn = 40,
+                ).copy(scoreAfterTurn = 100),
+                createPhantomTurn(playerId2, scoreBeforeTurn = 100),
+                // Player2's turn (starts at 0 again)
+                createTurn(
+                    playerId2,
+                    listOf(createThrow(20, Multiplier.TRIPLE)),
+                    scoreBeforeTurn = 0,
+                ).copy(scoreAfterTurn = 60),
+                // Player1's turn
+                createTurn(
+                    playerId1,
+                    listOf(createThrow(20, Multiplier.TRIPLE)),
+                    scoreBeforeTurn = 100,
+                ).copy(scoreAfterTurn = 160),
+                // Player2 knocks out Player1 at score 160
+                createTurn(
+                    playerId2,
+                    listOf(createThrow(20, Multiplier.TRIPLE)),
+                    scoreBeforeTurn = 60,
+                ).copy(scoreAfterTurn = 160),
+                createPhantomTurn(playerId1, scoreBeforeTurn = 160),
+            )
+            val game = createParcheesiGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId2)),
+                winnerId = playerId2,
+            )
+
+            // WHEN calculating stats for player1
+            val stats = calculator.calculatePlayerStatistics(playerId1, listOf(game), players)
+
+            // THEN player1 dealt 1 knockout and was knocked out 1 time
+            stats.knockoutsDealt shouldBe 1
+            stats.timesKnockedOut shouldBe 1
+        }
+
+        "Should track Parcheesi games played separately" {
+            // GIVEN both Classic and Parcheesi games
+            val classicGame = createCompletedGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000101"),
+                legs = listOf(Leg(winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+            val parcheesiGame = createParcheesiGame(
+                id = Uuid.parse("00000000-0000-0000-0000-000000000102"),
+                legs = listOf(Leg(winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating stats
+            val stats = calculator.calculatePlayerStatistics(
+                playerId1,
+                listOf(classicGame, parcheesiGame),
+                players,
+            )
+
+            // THEN total games is 2 and Parcheesi games is 1
+            stats.gamesPlayed shouldBe 2
+            stats.parcheesiGamesPlayed shouldBe 1
+        }
+
+        "Should not count knockouts from Classic games" {
+            // GIVEN a Classic game (no knockouts possible)
+            val classicGame = createCompletedGame(
+                legs = listOf(
+                    Leg(
+                        turns = listOf(
+                            createTurn(playerId1, listOf(createThrow(20, Multiplier.TRIPLE)), 501),
+                        ),
+                        winnerId = playerId1,
+                    ),
+                ),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating stats
+            val stats = calculator.calculatePlayerStatistics(playerId1, listOf(classicGame), players)
+
+            // THEN knockouts are zero
+            stats.knockoutsDealt shouldBe 0
+            stats.timesKnockedOut shouldBe 0
+            stats.parcheesiGamesPlayed shouldBe 0
+        }
+
+        "Should calculate H2H knockout stats" {
+            // GIVEN a Parcheesi H2H game with knockouts
+            val turns = listOf(
+                createTurn(
+                    playerId1,
+                    listOf(createThrow(20, Multiplier.TRIPLE)),
+                    scoreBeforeTurn = 40,
+                ).copy(scoreAfterTurn = 100),
+                createPhantomTurn(playerId2, scoreBeforeTurn = 100), // Player2 knocked out
+            )
+            val game = createParcheesiGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId1)),
+                winnerId = playerId1,
+            )
+
+            // WHEN calculating H2H stats
+            val stats = calculator.calculateHeadToHeadStatistics(playerId1, playerId2, listOf(game))
+
+            // THEN knockout stats are tracked for each player
+            stats.player1Stats.knockoutsDealt shouldBe 1
+            stats.player1Stats.timesKnockedOut shouldBe 0
+            stats.player2Stats.knockoutsDealt shouldBe 0
+            stats.player2Stats.timesKnockedOut shouldBe 1
         }
     }
 })

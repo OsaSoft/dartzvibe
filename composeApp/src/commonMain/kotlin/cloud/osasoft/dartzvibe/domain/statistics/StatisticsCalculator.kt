@@ -1,6 +1,7 @@
 package cloud.osasoft.dartzvibe.domain.statistics
 
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameReference
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
@@ -52,6 +53,8 @@ class StatisticsCalculator {
         val allTurns = collectAllTurns(relevantGames, playerId, playerNameMap)
         val checkoutStats = calculateCheckoutStats(relevantGames, allTurns, playerId)
         val highScores = countHighScores(allTurns, relevantGames, playerId, playerNameMap)
+        val knockoutStats = calculateKnockoutStats(relevantGames, playerId)
+        val parcheesiGamesPlayed = countParcheesiGamesPlayed(relevantGames, playerId)
 
         return PlayerStatistics(
             playerId = playerId,
@@ -73,6 +76,9 @@ class StatisticsCalculator {
             count140Plus = highScores.count140Plus,
             count100Plus = highScores.count100Plus,
             highestTurnScore = findHighestTurnScore(allTurns),
+            knockoutsDealt = knockoutStats.knockoutsDealt,
+            timesKnockedOut = knockoutStats.timesKnockedOut,
+            parcheesiGamesPlayed = parcheesiGamesPlayed,
         )
     }
 
@@ -356,6 +362,8 @@ class StatisticsCalculator {
         var count180s = 0
         var count140Plus = 0
 
+        val knockoutStats = calculateKnockoutStats(games, playerId)
+
         games.flatMap { it.legs }.forEach { leg ->
             val playerTurns = leg.playerTurns.filter { it.playerId == playerId }
             if (playerTurns.isNotEmpty()) {
@@ -403,6 +411,8 @@ class StatisticsCalculator {
             legsPlayed = legsPlayed,
             count180s = count180s,
             count140Plus = count140Plus,
+            knockoutsDealt = knockoutStats.knockoutsDealt,
+            timesKnockedOut = knockoutStats.timesKnockedOut,
         )
     }
 
@@ -427,4 +437,53 @@ class StatisticsCalculator {
         val count140Plus: Int,
         val count100Plus: Int,
     )
+
+    /** Knockout statistics result for Parcheesi games. */
+    private data class KnockoutStats(
+        val knockoutsDealt: Int,
+        val timesKnockedOut: Int,
+    )
+
+    /**
+     * Calculate knockout statistics for a player from Parcheesi games.
+     *
+     * Knockouts are tracked as phantom turns with scoreAfterTurn = 0.
+     * To find who caused a knockout, we look at the non-phantom turn immediately
+     * before the phantom turn - if its scoreAfterTurn matches the phantom's
+     * scoreBeforeTurn, that player dealt the knockout.
+     */
+    private fun calculateKnockoutStats(
+        games: List<GameSession>,
+        playerId: Uuid,
+    ): KnockoutStats {
+        var knockoutsDealt = 0
+        var timesKnockedOut = 0
+
+        games.filter { it.config.gameMode == GameMode.PARCHEESI }.forEach { game ->
+            game.legs.forEach { leg ->
+                leg.turns.forEachIndexed { index, turn ->
+                    if (turn.isPhantom) {
+                        val precedingTurns = leg.turns.take(index).filterNot { it.isPhantom }
+                        val causingTurn = precedingTurns.lastOrNull()
+
+                        if (causingTurn != null && causingTurn.scoreAfterTurn == turn.scoreBeforeTurn) {
+                            if (causingTurn.playerId == playerId) knockoutsDealt++
+                            if (turn.playerId == playerId) timesKnockedOut++
+                        }
+                    }
+                }
+            }
+        }
+        return KnockoutStats(knockoutsDealt, timesKnockedOut)
+    }
+
+    /**
+     * Count Parcheesi games played by a player.
+     */
+    private fun countParcheesiGamesPlayed(
+        games: List<GameSession>,
+        playerId: Uuid,
+    ): Int = games.count {
+        it.config.gameMode == GameMode.PARCHEESI && it.config.playerIds.contains(playerId)
+    }
 }

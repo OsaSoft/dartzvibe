@@ -572,6 +572,32 @@ private fun ComparisonStatsGrid(
                 higher1IsBetter = true,
                 value1Higher = stats.player1Stats.count140Plus > stats.player2Stats.count140Plus,
             )
+
+            // Knockout stats (only show if either player has knockout stats)
+            val hasKnockoutStats = stats.player1Stats.knockoutsDealt > 0 ||
+                stats.player1Stats.timesKnockedOut > 0 ||
+                stats.player2Stats.knockoutsDealt > 0 ||
+                stats.player2Stats.timesKnockedOut > 0
+
+            if (hasKnockoutStats) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ComparisonRow(
+                    label = "Knockouts Dealt",
+                    value1 = stats.player1Stats.knockoutsDealt.toString(),
+                    value2 = stats.player2Stats.knockoutsDealt.toString(),
+                    higher1IsBetter = true,
+                    value1Higher = stats.player1Stats.knockoutsDealt > stats.player2Stats.knockoutsDealt,
+                )
+
+                ComparisonRow(
+                    label = "Times Knocked Out",
+                    value1 = stats.player1Stats.timesKnockedOut.toString(),
+                    value2 = stats.player2Stats.timesKnockedOut.toString(),
+                    higher1IsBetter = false,
+                    value1Higher = stats.player1Stats.timesKnockedOut > stats.player2Stats.timesKnockedOut,
+                )
+            }
         }
     }
 }

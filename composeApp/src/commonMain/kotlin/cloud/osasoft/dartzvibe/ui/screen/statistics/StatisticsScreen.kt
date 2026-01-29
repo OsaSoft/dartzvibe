@@ -347,6 +347,39 @@ private fun StatisticsContent(
         value = "${statistics.legsWon}/${statistics.legsPlayed}",
         modifier = Modifier.fillMaxWidth(),
     )
+
+    // Parcheesi section (only show if player has Parcheesi games)
+    if (statistics.parcheesiGamesPlayed > 0) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            "Parcheesi",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            StatCard(
+                title = "Knockouts Dealt",
+                value = statistics.knockoutsDealt.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            StatCard(
+                title = "Times Knocked Out",
+                value = statistics.timesKnockedOut.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            StatCard(
+                title = "KO Ratio",
+                value = formatDecimal(statistics.knockoutRatio),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
 
 @Suppress("ktlint:standard:function-naming")

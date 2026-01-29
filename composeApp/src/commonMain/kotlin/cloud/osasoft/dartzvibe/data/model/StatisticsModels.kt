@@ -46,7 +46,18 @@ data class PlayerStatistics(
     val count140Plus: Int,
     val count100Plus: Int,
     val highestTurnScore: StatAchievement?,
+    val knockoutsDealt: Int = 0,
+    val timesKnockedOut: Int = 0,
+    val parcheesiGamesPlayed: Int = 0,
 ) {
+    val knockoutRatio: FixedDecimal
+        get() = if (timesKnockedOut > 0) {
+            FixedDecimal.divide(knockoutsDealt, timesKnockedOut)
+        } else if (knockoutsDealt > 0) {
+            FixedDecimal.fromInt(knockoutsDealt)
+        } else {
+            FixedDecimal.ZERO
+        }
     val winRate: FixedDecimal
         get() = if (gamesPlayed > 0) {
             FixedDecimal.divide(gamesWon, gamesPlayed)
@@ -82,6 +93,9 @@ data class PlayerStatistics(
             count140Plus = 0,
             count100Plus = 0,
             highestTurnScore = null,
+            knockoutsDealt = 0,
+            timesKnockedOut = 0,
+            parcheesiGamesPlayed = 0,
         )
     }
 }
@@ -103,6 +117,8 @@ data class H2HPlayerStats(
     val legsPlayed: Int,
     val count180s: Int,
     val count140Plus: Int,
+    val knockoutsDealt: Int = 0,
+    val timesKnockedOut: Int = 0,
 ) {
     val legWinRate: FixedDecimal
         get() = if (legsPlayed > 0) {
@@ -167,6 +183,8 @@ data class HeadToHeadStatistics(
                 legsPlayed = 0,
                 count180s = 0,
                 count140Plus = 0,
+                knockoutsDealt = 0,
+                timesKnockedOut = 0,
             ),
             player2Stats = H2HPlayerStats(
                 threeDartAverage = FixedDecimal.ZERO,
@@ -175,6 +193,8 @@ data class HeadToHeadStatistics(
                 legsPlayed = 0,
                 count180s = 0,
                 count140Plus = 0,
+                knockoutsDealt = 0,
+                timesKnockedOut = 0,
             ),
             recentGames = emptyList(),
         )
