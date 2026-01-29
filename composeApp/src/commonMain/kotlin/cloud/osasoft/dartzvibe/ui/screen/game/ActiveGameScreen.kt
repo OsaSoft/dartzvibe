@@ -60,6 +60,7 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
+import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketScoreboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
@@ -190,13 +191,30 @@ fun ActiveGameContent(
                     .padding(padding)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // Player score cards
-                PlayerScoresRow(
-                    state = state,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                )
+                // Player score cards or Cricket scoreboard
+                if (state.isCricket) {
+                    val session = state.session
+                    val cricketState = state.cricketState
+                    if (session != null && cricketState != null) {
+                        CricketScoreboard(
+                            segments = cricketState.segments,
+                            playerIds = session.config.playerIds,
+                            players = state.players,
+                            cricketState = cricketState,
+                            currentPlayerId = state.currentPlayerId,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                        )
+                    }
+                } else {
+                    PlayerScoresRow(
+                        state = state,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                }
 
                 // Current turn display
                 CurrentTurnDisplay(
@@ -430,22 +448,48 @@ fun CurrentTurnDisplay(
                     ThrowPlaceholder()
                 }
 
-                // Turn total or status (BUST/BOUNCE/OUT!)
+                // Turn total or status (BUST/BOUNCE/OUT!/WIN!)
                 if (currentThrows.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(8.dp))
                     val isBust = lastThrowResult is ThrowResult.Bust
                     val isBounce = lastThrowResult is ThrowResult.BounceBack
                     val isCheckout = lastThrowResult is ThrowResult.Checkout
+                    val isCricketWin = lastThrowResult is ThrowResult.CricketWin
+                    val isCricketMarks = lastThrowResult is ThrowResult.CricketMarks
                     val displayText = when {
                         isBust -> "BUST"
+
                         isBounce -> "BOUNCE"
+
                         isCheckout -> "OUT!"
+
+                        isCricketWin -> "WIN!"
+
+                        isCricketMarks -> {
+                            val cricketResult = lastThrowResult as ThrowResult.CricketMarks
+                            if (cricketResult.pointsScored > 0) {
+                                "+${cricketResult.pointsScored}"
+                            } else if (cricketResult.marksAdded > 0) {
+                                "${cricketResult.totalMarks}/3"
+                            } else {
+                                "-"
+                            }
+                        }
+
                         else -> "${currentThrows.sumOf { it.score }}"
                     }
                     val displayColor = when {
                         isBust -> MaterialTheme.colorScheme.error
+
                         isBounce -> MaterialTheme.colorScheme.tertiary
+
                         isCheckout -> MaterialTheme.colorScheme.primary
+
+                        isCricketWin -> MaterialTheme.colorScheme.primary
+
+                        isCricketMarks && (lastThrowResult as ThrowResult.CricketMarks).pointsScored > 0 ->
+                            MaterialTheme.colorScheme.primary
+
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                     Text(

@@ -2,6 +2,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.GameConfig
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
@@ -141,13 +142,19 @@ class NewGameScreenModel(
         _state.update { it.copy(isSaving = true, error = null) }
         screenModelScope.launch {
             try {
+                val cricketSegments = if (currentState.gameMode == GameMode.CRICKET) {
+                    CricketSegments.standard()
+                } else {
+                    null
+                }
                 val config = GameConfig(
                     gameType = currentState.gameType,
                     gameMode = currentState.gameMode,
-                    doubleIn = currentState.doubleIn,
-                    doubleOut = currentState.doubleOut,
+                    doubleIn = if (currentState.gameMode == GameMode.CRICKET) false else currentState.doubleIn,
+                    doubleOut = if (currentState.gameMode == GameMode.CRICKET) false else currentState.doubleOut,
                     playerIds = currentState.selectedPlayerIds,
                     legsToWin = currentState.legsToWin,
+                    cricketSegments = cricketSegments,
                 )
                 val session = gameRepository.createGameSession(config)
                 log.d { "Created game session: ${session.id}" }

@@ -18,6 +18,59 @@ enum class GameType(val displayName: String, val startingScore: Int) {
 enum class GameMode(val displayName: String) {
     CLASSIC("Classic"), // Count-down (traditional X01)
     PARCHEESI("Parcheesi"), // Count-up with knockout mechanics
+    CRICKET("Cricket"), // Close segments 15-20 and bull, score points
+}
+
+/**
+ * Defines which segments are active in a Cricket game.
+ * Standard Cricket uses 15-20 and bull (25).
+ * Random Cricket picks 7 random segments from all available.
+ */
+@Serializable
+data class CricketSegments(
+    val segments: List<Int> = STANDARD_CRICKET_SEGMENTS,
+) {
+    companion object {
+        val STANDARD_CRICKET_SEGMENTS = listOf(20, 19, 18, 17, 16, 15, 25)
+
+        fun standard(): CricketSegments = CricketSegments()
+
+        fun random(): CricketSegments = CricketSegments(
+            segments = ((1..20).toList() + 25).shuffled().take(7).sortedDescending(),
+        )
+    }
+
+    fun isTarget(segment: Int): Boolean = segment in segments
+}
+
+/**
+ * Cricket state for a single player.
+ */
+@Serializable
+data class CricketPlayerState(
+    val marks: Map<Int, Int> = emptyMap(), // segment -> marks (0-3)
+    val points: Int = 0,
+) {
+    fun getMarks(segment: Int): Int = marks.getOrElse(segment) { 0 }
+
+    fun isClosed(segment: Int): Boolean = getMarks(segment) >= 3
+}
+
+/**
+ * Cricket game state for the current leg.
+ */
+@OptIn(ExperimentalUuidApi::class)
+@Serializable
+data class CricketState(
+    val segments: CricketSegments = CricketSegments.standard(),
+    val playerStates: Map<Uuid, CricketPlayerState> = emptyMap(),
+) {
+    fun getPlayerState(playerId: Uuid): CricketPlayerState =
+        playerStates.getOrElse(playerId) { CricketPlayerState() }
+
+    fun withPlayerState(playerId: Uuid, state: CricketPlayerState): CricketState = copy(
+        playerStates = playerStates + (playerId to state),
+    )
 }
 
 /**
@@ -50,28 +103,36 @@ data class GameConfig(
     val doubleOut: Boolean = true,
     val playerIds: List<Uuid>,
     val legsToWin: Int = 1,
+    val cricketSegments: CricketSegments? = null,
 ) {
     val startingScore: Int
         get() = when (gameMode) {
             GameMode.CLASSIC -> gameType.startingScore
             GameMode.PARCHEESI -> 0
+            GameMode.CRICKET -> 0
         }
 
     val targetScore: Int get() = gameType.startingScore
 
     val isCountUp: Boolean get() = gameMode == GameMode.PARCHEESI
 
+    val isCricket: Boolean get() = gameMode == GameMode.CRICKET
+
     /**
      * Human-readable description of the game configuration.
-     * Example: "Classic 501 Double-Out" or "Parcheesi 301"
+     * Example: "Classic 501 Double-Out" or "Parcheesi 301" or "Cricket"
      */
     val displayDescription: String
         get() = buildString {
             append(gameMode.displayName)
-            append(" ")
-            append(gameType.displayName)
-            if (doubleIn) append(" Double-In")
-            if (doubleOut) append(" Double-Out")
+            if (gameMode != GameMode.CRICKET) {
+                append(" ")
+                append(gameType.displayName)
+            }
+            if (gameMode != GameMode.CRICKET) {
+                if (doubleIn) append(" Double-In")
+                if (doubleOut) append(" Double-Out")
+            }
         }
 }
 
@@ -113,12 +174,14 @@ data class Turn(
  * @property turns All turns in this leg, including phantom turns (system-generated
  *   turns for knockouts). Use [playerTurns] for display and counting.
  * @property winnerId The player who won this leg, or null if not yet won.
+ * @property cricketState Cricket-specific state (marks and points per player).
  */
 @OptIn(ExperimentalUuidApi::class)
 @Serializable
 data class Leg(
     val turns: List<Turn> = emptyList(),
     val winnerId: Uuid? = null,
+    val cricketState: CricketState? = null,
 ) {
     /**
      * Player turns only (excludes phantom/system-generated turns).

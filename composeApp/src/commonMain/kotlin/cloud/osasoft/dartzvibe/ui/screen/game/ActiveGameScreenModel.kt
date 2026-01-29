@@ -2,6 +2,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Multiplier
@@ -76,11 +77,20 @@ data class ActiveGameState(
     val isCountUp: Boolean
         get() = session?.config?.isCountUp == true
 
+    val isCricket: Boolean
+        get() = session?.config?.isCricket == true
+
     val targetScore: Int
         get() = session?.config?.targetScore ?: 501
 
+    val cricketState: CricketState?
+        get() = engine?.getCricketState()
+
     val checkoutOptions: List<CheckoutPath>?
         get() {
+            // No checkout hints for Cricket
+            if (isCricket) return null
+
             val doubleOut = session?.config?.doubleOut ?: true
             // For Parcheesi, calculate remaining to target
             val remaining = if (isCountUp) {
@@ -203,10 +213,11 @@ class ActiveGameScreenModel(
             )
         }
 
-        // Auto-end turn on checkout (leg won) or bounce-back (Parcheesi overshoot)
+        // Auto-end turn on checkout (leg won), bounce-back (Parcheesi overshoot), or Cricket win
         when (result) {
             is ThrowResult.Checkout -> endTurn()
             is ThrowResult.BounceBack -> endTurn()
+            is ThrowResult.CricketWin -> endTurn()
             else -> {}
         }
     }

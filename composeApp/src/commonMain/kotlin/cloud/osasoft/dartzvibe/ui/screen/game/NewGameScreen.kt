@@ -156,17 +156,18 @@ fun NewGameContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                // Game Type Selection
-                GameTypeSection(
-                    selectedType = state.gameType,
-                    onTypeChange = onGameTypeChange,
-                )
-
                 // Game Mode Selection
                 GameModeSection(
                     selectedMode = state.gameMode,
                     targetScore = state.gameType.startingScore,
                     onModeChange = onGameModeChange,
+                )
+
+                // Game Type Selection
+                GameTypeSection(
+                    selectedType = state.gameType,
+                    selectedMode = state.gameMode,
+                    onTypeChange = onGameTypeChange,
                 )
 
                 // Game Options
@@ -175,6 +176,7 @@ fun NewGameContent(
                     doubleOut = state.doubleOut,
                     legsToWin = state.legsToWin,
                     legsOptions = state.legsOptions,
+                    showDoubleOptions = state.gameMode != GameMode.CRICKET,
                     onDoubleInChange = onDoubleInChange,
                     onDoubleOutChange = onDoubleOutChange,
                     onLegsToWinChange = onLegsToWinChange,
@@ -228,6 +230,7 @@ fun NewGameContent(
 @Composable
 fun GameTypeSection(
     selectedType: GameType,
+    selectedMode: GameMode,
     onTypeChange: (GameType) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -241,21 +244,44 @@ fun GameTypeSection(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                GameType.entries.forEach { type ->
+                if (selectedMode == GameMode.CRICKET) {
+                    // Cricket mode shows "Regular" chip only
                     FilterChip(
-                        selected = selectedType == type,
-                        onClick = { onTypeChange(type) },
-                        label = { Text(type.displayName) },
-                        leadingIcon = if (selectedType == type) {
-                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        } else {
-                            null
+                        selected = true,
+                        onClick = { },
+                        label = { Text("Regular") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                     )
+                } else {
+                    // Classic/Parcheesi modes show 501/301 options
+                    GameType.entries.forEach { type ->
+                        FilterChip(
+                            selected = selectedType == type,
+                            onClick = { onTypeChange(type) },
+                            label = { Text(type.displayName) },
+                            leadingIcon = if (selectedType == type) {
+                                {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -309,6 +335,20 @@ fun GameModeSection(
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ),
                 )
+                FilterChip(
+                    selected = selectedMode == GameMode.CRICKET,
+                    onClick = { onModeChange(GameMode.CRICKET) },
+                    label = { Text("Cricket") },
+                    leadingIcon = if (selectedMode == GameMode.CRICKET) {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    } else {
+                        null
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
             }
             Spacer(modifier = Modifier.height(8.dp))
             val modeDescription = when (selectedMode) {
@@ -316,6 +356,9 @@ fun GameModeSection(
 
                 GameMode.PARCHEESI ->
                     "Count up to $targetScore. Match another player's score to knock them back to 0!"
+
+                GameMode.CRICKET ->
+                    "Close 15-20 and Bull. Score points on closed numbers!"
             }
             Text(
                 text = modeDescription,
@@ -333,6 +376,7 @@ fun GameOptionsSection(
     doubleOut: Boolean,
     legsToWin: Int,
     legsOptions: List<Int>,
+    showDoubleOptions: Boolean,
     onDoubleInChange: (Boolean) -> Unit,
     onDoubleOutChange: (Boolean) -> Unit,
     onLegsToWinChange: (Int) -> Unit,
@@ -346,43 +390,45 @@ fun GameOptionsSection(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Double In
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("Double In", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Must start with a double",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            if (showDoubleOptions) {
+                // Double In
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text("Double In", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Must start with a double",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = doubleIn, onCheckedChange = onDoubleInChange)
                 }
-                Switch(checked = doubleIn, onCheckedChange = onDoubleInChange)
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Double Out
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("Double Out", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Must finish with a double",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                // Double Out
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text("Double Out", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Must finish with a double",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = doubleOut, onCheckedChange = onDoubleOutChange)
                 }
-                Switch(checked = doubleOut, onCheckedChange = onDoubleOutChange)
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             // Legs to Win
             Row(
