@@ -15,3 +15,12 @@ actual fun formatDate(timestamp: Long): String {
     }
     return formatter.stringFromDate(date)
 }
+
+@Suppress("CAST_NEVER_SUCCEEDS")
+actual fun formatDateTime(timestamp: Long): String {
+    val date = NSDate(timeIntervalSinceReferenceDate = (timestamp / 1000.0) - NSTimeIntervalSince1970)
+    val formatter = NSDateFormatter().apply {
+        dateFormat = "MMM d, yyyy 'at' h:mm a"
+    }
+    return formatter.stringFromDate(date)
+}

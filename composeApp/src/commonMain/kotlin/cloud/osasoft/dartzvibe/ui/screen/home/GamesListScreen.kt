@@ -54,6 +54,7 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.gamedetail.GameDetailScreen
+import cloud.osasoft.dartzvibe.util.formatDateTime
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -374,6 +375,21 @@ fun GameCard(
                         color = MaterialTheme.colorScheme.outline,
                     )
                 }
+
+                // Timestamp
+                Text(
+                    text = when (session.status) {
+                        GameStatus.COMPLETED -> "Finished at ${formatDateTime(session.finishedAt ?: session.startedAt)}"
+
+                        GameStatus.ABANDONED -> "Abandoned at ${formatDateTime(
+                            session.finishedAt ?: session.startedAt,
+                        )}"
+
+                        GameStatus.IN_PROGRESS -> "Started at ${formatDateTime(session.startedAt)}"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // Actions
