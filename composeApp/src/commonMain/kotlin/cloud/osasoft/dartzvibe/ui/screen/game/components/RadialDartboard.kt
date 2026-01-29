@@ -209,7 +209,7 @@ fun RadialDartboard(
                     },
             ) {
                 canvasCenter = Offset(size.width / 2, size.height / 2)
-                canvasRadius = min(size.width, size.height) / 2 * 0.92f
+                canvasRadius = min(size.width, size.height) / 2 * 0.85f
 
                 // Draw the wheel
                 drawWheel(
