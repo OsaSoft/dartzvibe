@@ -1,6 +1,5 @@
 package cloud.osasoft.dartzvibe.domain.game
 
-import cloud.osasoft.dartzvibe.data.model.CricketPlayerState
 import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameConfig
@@ -103,15 +102,17 @@ class GameEngine private constructor(
     fun getLegsWon(playerId: Uuid): Int =
         GameEngineHelper.getLegsWon(modeEngine.session, playerId)
 
-    fun isTurnBusted(): Boolean = (modeEngine as? ClassicModeEngine)?.isBusted ?: false
-
-    fun isTurnBounced(): Boolean = (modeEngine as? ParcheesiModeEngine)?.isBounced ?: false
-
     fun isTurnEnded(): Boolean = modeEngine.isTurnEnded()
 
     fun addThrow(segment: Int, multiplier: Multiplier): Pair<GameEngine, ThrowResult> {
         if (modeEngine.isTurnEnded() || modeEngine.currentTurnThrows.size >= 3) {
             return this to ThrowResult.Bust("Turn already ended")
+        }
+
+        if (config.doubleIn && !hasDoubledIn() && multiplier != Multiplier.DOUBLE) {
+            val throwObj = Throw(segment, multiplier)
+            val newModeEngine = modeEngine.withNonScoringThrow(throwObj)
+            return GameEngine(newModeEngine) to ThrowResult.Success(getPlayerScore(getCurrentPlayerId()))
         }
 
         val throwObj = Throw(segment, multiplier)
@@ -133,52 +134,17 @@ class GameEngine private constructor(
         (modeEngine as? CricketModeEngine)?.getCricketState()
             ?: modeEngine.session.currentLeg.cricketState
 
-    fun getCricketPlayerState(playerId: Uuid): CricketPlayerState? =
-        getCricketState()?.getPlayerState(playerId)
-
-    fun getCricketPoints(playerId: Uuid): Int = getCricketPlayerState(playerId)?.points ?: 0
-
     fun toGameSession(): GameSession = modeEngine.session
 
-    fun hasFirstThrowWithDouble(): Boolean {
-        if (!config.doubleIn) return true
-
+    private fun hasDoubledIn(): Boolean {
         val currentPlayerId = getCurrentPlayerId()
         val currentLeg = modeEngine.session.currentLeg
 
-        val hasStarted = currentLeg.turns.any {
-            it.playerId == currentPlayerId && !it.isBust && it.throws.isNotEmpty()
+        val hasDoubleInPreviousTurn = currentLeg.turns.any { turn ->
+            turn.playerId == currentPlayerId && turn.throws.any { it.multiplier == Multiplier.DOUBLE }
         }
-
-        if (hasStarted) return true
+        if (hasDoubleInPreviousTurn) return true
 
         return modeEngine.currentTurnThrows.any { it.multiplier == Multiplier.DOUBLE }
-    }
-
-    fun addThrowWithDoubleInCheck(segment: Int, multiplier: Multiplier): Pair<GameEngine, ThrowResult> {
-        if (config.doubleIn && !hasFirstThrowWithDouble()) {
-            val throwObj = Throw(segment, multiplier)
-
-            if (multiplier == Multiplier.DOUBLE) {
-                return addThrow(segment, multiplier)
-            }
-
-            val newModeEngine = when (val me = modeEngine) {
-                is ClassicModeEngine -> me.copy(
-                    currentTurnThrows = me.currentTurnThrows + throwObj,
-                )
-
-                is ParcheesiModeEngine -> me.copy(
-                    currentTurnThrows = me.currentTurnThrows + throwObj,
-                )
-
-                is CricketModeEngine -> me.copy(
-                    currentTurnThrows = me.currentTurnThrows + throwObj,
-                )
-            }
-            return GameEngine(newModeEngine) to ThrowResult.Success(getPlayerScore(getCurrentPlayerId()))
-        }
-
-        return addThrow(segment, multiplier)
     }
 }

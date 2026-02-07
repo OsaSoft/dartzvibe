@@ -558,6 +558,71 @@ class GameEngineTest : FreeSpec({
         }
     }
 
+    "Double-in" - {
+        "Should not score non-double throws before doubling in" {
+            // GIVEN a game with double-in enabled
+            val engine = createEngine(doubleIn = true)
+
+            // WHEN player throws a single (not a double)
+            val (newEngine, result) = engine.addThrow(20, Multiplier.SINGLE)
+
+            // THEN throw is recorded but score doesn't change
+            result.shouldBeInstanceOf<ThrowResult.Success>()
+            (result as ThrowResult.Success).newScore shouldBe 501
+            newEngine.getCurrentTurnThrows() shouldHaveSize 1
+            newEngine.getCurrentPlayerScore() shouldBe 501
+        }
+
+        "Should score the double that doubles the player in" {
+            // GIVEN a game with double-in enabled and a non-scoring throw already made
+            val engine = createEngine(doubleIn = true)
+            val (e1, _) = engine.addThrow(20, Multiplier.SINGLE) // Non-scoring
+
+            // WHEN player throws a double
+            val (newEngine, result) = e1.addThrow(20, Multiplier.DOUBLE)
+
+            // THEN double scores normally (501 - 40 = 461)
+            result.shouldBeInstanceOf<ThrowResult.Success>()
+            (result as ThrowResult.Success).newScore shouldBe 461
+            newEngine.getCurrentTurnThrows() shouldHaveSize 2
+            newEngine.getCurrentPlayerScore() shouldBe 461
+        }
+
+        "Should score normally after doubling in" {
+            // GIVEN a game with double-in enabled where player has doubled in
+            val engine = createEngine(doubleIn = true)
+            val (e1, _) = engine.addThrow(20, Multiplier.DOUBLE) // Double-in (501 - 40 = 461)
+
+            // WHEN player throws a single
+            val (newEngine, result) = e1.addThrow(20, Multiplier.SINGLE)
+
+            // THEN single scores normally (461 - 20 = 441)
+            result.shouldBeInstanceOf<ThrowResult.Success>()
+            (result as ThrowResult.Success).newScore shouldBe 441
+            newEngine.getCurrentTurnThrows() shouldHaveSize 2
+        }
+
+        "Should score normally in subsequent turns after doubling in" {
+            // GIVEN a game with double-in enabled
+            var engine = createEngine(doubleIn = true)
+
+            // Player 1 doubles in with D20 and ends turn
+            val (e1, _) = engine.addThrow(20, Multiplier.DOUBLE) // 501 - 40 = 461
+            val (e2, _) = e1.endTurn()
+            // Player 2 turn (skip)
+            val (e3, _) = e2.addThrow(0, Multiplier.SINGLE)
+            val (e4, _) = e3.endTurn()
+            engine = e4
+
+            // WHEN player 1 throws a single on the next turn
+            val (newEngine, result) = engine.addThrow(20, Multiplier.SINGLE)
+
+            // THEN it scores normally (461 - 20 = 441)
+            result.shouldBeInstanceOf<ThrowResult.Success>()
+            (result as ThrowResult.Success).newScore shouldBe 441
+        }
+    }
+
     "301 game" - {
         "should start with 301" {
             val engine = createEngine(gameType = GameType.CLASSIC_301)

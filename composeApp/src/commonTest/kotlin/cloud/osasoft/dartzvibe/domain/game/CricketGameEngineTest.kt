@@ -68,9 +68,9 @@ class CricketGameEngineTest : FreeSpec({
             val engine = createCricketEngine()
 
             // THEN both players have 0 marks and 0 points
-            engine.getCricketPoints(playerId1) shouldBe 0
-            engine.getCricketPoints(playerId2) shouldBe 0
-            engine.getCricketPlayerState(playerId1)?.marks shouldBe emptyMap()
+            engine.getCricketState()!!.getPlayerState(playerId1).points shouldBe 0
+            engine.getCricketState()!!.getPlayerState(playerId2).points shouldBe 0
+            engine.getCricketState()?.getPlayerState(playerId1)?.marks shouldBe emptyMap()
         }
 
         "Should use standard segments by default" {
@@ -103,7 +103,7 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.pointsScored shouldBe 0
 
             // AND player state is updated
-            newEngine.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 1
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 1
         }
 
         "Should add double marks for double hit" {
@@ -119,7 +119,7 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.marksAdded shouldBe 2
             cricketResult.totalMarks shouldBe 2
 
-            newEngine.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 2
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 2
         }
 
         "Should add triple marks for triple hit" {
@@ -135,8 +135,8 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.marksAdded shouldBe 3
             cricketResult.totalMarks shouldBe 3
 
-            newEngine.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 3
-            newEngine.getCricketPlayerState(playerId1)?.isClosed(20) shouldBe true
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 3
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.isClosed(20) shouldBe true
         }
 
         "Should cap marks at 3" {
@@ -154,7 +154,7 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.marksAdded shouldBe 1 // Only 1 mark counted toward closing
             cricketResult.totalMarks shouldBe 3
 
-            newEngine.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 3
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 3
         }
 
         "Should not mark non-cricket segments" {
@@ -188,7 +188,7 @@ class CricketGameEngineTest : FreeSpec({
             (r2 as ThrowResult.CricketMarks).totalMarks shouldBe 2
             (r3 as ThrowResult.CricketMarks).totalMarks shouldBe 3
 
-            e3.getCricketPlayerState(playerId1)?.isClosed(20) shouldBe true
+            e3.getCricketState()?.getPlayerState(playerId1)?.isClosed(20) shouldBe true
         }
 
         "Should handle bullseye correctly" {
@@ -205,7 +205,7 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.marksAdded shouldBe 2
             cricketResult.totalMarks shouldBe 2
 
-            newEngine.getCricketPlayerState(playerId1)?.getMarks(25) shouldBe 2
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.getMarks(25) shouldBe 2
         }
     }
 
@@ -250,7 +250,7 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.pointsScored shouldBe 20
 
             // AND points are accumulated
-            newEngine.getCricketPoints(playerId1) shouldBe 20
+            newEngine.getCricketState()!!.getPlayerState(playerId1).points shouldBe 20
         }
 
         "Should not score when all players closed" {
@@ -272,7 +272,7 @@ class CricketGameEngineTest : FreeSpec({
             val cricketResult = result as ThrowResult.CricketMarks
             cricketResult.pointsScored shouldBe 0
 
-            newEngine.getCricketPoints(playerId1) shouldBe 0
+            newEngine.getCricketState()!!.getPlayerState(playerId1).points shouldBe 0
         }
 
         "Should score excess marks when closing segment" {
@@ -294,7 +294,7 @@ class CricketGameEngineTest : FreeSpec({
             cricketResult.totalMarks shouldBe 3
             cricketResult.pointsScored shouldBe 20 // 1 excess mark * 20
 
-            newEngine.getCricketPoints(playerId1) shouldBe 20
+            newEngine.getCricketState()!!.getPlayerState(playerId1).points shouldBe 20
         }
 
         "Should score triple excess marks" {
@@ -314,7 +314,7 @@ class CricketGameEngineTest : FreeSpec({
             val cricketResult = result as ThrowResult.CricketMarks
             cricketResult.pointsScored shouldBe 60
 
-            newEngine.getCricketPoints(playerId1) shouldBe 60
+            newEngine.getCricketState()!!.getPlayerState(playerId1).points shouldBe 60
         }
 
         "Should accumulate points across multiple throws" {
@@ -331,7 +331,7 @@ class CricketGameEngineTest : FreeSpec({
             val (e6, _) = e5.addThrow(20, Multiplier.SINGLE) // +20
 
             // THEN total points are 40
-            e6.getCricketPoints(playerId1) shouldBe 40
+            e6.getCricketState()!!.getPlayerState(playerId1).points shouldBe 40
         }
     }
 
@@ -364,7 +364,7 @@ class CricketGameEngineTest : FreeSpec({
             // Should win because all closed and >= opponent points
 
             // Verify all segments are closed for player 1
-            val playerState = engine.getCricketPlayerState(playerId1)
+            val playerState = engine.getCricketState()?.getPlayerState(playerId1)
             segments.forEach { segment ->
                 playerState?.isClosed(segment) shouldBe true
             }
@@ -403,7 +403,7 @@ class CricketGameEngineTest : FreeSpec({
             engine = e8
 
             // Now player 2 has 60 points
-            engine.getCricketPoints(playerId2) shouldBe 60
+            engine.getCricketState()!!.getPlayerState(playerId2).points shouldBe 60
 
             // Player 1 closes all segments quickly
             val segments = CricketSegments.STANDARD_CRICKET_SEGMENTS
@@ -475,7 +475,7 @@ class CricketGameEngineTest : FreeSpec({
 
             // THEN marks are restored
             undone shouldNotBe null
-            undone!!.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 0
+            undone!!.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 0
             undone.getCurrentTurnThrows() shouldHaveSize 0
         }
 
@@ -489,14 +489,14 @@ class CricketGameEngineTest : FreeSpec({
             val (e5, _) = e4.addThrow(20, Multiplier.SINGLE) // Score 20 points
             engine = e5
 
-            engine.getCricketPoints(playerId1) shouldBe 20
+            engine.getCricketState()!!.getPlayerState(playerId1).points shouldBe 20
 
             // WHEN undo is called
             val undone = engine.undoLastThrow()
 
             // THEN points are restored
             undone shouldNotBe null
-            undone!!.getCricketPoints(playerId1) shouldBe 0
+            undone!!.getCricketState()!!.getPlayerState(playerId1).points shouldBe 0
         }
 
         "Should correctly undo multiple throws" {
@@ -505,7 +505,7 @@ class CricketGameEngineTest : FreeSpec({
             val (e1, _) = engine.addThrow(20, Multiplier.SINGLE) // 1 mark
             val (e2, _) = e1.addThrow(20, Multiplier.DOUBLE) // 3 marks total
 
-            e2.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 3
+            e2.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 3
 
             // WHEN undo is called twice
             val undone1 = e2.undoLastThrow()
@@ -513,7 +513,7 @@ class CricketGameEngineTest : FreeSpec({
 
             // THEN all marks are restored
             undone2 shouldNotBe null
-            undone2!!.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 0
+            undone2!!.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 0
         }
     }
 
@@ -559,8 +559,8 @@ class CricketGameEngineTest : FreeSpec({
             engine = e4
 
             // THEN both players' states are maintained
-            engine.getCricketPlayerState(playerId1)?.isClosed(20) shouldBe true
-            engine.getCricketPlayerState(playerId2)?.isClosed(19) shouldBe true
+            engine.getCricketState()?.getPlayerState(playerId1)?.isClosed(20) shouldBe true
+            engine.getCricketState()?.getPlayerState(playerId2)?.isClosed(19) shouldBe true
         }
     }
 
@@ -585,7 +585,7 @@ class CricketGameEngineTest : FreeSpec({
             // THEN no marks are added (20 is not a target)
             result.shouldBeInstanceOf<ThrowResult.CricketMarks>()
             (result as ThrowResult.CricketMarks).marksAdded shouldBe 0
-            newEngine.getCricketPlayerState(playerId1)?.getMarks(20) shouldBe 0
+            newEngine.getCricketState()?.getPlayerState(playerId1)?.getMarks(20) shouldBe 0
         }
 
         "Random segments should generate 7 unique segments" {

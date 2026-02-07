@@ -104,6 +104,9 @@ internal data class ClassicModeEngine(
         )
     }
 
+    override fun withNonScoringThrow(throwObj: Throw): ModeEngine =
+        copy(currentTurnThrows = currentTurnThrows + throwObj)
+
     private fun checkBust(newScore: Int, lastThrow: Throw): ThrowResult.Bust? {
         if (newScore < 0) {
             return ThrowResult.Bust("Score below zero")

@@ -1,6 +1,5 @@
 package cloud.osasoft.dartzvibe.domain.game
 
-import cloud.osasoft.dartzvibe.data.model.CricketPlayerState
 import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameSession
@@ -145,10 +144,8 @@ internal data class CricketModeEngine(
 
     fun getCricketState(): CricketState = pendingCricketState
 
-    fun getCricketPlayerState(playerId: Uuid): CricketPlayerState =
-        pendingCricketState.getPlayerState(playerId)
-
-    fun getCricketPoints(playerId: Uuid): Int = getCricketPlayerState(playerId).points
+    override fun withNonScoringThrow(throwObj: Throw): ModeEngine =
+        copy(currentTurnThrows = currentTurnThrows + throwObj)
 
     private fun calculateCricketPoints(
         segment: Int,

@@ -138,6 +138,9 @@ internal data class ParcheesiModeEngine(
         )
     }
 
+    override fun withNonScoringThrow(throwObj: Throw): ModeEngine =
+        copy(currentTurnThrows = currentTurnThrows + throwObj)
+
     private fun detectKnockouts(newScore: Int, currentPlayerId: Uuid): List<Uuid> {
         if (newScore == 0) return emptyList()
         return config.playerIds

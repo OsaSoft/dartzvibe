@@ -235,8 +235,7 @@ class ParcheesiGameEngineTest : FreeSpec({
             val (bounced, result) = engine.addThrow(20, Multiplier.SINGLE)
             result.shouldBeInstanceOf<ThrowResult.BounceBack>()
 
-            // THEN isTurnBounced is true
-            bounced.isTurnBounced() shouldBe true
+            // THEN turn is ended
             bounced.isTurnEnded() shouldBe true
         }
 
@@ -568,14 +567,14 @@ class ParcheesiGameEngineTest : FreeSpec({
             // Player 1 at 300
             val (bounced, result) = engine.addThrow(20, Multiplier.SINGLE) // Bounce
             result.shouldBeInstanceOf<ThrowResult.BounceBack>()
-            bounced.isTurnBounced() shouldBe true
+            bounced.isTurnEnded() shouldBe true
 
             // WHEN undo is called
             val undone = bounced.undoLastThrow()
 
             // THEN bounce state is cleared
             undone shouldNotBe null
-            undone!!.isTurnBounced() shouldBe false
+            undone!!.isTurnEnded() shouldBe false
             undone.getCurrentPlayerScore() shouldBe 300
         }
 
