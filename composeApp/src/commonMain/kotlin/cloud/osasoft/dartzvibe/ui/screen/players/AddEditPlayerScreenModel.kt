@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.players
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +42,7 @@ class AddEditPlayerScreenModel(
         AddEditPlayerState(
             isEditMode = playerId != null,
             playerId = playerId,
+            avatarColor = (0 until AvatarColors.getColorCount()).random(),
         ),
     )
     val state: StateFlow<AddEditPlayerState> = _state.asStateFlow()
