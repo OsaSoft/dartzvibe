@@ -19,6 +19,23 @@ data class DetectionResult(
     val processingTimeMs: Long,
 )
 
+data class RawDetection(
+    val cx: Float,
+    val cy: Float,
+    val width: Float,
+    val height: Float,
+    val confidence: Float,
+    val classId: Int,
+)
+
+object DetectionClass {
+    const val CAL_20 = 0
+    const val CAL_3 = 1
+    const val CAL_11 = 2
+    const val CAL_6 = 3
+    const val DART = 4
+}
+
 sealed interface DetectionStatus {
     data object Idle : DetectionStatus
     data object Detecting : DetectionStatus
