@@ -195,13 +195,13 @@ fun HomeScreenContent(
             MenuButton(
                 text = "New Game",
                 icon = Icons.Default.PlayArrow,
-                enabled = state.playerCount >= 2,
+                enabled = state.playerCount >= 1,
                 onClick = onNewGame,
             )
 
-            if (state.playerCount < 2) {
+            if (state.playerCount < 1) {
                 Text(
-                    text = "Add at least 2 players to start a game",
+                    text = "Add at least 1 player to start a game",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,

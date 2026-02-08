@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.game
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,9 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
+import dartzvibe.composeapp.generated.resources.Res
+import dartzvibe.composeapp.generated.resources.forever_alone_bw
+import org.jetbrains.compose.resources.painterResource
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -140,13 +144,26 @@ fun ActiveGameContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        state.session
-                            ?.config
-                            ?.gameType
-                            ?.displayName ?: "Game",
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            state.session
+                                ?.config
+                                ?.gameType
+                                ?.displayName ?: "Game",
+                            fontWeight = FontWeight.Bold,
+                        )
+                        val isSoloGame = state.session?.config?.playerIds?.size == 1
+                        if (isSoloGame) {
+                            Image(
+                                painter = painterResource(Res.drawable.forever_alone_bw),
+                                contentDescription = "Forever alone",
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

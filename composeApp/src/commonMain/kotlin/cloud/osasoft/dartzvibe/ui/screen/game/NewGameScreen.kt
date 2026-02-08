@@ -501,7 +501,7 @@ fun PlayerSelectionSection(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Select 2-4 players. Order determines throwing order.",
+                text = "Select 1-4 players. Order determines throwing order.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

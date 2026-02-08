@@ -42,7 +42,7 @@ data class NewGameState(
         }
 
     val isValid: Boolean
-        get() = selectedPlayerIds.size in 2..4
+        get() = selectedPlayerIds.size in 1..4
 
     val legsOptions: List<Int> = listOf(1, 3, 5, 7)
 }
@@ -142,7 +142,7 @@ class NewGameScreenModel(
     fun startGame() {
         val currentState = _state.value
         if (!currentState.isValid) {
-            _state.update { it.copy(error = "Please select 2-4 players") }
+            _state.update { it.copy(error = "Please select 1-4 players") }
             return
         }
 
