@@ -17,6 +17,7 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.home.HomeScreen
 import cloud.osasoft.dartzvibe.ui.theme.DartzVibeTheme
+import cloud.osasoft.dartzvibe.util.KeepScreenOn
 
 /**
  * CompositionLocal for accessing the PlayerRepository throughout the app.
@@ -47,6 +48,8 @@ fun App(
     appSettingsRepository: AppSettingsRepository,
 ) {
     val settings by appSettingsRepository.getSettings().collectAsState(initial = AppSettingsData())
+
+    KeepScreenOn(enabled = settings.keepScreenOn)
 
     CompositionLocalProvider(
         LocalPlayerRepository provides playerRepository,
