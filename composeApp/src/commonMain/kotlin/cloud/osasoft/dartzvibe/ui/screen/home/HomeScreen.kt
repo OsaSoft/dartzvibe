@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -51,6 +52,7 @@ import cloud.osasoft.dartzvibe.ui.screen.players.PlayerListScreen
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.HeadToHeadScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
+import cloud.osasoft.dartzvibe.ui.screen.visiondebug.VisionDebugScreen
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -90,6 +92,9 @@ class HomeScreen : Screen {
             onSettings = {
                 navigator.push(SettingsScreen())
             },
+            onVisionDebug = {
+                navigator.push(VisionDebugScreen())
+            },
         )
     }
 }
@@ -113,6 +118,7 @@ fun HomeScreenContent(
     onViewLeaderboard: () -> Unit,
     onManagePlayers: () -> Unit,
     onSettings: () -> Unit,
+    onVisionDebug: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -261,6 +267,16 @@ fun HomeScreenContent(
                 subtitle = "${state.playerCount} player${if (state.playerCount != 1) "s" else ""}",
                 icon = Icons.Default.Person,
                 onClick = onManagePlayers,
+                isPrimary = false,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Vision Debug button
+            MenuButton(
+                text = "Vision Debug",
+                icon = Icons.Default.PhotoCamera,
+                onClick = onVisionDebug,
                 isPrimary = false,
             )
         }

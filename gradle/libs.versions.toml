@@ -46,6 +46,12 @@ sqldelight = "2.2.1"
 # Date/Time
 kotlinxDatetime = "0.6.1"
 
+# CameraX
+camerax = "1.4.1"
+
+# ONNX Runtime
+onnxruntime = "1.19.2"
+
 # Code Formatting
 spotless = "8.2.0"
 ktlint = "1.8.0"
@@ -105,6 +111,15 @@ sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sq
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
 sqldelight-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
+
+# CameraX
+camerax-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+camerax-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+
+# ONNX Runtime
+onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 
 # Date/Time
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }

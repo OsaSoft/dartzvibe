@@ -40,6 +40,15 @@ kotlin {
 
             // SQLDelight Android driver
             implementation(libs.sqldelight.android)
+
+            // CameraX
+            implementation(libs.camerax.core)
+            implementation(libs.camerax.camera2)
+            implementation(libs.camerax.lifecycle)
+            implementation(libs.camerax.view)
+
+            // ONNX Runtime
+            implementation(libs.onnxruntime.android)
         }
 
         iosMain.dependencies {
