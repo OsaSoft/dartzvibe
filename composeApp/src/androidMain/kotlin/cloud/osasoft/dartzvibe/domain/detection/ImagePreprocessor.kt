@@ -18,7 +18,7 @@ class ImagePreprocessor {
     fun preprocess(
         env: OrtEnvironment,
         jpegData: ByteArray,
-        modelInputSize: Int = 640,
+        modelInputSize: Int,
     ): PreprocessedImage {
         val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
             ?: throw IllegalArgumentException("Failed to decode JPEG data")

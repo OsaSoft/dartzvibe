@@ -2,6 +2,7 @@ package cloud.osasoft.dartzvibe.domain.detection
 
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.TensorInfo
 import android.content.Context
 import android.util.Log
 import kotlin.math.sqrt
@@ -13,9 +14,10 @@ class OnnxDartDetector(
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
     private val preprocessor = ImagePreprocessor()
-    private val postProcessor = YoloPostProcessor()
     private var session: OrtSession? = null
     private var modelLoadAttempted = false
+    private var modelInputSize: Int = 0
+    private var numClasses: Int = 0
 
     private fun getOrCreateSession(): OrtSession? {
         if (session != null) return session
@@ -24,7 +26,17 @@ class OnnxDartDetector(
         modelLoadAttempted = true
         return try {
             val modelBytes = context.assets.open(modelFileName).use { it.readBytes() }
-            env.createSession(modelBytes).also { session = it }
+            val ortSession = env.createSession(modelBytes)
+
+            val inputShape = (ortSession.inputInfo.values.first().info as TensorInfo).shape
+            modelInputSize = inputShape[2].toInt()
+
+            val outputShape = (ortSession.outputInfo.values.first().info as TensorInfo).shape
+            numClasses = outputShape[1].toInt() - 4
+
+            Log.i(TAG, "Model loaded: inputSize=$modelInputSize, numClasses=$numClasses")
+
+            ortSession.also { session = it }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load ONNX model '$modelFileName': ${e.message}")
             null
@@ -54,7 +66,7 @@ class OnnxDartDetector(
         imageData: ByteArray,
         startTime: Long,
     ): DetectionResult {
-        val preprocessed = preprocessor.preprocess(env, imageData)
+        val preprocessed = preprocessor.preprocess(env, imageData, modelInputSize)
 
         val inputName = ortSession.inputNames.first()
         val results = ortSession.run(mapOf(inputName to preprocessed.tensor))
@@ -66,7 +78,8 @@ class OnnxDartDetector(
         preprocessed.tensor.close()
         results.close()
 
-        val rawDetections = postProcessor.process(outputData, outputShape, preprocessed.modelInputSize)
+        val rawDetections = YoloPostProcessor(numClasses = numClasses)
+            .process(outputData, outputShape, preprocessed.modelInputSize)
 
         return buildDetectionResult(rawDetections, System.currentTimeMillis() - startTime)
     }
