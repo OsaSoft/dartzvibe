@@ -1,6 +1,7 @@
 package cloud.osasoft.dartzvibe.ui.screen.visiondebug
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -147,6 +151,21 @@ fun VisionDebugScreenContent(
                 // Detection info
                 DetectionInfoPanel(state.detectionStatus)
             }
+
+            // Attribution (CC BY-NC 4.0)
+            val uriHandler = LocalUriHandler.current
+            Text(
+                text = "Vision model based on dart-sense by Ben Willshaw (CC BY-NC 4.0)",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    textDecoration = TextDecoration.Underline,
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { uriHandler.openUri("https://github.com/bnww/dart-sense") }
+                    .padding(bottom = 8.dp),
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
