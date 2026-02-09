@@ -373,6 +373,87 @@ class CheckoutCalculatorTest : FreeSpec({
         }
     }
 
+    "getCheckoutOptions with maxDarts constraint" - {
+
+        "Should return null for score 149 with maxDarts=2 (requires 3 darts)" {
+            // GIVEN a score of 149 (only checkable in 3 darts)
+            val score = 149
+
+            // WHEN getting checkout options with only 2 darts remaining
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true, maxDarts = 2)
+
+            // THEN options should be null (cannot checkout in 2 darts)
+            options.shouldBeNull()
+        }
+
+        "Should return valid 2-dart checkouts for score 54 with maxDarts=2" {
+            // GIVEN a score of 54 (checkable in 2 darts)
+            val score = 54
+
+            // WHEN getting checkout options with 2 darts remaining
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true, maxDarts = 2)
+
+            // THEN options should include 2-dart paths
+            options.shouldNotBeNull()
+            options.shouldNotBeEmpty()
+            options.forEach { path ->
+                path.throws.size shouldBeLessThanOrEqual 2
+                path.totalScore shouldBe 54
+            }
+        }
+
+        "Should return only 1-dart finishes for score 40 with maxDarts=1" {
+            // GIVEN a score of 40 (D20 is a 1-dart finish)
+            val score = 40
+
+            // WHEN getting checkout options with only 1 dart remaining
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true, maxDarts = 1)
+
+            // THEN options should include only D20
+            options.shouldNotBeNull()
+            options.shouldNotBeEmpty()
+            options.forEach { path ->
+                path.throws shouldHaveSize 1
+            }
+            options.first().throws shouldBe listOf(double(20))
+        }
+
+        "Should return Bull for score 50 with maxDarts=1" {
+            // GIVEN a score of 50 (Bull is a 1-dart finish)
+            val score = 50
+
+            // WHEN getting checkout options with only 1 dart remaining
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true, maxDarts = 1)
+
+            // THEN options should include only Bull
+            options.shouldNotBeNull()
+            options.shouldNotBeEmpty()
+            options.first().throws shouldBe listOf(bull())
+        }
+
+        "Should return null for score 100 with maxDarts=1 (requires 2 darts)" {
+            // GIVEN a score of 100 (requires at least 2 darts)
+            val score = 100
+
+            // WHEN getting checkout options with only 1 dart remaining
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true, maxDarts = 1)
+
+            // THEN options should be null
+            options.shouldBeNull()
+        }
+
+        "Should return null when maxDarts=0" {
+            // GIVEN any checkable score
+            val score = 40
+
+            // WHEN getting checkout options with 0 darts remaining
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true, maxDarts = 0)
+
+            // THEN options should be null
+            options.shouldBeNull()
+        }
+    }
+
     "Coverage of common checkouts" - {
 
         "Should provide options for all doubles (2-40 even numbers)" {

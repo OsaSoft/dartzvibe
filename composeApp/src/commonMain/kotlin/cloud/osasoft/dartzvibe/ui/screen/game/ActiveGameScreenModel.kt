@@ -117,7 +117,7 @@ data class ActiveGameState(
                 currentPlayerScore
             }
             return if (remaining in 2..170) {
-                CheckoutCalculator.getCheckoutOptions(remaining, doubleOut)
+                CheckoutCalculator.getCheckoutOptions(remaining, doubleOut, maxDarts = throwsRemaining)
             } else {
                 null
             }

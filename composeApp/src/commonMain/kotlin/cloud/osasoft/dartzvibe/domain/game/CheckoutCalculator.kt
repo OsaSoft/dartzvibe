@@ -31,18 +31,20 @@ object CheckoutCalculator {
     fun getCheckoutOptions(
         score: Int,
         doubleOut: Boolean,
+        maxDarts: Int = 3,
     ): List<CheckoutPath>? = when {
+        maxDarts <= 0 -> null
         score <= 0 -> null
         score > MAX_CHECKOUT -> null
         score == 1 && doubleOut -> null
-        else -> calculateCheckouts(score, doubleOut)
+        else -> calculateCheckouts(score, doubleOut, maxDarts)
     }
 
     /**
      * Calculates checkout paths for the given score.
      * Prioritizes: fewest darts first, then highest-scoring setup throws.
      */
-    private fun calculateCheckouts(score: Int, doubleOut: Boolean): List<CheckoutPath> {
+    private fun calculateCheckouts(score: Int, doubleOut: Boolean, maxDarts: Int): List<CheckoutPath>? {
         val paths = mutableListOf<CheckoutPath>()
 
         // Try 1-dart finishes
@@ -50,13 +52,17 @@ object CheckoutCalculator {
         if (paths.size >= 3) return paths.take(3)
 
         // Try 2-dart finishes
-        findTwoDartFinishes(score, doubleOut).let { paths.addAll(it) }
-        if (paths.size >= 3) return paths.take(3)
+        if (maxDarts >= 2) {
+            findTwoDartFinishes(score, doubleOut).let { paths.addAll(it) }
+            if (paths.size >= 3) return paths.take(3)
+        }
 
         // Try 3-dart finishes
-        findThreeDartFinishes(score, doubleOut).let { paths.addAll(it) }
+        if (maxDarts >= 3) {
+            findThreeDartFinishes(score, doubleOut).let { paths.addAll(it) }
+        }
 
-        return paths.take(3)
+        return paths.take(3).ifEmpty { null }
     }
 
     /**
