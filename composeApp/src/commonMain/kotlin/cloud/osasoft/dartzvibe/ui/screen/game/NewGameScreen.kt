@@ -92,6 +92,7 @@ class NewGameScreen : Screen {
             onDoubleInChange = screenModel::setDoubleIn,
             onDoubleOutChange = screenModel::setDoubleOut,
             onLegsToWinChange = screenModel::setLegsToWin,
+            onCheckoutRoundsChange = screenModel::setCheckoutPracticeRounds,
             onPlayerToggle = screenModel::togglePlayerSelection,
             onMoveUp = screenModel::movePlayerUp,
             onMoveDown = screenModel::movePlayerDown,
@@ -118,6 +119,7 @@ fun NewGameContent(
     onDoubleInChange: (Boolean) -> Unit,
     onDoubleOutChange: (Boolean) -> Unit,
     onLegsToWinChange: (Int) -> Unit,
+    onCheckoutRoundsChange: (Int) -> Unit,
     onPlayerToggle: (Uuid) -> Unit,
     onMoveUp: (Uuid) -> Unit,
     onMoveDown: (Uuid) -> Unit,
@@ -176,16 +178,25 @@ fun NewGameContent(
                     doubleOut = state.doubleOut,
                     legsToWin = state.legsToWin,
                     legsOptions = state.legsOptions,
-                    showDoubleOptions = state.gameMode != GameMode.CRICKET,
+                    showDoubleOptions = state.gameMode !in listOf(
+                        GameMode.CRICKET,
+                        GameMode.CHECKOUT_PRACTICE,
+                    ),
+                    showLegsOption = !state.isCheckoutPractice,
+                    isCheckoutPractice = state.isCheckoutPractice,
+                    checkoutPracticeRounds = state.checkoutPracticeRounds,
+                    roundsOptions = state.roundsOptions,
                     onDoubleInChange = onDoubleInChange,
                     onDoubleOutChange = onDoubleOutChange,
                     onLegsToWinChange = onLegsToWinChange,
+                    onCheckoutRoundsChange = onCheckoutRoundsChange,
                 )
 
                 // Player Selection
                 PlayerSelectionSection(
                     availablePlayers = state.availablePlayers,
                     selectedPlayerIds = state.selectedPlayerIds,
+                    maxPlayers = state.maxPlayers,
                     onPlayerToggle = onPlayerToggle,
                     onMoveUp = onMoveUp,
                     onMoveDown = onMoveDown,
@@ -297,48 +308,28 @@ fun GameModeSection(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                FilterChip(
-                    selected = selectedMode == GameMode.CLASSIC,
-                    onClick = { onModeChange(GameMode.CLASSIC) },
-                    label = { Text("Classic") },
-                    leadingIcon = if (selectedMode == GameMode.CLASSIC) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    } else {
-                        null
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                )
-                FilterChip(
-                    selected = selectedMode == GameMode.PARCHEESI,
-                    onClick = { onModeChange(GameMode.PARCHEESI) },
-                    label = { Text("Parcheesi") },
-                    leadingIcon = if (selectedMode == GameMode.PARCHEESI) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    } else {
-                        null
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                )
-                FilterChip(
-                    selected = selectedMode == GameMode.CRICKET,
-                    onClick = { onModeChange(GameMode.CRICKET) },
-                    label = { Text("Cricket") },
-                    leadingIcon = if (selectedMode == GameMode.CRICKET) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                    } else {
-                        null
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                )
+                GameMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = selectedMode == mode,
+                        onClick = { onModeChange(mode) },
+                        label = { Text(mode.displayName) },
+                        leadingIcon = if (selectedMode == mode) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             val modeDescription = when (selectedMode) {
@@ -349,6 +340,9 @@ fun GameModeSection(
 
                 GameMode.CRICKET ->
                     "Close segments and score points on closed numbers!"
+
+                GameMode.CHECKOUT_PRACTICE ->
+                    "Practice finishing! Random checkout targets with 3 darts per round."
             }
             Text(
                 text = modeDescription,
@@ -367,9 +361,14 @@ fun GameOptionsSection(
     legsToWin: Int,
     legsOptions: List<Int>,
     showDoubleOptions: Boolean,
+    showLegsOption: Boolean = true,
+    isCheckoutPractice: Boolean = false,
+    checkoutPracticeRounds: Int = 10,
+    roundsOptions: List<Int> = emptyList(),
     onDoubleInChange: (Boolean) -> Unit,
     onDoubleOutChange: (Boolean) -> Unit,
     onLegsToWinChange: (Int) -> Unit,
+    onCheckoutRoundsChange: (Int) -> Unit = {},
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -420,25 +419,50 @@ fun GameOptionsSection(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Legs to Win
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("Legs to Win", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "First to $legsToWin leg${if (legsToWin > 1) "s" else ""} wins",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (isCheckoutPractice) {
+                // Rounds
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text("Rounds", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "$checkoutPracticeRounds checkout targets to practice",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    LegsDropdown(
+                        selectedLegs = checkoutPracticeRounds,
+                        options = roundsOptions,
+                        onLegsChange = onCheckoutRoundsChange,
                     )
                 }
-                LegsDropdown(
-                    selectedLegs = legsToWin,
-                    options = legsOptions,
-                    onLegsChange = onLegsToWinChange,
-                )
+            }
+
+            if (showLegsOption) {
+                // Legs to Win
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text("Legs to Win", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "First to $legsToWin leg${if (legsToWin > 1) "s" else ""} wins",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    LegsDropdown(
+                        selectedLegs = legsToWin,
+                        options = legsOptions,
+                        onLegsChange = onLegsToWinChange,
+                    )
+                }
             }
         }
     }
@@ -489,6 +513,7 @@ fun LegsDropdown(
 fun PlayerSelectionSection(
     availablePlayers: List<Player>,
     selectedPlayerIds: List<Uuid>,
+    maxPlayers: Int = 4,
     onPlayerToggle: (Uuid) -> Unit,
     onMoveUp: (Uuid) -> Unit,
     onMoveDown: (Uuid) -> Unit,
@@ -496,12 +521,16 @@ fun PlayerSelectionSection(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Players (${selectedPlayerIds.size}/4)",
+                text = "Players (${selectedPlayerIds.size}/$maxPlayers)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Select 1-4 players. Order determines throwing order.",
+                text = if (maxPlayers == 1) {
+                    "Select 1 player for solo practice."
+                } else {
+                    "Select 1-$maxPlayers players. Order determines throwing order."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -516,12 +545,14 @@ fun PlayerSelectionSection(
             } else {
                 // Selected players (reorderable)
                 if (selectedPlayerIds.isNotEmpty()) {
-                    Text(
-                        text = "Throwing Order:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    if (maxPlayers > 1) {
+                        Text(
+                            text = "Throwing Order:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
                     selectedPlayerIds.forEachIndexed { index, playerId ->
                         val player = availablePlayers.find { it.id == playerId }
@@ -529,8 +560,9 @@ fun PlayerSelectionSection(
                             SelectedPlayerRow(
                                 player = player,
                                 position = index + 1,
-                                canMoveUp = index > 0,
-                                canMoveDown = index < selectedPlayerIds.size - 1,
+                                canMoveUp = index > 0 && maxPlayers > 1,
+                                canMoveDown = index < selectedPlayerIds.size - 1 && maxPlayers > 1,
+                                showReorderButtons = maxPlayers > 1,
                                 onMoveUp = { onMoveUp(playerId) },
                                 onMoveDown = { onMoveDown(playerId) },
                                 onRemove = { onPlayerToggle(playerId) },
@@ -555,7 +587,7 @@ fun PlayerSelectionSection(
                     unselectedPlayers.forEach { player ->
                         AvailablePlayerRow(
                             player = player,
-                            isEnabled = selectedPlayerIds.size < 4,
+                            isEnabled = selectedPlayerIds.size < maxPlayers,
                             onSelect = { onPlayerToggle(player.id) },
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -573,6 +605,7 @@ fun SelectedPlayerRow(
     position: Int,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
+    showReorderButtons: Boolean = true,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
@@ -632,11 +665,13 @@ fun SelectedPlayerRow(
             )
 
             // Reorder buttons
-            IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
-            }
-            IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+            if (showReorderButtons) {
+                IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
+                }
+                IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+                }
             }
 
             // Remove checkbox

@@ -121,6 +121,9 @@ class GameRepositoryImpl(
                 finishedAt = session.finishedAt,
                 winnerId = session.winnerId?.toString(),
                 cricketSegments = config.cricketSegments?.let { json.encodeToString(it) },
+                checkoutPracticeTargets = config.checkoutPracticeTargets?.let {
+                    json.encodeToString(it)
+                },
             )
         }
         return session
@@ -161,6 +164,9 @@ class GameRepositoryImpl(
                 playerIds = playerIdList,
                 legsToWin = legsToWin.toInt(),
                 cricketSegments = cricketSegments?.let { json.decodeFromString<CricketSegments>(it) },
+                checkoutPracticeTargets = checkoutPracticeTargets?.let {
+                    json.decodeFromString<List<Int>>(it)
+                },
             ),
             legs = legsList,
             currentLegIndex = currentLegIndex.toInt(),

@@ -149,14 +149,18 @@ fun ActiveGameContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            state.session
-                                ?.config
-                                ?.gameType
-                                ?.displayName ?: "Game",
+                            if (state.isCheckoutPractice) {
+                                "Checkout Practice"
+                            } else {
+                                state.session
+                                    ?.config
+                                    ?.gameType
+                                    ?.displayName ?: "Game"
+                            },
                             fontWeight = FontWeight.Bold,
                         )
                         val isSoloGame = state.session?.config?.playerIds?.size == 1
-                        if (isSoloGame) {
+                        if (isSoloGame && !state.isCheckoutPractice) {
                             Image(
                                 painter = painterResource(Res.drawable.forever_alone_bw),
                                 contentDescription = "Forever alone",
@@ -209,8 +213,15 @@ fun ActiveGameContent(
                     .padding(padding)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // Player score cards or Cricket scoreboard
-                if (state.isCricket) {
+                // Player score cards, Cricket scoreboard, or Checkout Practice header
+                if (state.isCheckoutPractice) {
+                    CheckoutPracticeHeader(
+                        state = state,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                } else if (state.isCricket) {
                     val session = state.session
                     val cricketState = state.cricketState
                     if (session != null && cricketState != null) {
@@ -291,7 +302,7 @@ fun ActiveGameContent(
                             .height(48.dp),
                         shape = RoundedCornerShape(8.dp),
                     ) {
-                        Text("End Turn")
+                        Text(if (state.isCheckoutPractice) "Next Target" else "End Turn")
                     }
                 }
             }
@@ -317,27 +328,34 @@ fun ActiveGameContent(
 
     // Game complete dialog
     if (state.showGameCompleteDialog) {
-        val result = state.lastTurnResult as? TurnResult.MatchWon
-        val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
+        if (state.isCheckoutPractice) {
+            CheckoutPracticeResultsDialog(
+                state = state,
+                onDismiss = onDismissGameComplete,
+            )
+        } else {
+            val result = state.lastTurnResult as? TurnResult.MatchWon
+            val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
 
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Game Over!") },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "$winnerName wins the match!",
-                        style = MaterialTheme.typography.titleLarge,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = onDismissGameComplete) {
-                    Text("Finish")
-                }
-            },
-        )
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text("Game Over!") },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "$winnerName wins the match!",
+                            style = MaterialTheme.typography.titleLarge,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = onDismissGameComplete) {
+                        Text("Finish")
+                    }
+                },
+            )
+        }
     }
 
     // Abandon game confirmation dialog
@@ -582,4 +600,158 @@ fun ThrowPlaceholder() {
             color = MaterialTheme.colorScheme.outline,
         )
     }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+fun CheckoutPracticeHeader(
+    state: ActiveGameState,
+    modifier: Modifier = Modifier,
+) {
+    val practiceState = state.checkoutPracticeState ?: return
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Round progress
+            Text(
+                text = "Round ${state.checkoutRoundNumber} of ${state.checkoutTotalRounds}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Target score (large)
+            Text(
+                text = "Target: ${state.currentCheckoutTarget ?: 0}",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Remaining score
+            val remaining = state.currentPlayerScore
+            if (remaining != state.currentCheckoutTarget) {
+                Text(
+                    text = "Remaining: $remaining",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Success count
+            Text(
+                text = "Checkouts: ${practiceState.successCount}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+fun CheckoutPracticeResultsDialog(
+    state: ActiveGameState,
+    onDismiss: () -> Unit,
+) {
+    val practiceState = state.checkoutPracticeState ?: return
+    val totalRounds = practiceState.totalRounds
+    val successCount = practiceState.successCount
+    val successRate = if (totalRounds > 0) (successCount * 100) / totalRounds else 0
+
+    val successfulRounds = practiceState.roundResults.filter { it.success }
+    val avgDartsPerSuccess = if (successfulRounds.isNotEmpty()) {
+        val total = successfulRounds.sumOf { it.dartsUsed } * 10 / successfulRounds.size
+        "${total / 10}.${total % 10}"
+    } else {
+        "0.0"
+    }
+
+    AlertDialog(
+        onDismissRequest = { },
+        title = { Text("Practice Complete!") },
+        text = {
+            Column {
+                // Summary stats
+                Text(
+                    text = "$successCount/$totalRounds - $successRate%",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (successfulRounds.isNotEmpty()) {
+                    Text(
+                        text = "Avg darts per checkout: $avgDartsPerSuccess",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Round-by-round results
+                Text(
+                    text = "Round Results:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                practiceState.roundResults.forEachIndexed { index, result ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "${index + 1}. Target: ${result.target}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = if (result.success) {
+                                "${result.dartsUsed} darts"
+                            } else {
+                                "Miss"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (result.success) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Finish")
+            }
+        },
+    )
 }

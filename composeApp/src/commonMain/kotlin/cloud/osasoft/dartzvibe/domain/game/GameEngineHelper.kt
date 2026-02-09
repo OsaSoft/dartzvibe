@@ -19,6 +19,10 @@ internal object GameEngineHelper {
     }
 
     fun getPlayerScore(config: GameConfig, session: GameSession, playerId: Uuid): Int {
+        if (config.isCheckoutPractice) {
+            val state = session.currentLeg.checkoutPracticeState ?: return config.startingScore
+            return if (state.isComplete) 0 else state.currentTarget
+        }
         val currentLeg = session.currentLeg
         val lastTurn = currentLeg.turns.lastOrNull { it.playerId == playerId }
         return lastTurn?.scoreAfterTurn ?: config.startingScore

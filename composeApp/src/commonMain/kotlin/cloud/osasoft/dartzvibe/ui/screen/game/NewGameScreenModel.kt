@@ -10,6 +10,7 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ data class NewGameState(
     val doubleIn: Boolean = false,
     val doubleOut: Boolean = true,
     val legsToWin: Int = 1,
+    val checkoutPracticeRounds: Int = 10,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val error: String? = null,
@@ -41,10 +43,18 @@ data class NewGameState(
             availablePlayers.find { it.id == id }
         }
 
+    val maxPlayers: Int
+        get() = if (gameMode == GameMode.CHECKOUT_PRACTICE) 1 else 4
+
     val isValid: Boolean
-        get() = selectedPlayerIds.size in 1..4
+        get() = selectedPlayerIds.size in 1..maxPlayers
 
     val legsOptions: List<Int> = listOf(1, 3, 5, 7)
+
+    val roundsOptions: List<Int> = listOf(5, 10, 15, 20)
+
+    val isCheckoutPractice: Boolean
+        get() = gameMode == GameMode.CHECKOUT_PRACTICE
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -85,7 +95,12 @@ class NewGameScreenModel(
             } else {
                 gameMode.supportedTypes.first()
             }
-            state.copy(gameMode = gameMode, gameType = newType)
+            val newPlayerIds = if (gameMode == GameMode.CHECKOUT_PRACTICE && state.selectedPlayerIds.size > 1) {
+                state.selectedPlayerIds.take(1)
+            } else {
+                state.selectedPlayerIds
+            }
+            state.copy(gameMode = gameMode, gameType = newType, selectedPlayerIds = newPlayerIds)
         }
     }
 
@@ -101,15 +116,19 @@ class NewGameScreenModel(
         _state.update { it.copy(legsToWin = legs) }
     }
 
+    fun setCheckoutPracticeRounds(rounds: Int) {
+        _state.update { it.copy(checkoutPracticeRounds = rounds) }
+    }
+
     fun togglePlayerSelection(playerId: Uuid) {
         _state.update { currentState ->
             val currentSelection = currentState.selectedPlayerIds
             val newSelection = if (playerId in currentSelection) {
                 currentSelection - playerId
-            } else if (currentSelection.size < 4) {
+            } else if (currentSelection.size < currentState.maxPlayers) {
                 currentSelection + playerId
             } else {
-                currentSelection // Max 4 players
+                currentSelection
             }
             currentState.copy(selectedPlayerIds = newSelection)
         }
@@ -142,26 +161,48 @@ class NewGameScreenModel(
     fun startGame() {
         val currentState = _state.value
         if (!currentState.isValid) {
-            _state.update { it.copy(error = "Please select 1-4 players") }
+            _state.update { it.copy(error = "Please select at least 1 player") }
             return
         }
 
         _state.update { it.copy(isSaving = true, error = null) }
         screenModelScope.launch {
             try {
+                val isCheckout = currentState.gameMode == GameMode.CHECKOUT_PRACTICE
+                val isCricket = currentState.gameMode == GameMode.CRICKET
+
                 val cricketSegments = when (currentState.gameType) {
                     GameType.CRICKET_REGULAR -> CricketSegments.standard()
                     GameType.CRICKET_RANDOM -> CricketSegments.random()
                     else -> null
                 }
+
+                val checkoutTargets = if (isCheckout) {
+                    val range = CheckoutCalculator.getScoreRange(currentState.gameType)
+                    CheckoutCalculator.generateCheckoutTargets(
+                        count = currentState.checkoutPracticeRounds,
+                        range = range,
+                        doubleOut = true,
+                    )
+                } else {
+                    null
+                }
+
                 val config = GameConfig(
                     gameType = currentState.gameType,
                     gameMode = currentState.gameMode,
-                    doubleIn = if (currentState.gameMode == GameMode.CRICKET) false else currentState.doubleIn,
-                    doubleOut = if (currentState.gameMode == GameMode.CRICKET) false else currentState.doubleOut,
+                    doubleIn = if (isCricket || isCheckout) false else currentState.doubleIn,
+                    doubleOut = if (isCricket) {
+                        false
+                    } else if (isCheckout) {
+                        true
+                    } else {
+                        currentState.doubleOut
+                    },
                     playerIds = currentState.selectedPlayerIds,
-                    legsToWin = currentState.legsToWin,
+                    legsToWin = if (isCheckout) 1 else currentState.legsToWin,
                     cricketSegments = cricketSegments,
+                    checkoutPracticeTargets = checkoutTargets,
                 )
                 val session = gameRepository.createGameSession(config)
                 log.d { "Created game session: ${session.id}" }

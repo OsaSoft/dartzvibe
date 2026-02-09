@@ -88,6 +88,7 @@ class StatisticsCalculator {
         filter: StatisticsFilter,
     ): List<GameSession> = games.asSequence()
         .filter { it.status == GameStatus.COMPLETED }
+        .filter { it.config.gameMode != GameMode.CHECKOUT_PRACTICE }
         .filter { it.config.playerIds.contains(playerId) }
         .filter { filter.gameType == null || it.config.gameType == filter.gameType }
         .toList()
@@ -311,6 +312,7 @@ class StatisticsCalculator {
         // Filter to games where BOTH players participated and game is completed
         val h2hGames = games.asSequence()
             .filter { it.status == GameStatus.COMPLETED }
+            .filter { it.config.gameMode != GameMode.CHECKOUT_PRACTICE }
             .filter { it.config.playerIds.contains(player1Id) }
             .filter { it.config.playerIds.contains(player2Id) }
             .filter { gameTypeFilter == null || it.config.gameType == gameTypeFilter }

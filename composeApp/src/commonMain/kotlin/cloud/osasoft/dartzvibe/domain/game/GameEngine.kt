@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.domain.game
 
+import cloud.osasoft.dartzvibe.data.model.CheckoutPracticeState
 import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameConfig
@@ -81,6 +82,16 @@ class GameEngine private constructor(
                     )
                     CricketModeEngine(session, pendingCricketState = initialCricketState)
                 }
+
+                GameMode.CHECKOUT_PRACTICE -> {
+                    val targets = session.config.checkoutPracticeTargets ?: emptyList()
+                    val initialState = session.currentLeg.checkoutPracticeState
+                        ?: CheckoutPracticeState(targets = targets)
+                    CheckoutPracticeModeEngine(
+                        session = session,
+                        pendingCheckoutPracticeState = initialState,
+                    )
+                }
             }
             return GameEngine(engine)
         }
@@ -133,6 +144,10 @@ class GameEngine private constructor(
     fun getCricketState(): CricketState? =
         (modeEngine as? CricketModeEngine)?.getCricketState()
             ?: modeEngine.session.currentLeg.cricketState
+
+    fun getCheckoutPracticeState(): CheckoutPracticeState? =
+        (modeEngine as? CheckoutPracticeModeEngine)?.getCheckoutPracticeState()
+            ?: modeEngine.session.currentLeg.checkoutPracticeState
 
     fun toGameSession(): GameSession = modeEngine.session
 

@@ -1,10 +1,13 @@
 package cloud.osasoft.dartzvibe.domain.game
 
+import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -318,6 +321,55 @@ class CheckoutCalculatorTest : FreeSpec({
             options.first().throws shouldBe listOf(bull())
             // Should also include 2-dart alternatives
             options.any { it.throws.size == 2 } shouldBe true
+        }
+    }
+
+    "generateCheckoutTargets" - {
+
+        "Should generate requested number of targets" {
+            // GIVEN a request for 10 targets in the easy range
+            val count = 10
+
+            // WHEN generating targets
+            val targets = CheckoutCalculator.generateCheckoutTargets(count, 2..40, doubleOut = true)
+
+            // THEN should return exactly 10 targets
+            targets shouldHaveSize 10
+        }
+
+        "Should generate valid scores in range" {
+            // GIVEN a request for targets in the easy range (2-40)
+            val range = 2..40
+
+            // WHEN generating targets
+            val targets = CheckoutCalculator.generateCheckoutTargets(20, range, doubleOut = true)
+
+            // THEN all targets should be in range
+            targets.forEach { target ->
+                target shouldBeGreaterThanOrEqual 2
+                target shouldBeLessThanOrEqual 40
+            }
+        }
+
+        "Should not generate impossible scores" {
+            // GIVEN a request for targets with double-out
+            // WHEN generating targets
+            val targets = CheckoutCalculator.generateCheckoutTargets(50, 2..170, doubleOut = true)
+
+            // THEN all targets should be checkable
+            targets.forEach { target ->
+                val options = CheckoutCalculator.getCheckoutOptions(target, doubleOut = true)
+                options.shouldNotBeNull()
+            }
+        }
+
+        "Should respect getScoreRange for game types" {
+            // GIVEN different game types
+            // THEN score ranges should be correct
+            CheckoutCalculator.getScoreRange(GameType.CHECKOUT_EASY) shouldBe (2..40)
+            CheckoutCalculator.getScoreRange(GameType.CHECKOUT_MEDIUM) shouldBe (41..100)
+            CheckoutCalculator.getScoreRange(GameType.CHECKOUT_HARD) shouldBe (101..170)
+            CheckoutCalculator.getScoreRange(GameType.CHECKOUT_FULL) shouldBe (2..170)
         }
     }
 

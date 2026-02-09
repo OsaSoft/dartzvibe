@@ -2,6 +2,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import cloud.osasoft.dartzvibe.data.model.CheckoutPracticeState
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
@@ -85,6 +86,23 @@ data class ActiveGameState(
 
     val cricketState: CricketState?
         get() = engine?.getCricketState()
+
+    val isCheckoutPractice: Boolean
+        get() = session?.config?.isCheckoutPractice == true
+
+    val checkoutPracticeState: CheckoutPracticeState?
+        get() = engine?.getCheckoutPracticeState()
+
+    val currentCheckoutTarget: Int?
+        get() = checkoutPracticeState?.let { state ->
+            if (state.isComplete) null else state.currentTarget
+        }
+
+    val checkoutRoundNumber: Int
+        get() = (checkoutPracticeState?.currentRoundIndex ?: 0) + 1
+
+    val checkoutTotalRounds: Int
+        get() = checkoutPracticeState?.totalRounds ?: 0
 
     val checkoutOptions: List<CheckoutPath>?
         get() {

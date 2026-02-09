@@ -30,6 +30,26 @@ enum class GameType(
         description = "Cricket with 7 random segments",
         startingScore = 0,
     ),
+    CHECKOUT_EASY(
+        displayName = "Easy",
+        description = "Targets from 2-40",
+        startingScore = 0,
+    ),
+    CHECKOUT_MEDIUM(
+        displayName = "Medium",
+        description = "Targets from 41-100",
+        startingScore = 0,
+    ),
+    CHECKOUT_HARD(
+        displayName = "Hard",
+        description = "Targets from 101-170",
+        startingScore = 0,
+    ),
+    CHECKOUT_FULL(
+        displayName = "Full",
+        description = "Targets from 2-170",
+        startingScore = 0,
+    ),
 }
 
 /**
@@ -39,6 +59,10 @@ enum class GameMode(val displayName: String, val supportedTypes: List<GameType>)
     CLASSIC("Classic", listOf(GameType.CLASSIC_501, GameType.CLASSIC_301)),
     PARCHEESI("Parcheesi", listOf(GameType.CLASSIC_501, GameType.CLASSIC_301)),
     CRICKET("Cricket", listOf(GameType.CRICKET_REGULAR, GameType.CRICKET_RANDOM)),
+    CHECKOUT_PRACTICE(
+        "Checkout",
+        listOf(GameType.CHECKOUT_EASY, GameType.CHECKOUT_MEDIUM, GameType.CHECKOUT_HARD, GameType.CHECKOUT_FULL),
+    ),
 }
 
 /**
@@ -124,12 +148,14 @@ data class GameConfig(
     val playerIds: List<Uuid>,
     val legsToWin: Int = 1,
     val cricketSegments: CricketSegments? = null,
+    val checkoutPracticeTargets: List<Int>? = null,
 ) {
     val startingScore: Int
         get() = when (gameMode) {
             GameMode.CLASSIC -> gameType.startingScore
             GameMode.PARCHEESI -> 0
             GameMode.CRICKET -> 0
+            GameMode.CHECKOUT_PRACTICE -> checkoutPracticeTargets?.firstOrNull() ?: 0
         }
 
     val targetScore: Int get() = gameType.startingScore
@@ -137,6 +163,8 @@ data class GameConfig(
     val isCountUp: Boolean get() = gameMode == GameMode.PARCHEESI
 
     val isCricket: Boolean get() = gameMode == GameMode.CRICKET
+
+    val isCheckoutPractice: Boolean get() = gameMode == GameMode.CHECKOUT_PRACTICE
 
     /**
      * Human-readable description of the game configuration.
@@ -150,6 +178,10 @@ data class GameConfig(
             if (gameMode in listOf(GameMode.CLASSIC, GameMode.PARCHEESI)) {
                 if (doubleIn) append(" Double-In")
                 if (doubleOut) append(" Double-Out")
+            }
+            if (isCheckoutPractice) {
+                val rounds = checkoutPracticeTargets?.size ?: 0
+                append(" ($rounds rounds)")
             }
         }
 }
@@ -187,12 +219,39 @@ data class Turn(
 }
 
 /**
+ * Result of a single checkout practice round.
+ */
+@Serializable
+data class CheckoutRoundResult(
+    val target: Int,
+    val success: Boolean,
+    val dartsUsed: Int,
+    val throws: List<Throw>,
+)
+
+/**
+ * State tracking for checkout practice mode.
+ */
+@Serializable
+data class CheckoutPracticeState(
+    val targets: List<Int>,
+    val currentRoundIndex: Int = 0,
+    val roundResults: List<CheckoutRoundResult> = emptyList(),
+) {
+    val currentTarget: Int get() = targets[currentRoundIndex]
+    val totalRounds: Int get() = targets.size
+    val isComplete: Boolean get() = roundResults.size >= totalRounds
+    val successCount: Int get() = roundResults.count { it.success }
+}
+
+/**
  * Represents a single leg in a match.
  *
  * @property turns All turns in this leg, including phantom turns (system-generated
  *   turns for knockouts). Use [playerTurns] for display and counting.
  * @property winnerId The player who won this leg, or null if not yet won.
  * @property cricketState Cricket-specific state (marks and points per player).
+ * @property checkoutPracticeState Checkout practice-specific state (targets and results).
  */
 @OptIn(ExperimentalUuidApi::class)
 @Serializable
@@ -200,6 +259,7 @@ data class Leg(
     val turns: List<Turn> = emptyList(),
     val winnerId: Uuid? = null,
     val cricketState: CricketState? = null,
+    val checkoutPracticeState: CheckoutPracticeState? = null,
 ) {
     /**
      * Player turns only (excludes phantom/system-generated turns).

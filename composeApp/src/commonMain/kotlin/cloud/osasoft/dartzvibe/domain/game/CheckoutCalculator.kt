@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.domain.game
 
+import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 
@@ -143,6 +144,32 @@ object CheckoutCalculator {
             (1..20).map { double(it) } +
             (1..20).map { triple(it) } +
             bull()
+
+    /**
+     * Generates a list of random valid checkout targets for practice.
+     *
+     * @param count Number of targets to generate
+     * @param range The score range to pick from
+     * @param doubleOut Whether double-out is required (filters out impossible scores like 169, 168, 166, 165, 163, 162, 159)
+     * @return List of random valid checkout scores
+     */
+    fun generateCheckoutTargets(count: Int, range: IntRange, doubleOut: Boolean): List<Int> {
+        val validScores = range.filter { score ->
+            getCheckoutOptions(score, doubleOut) != null
+        }
+        return (1..count).map { validScores.random() }
+    }
+
+    /**
+     * Maps a checkout practice game type to its score range.
+     */
+    fun getScoreRange(gameType: GameType): IntRange = when (gameType) {
+        GameType.CHECKOUT_EASY -> 2..40
+        GameType.CHECKOUT_MEDIUM -> 41..100
+        GameType.CHECKOUT_HARD -> 101..170
+        GameType.CHECKOUT_FULL -> 2..170
+        else -> 2..170
+    }
 
     // Helper functions to create throws
     private fun single(segment: Int): Throw = Throw(segment = segment, multiplier = Multiplier.SINGLE)
