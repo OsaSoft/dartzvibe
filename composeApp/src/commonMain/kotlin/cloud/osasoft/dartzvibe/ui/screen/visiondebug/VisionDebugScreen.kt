@@ -152,20 +152,32 @@ fun VisionDebugScreenContent(
                 DetectionInfoPanel(state.detectionStatus)
             }
 
-            // Attribution (CC BY-NC 4.0)
-            val uriHandler = LocalUriHandler.current
-            Text(
-                text = "Vision model based on dart-sense by Ben Willshaw (CC BY-NC 4.0)",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    textDecoration = TextDecoration.Underline,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { uriHandler.openUri("https://github.com/bnww/dart-sense") }
-                    .padding(bottom = 8.dp),
-                textAlign = TextAlign.Center,
-            )
+            // Attribution / model error indicator
+            if (state.modelError != null) {
+                Text(
+                    text = state.modelError,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                val uriHandler = LocalUriHandler.current
+                Text(
+                    text = "Vision model based on dart-sense by Ben Willshaw (CC BY-NC 4.0)",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { uriHandler.openUri("https://github.com/bnww/dart-sense") }
+                        .padding(bottom = 8.dp),
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

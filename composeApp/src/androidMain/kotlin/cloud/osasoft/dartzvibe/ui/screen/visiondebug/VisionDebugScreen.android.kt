@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import cloud.osasoft.dartzvibe.domain.detection.MockDartDetector
 import cloud.osasoft.dartzvibe.domain.detection.OnnxDartDetector
 import cloud.osasoft.dartzvibe.ui.screen.visiondebug.components.CameraPreviewView
 
@@ -16,7 +15,7 @@ actual fun rememberVisionDebugScreenModel(): VisionDebugScreenModel {
             context.assets.open("dart_detect.onnx").close()
             OnnxDartDetector(context)
         } catch (_: Exception) {
-            MockDartDetector()
+            null
         }
         VisionDebugScreenModel(detector)
     }

@@ -8,12 +8,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import cloud.osasoft.dartzvibe.domain.detection.DartDetector
-import cloud.osasoft.dartzvibe.domain.detection.DetectionResult
 
 @Composable
 actual fun rememberVisionDebugScreenModel(): VisionDebugScreenModel = remember {
-    VisionDebugScreenModel(NoOpDartDetector())
+    VisionDebugScreenModel(null)
 }
 
 @Suppress("ktlint:standard:function-naming")
@@ -32,19 +30,4 @@ actual fun CameraPreviewContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-private class NoOpDartDetector : DartDetector {
-    override suspend fun detect(
-        imageData: ByteArray,
-        width: Int,
-        height: Int,
-    ): DetectionResult = DetectionResult(
-        darts = emptyList(),
-        boardDetected = false,
-        boardCenterX = null,
-        boardCenterY = null,
-        boardRadius = null,
-        processingTimeMs = 0L,
-    )
 }

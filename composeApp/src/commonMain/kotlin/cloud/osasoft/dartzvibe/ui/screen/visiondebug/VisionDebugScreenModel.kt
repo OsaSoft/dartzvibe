@@ -16,18 +16,25 @@ data class VisionDebugState(
     val showBoardOverlay: Boolean = true,
     val showRingGuides: Boolean = true,
     val cameraPermissionGranted: Boolean = false,
+    val modelError: String? = null,
 )
 
 class VisionDebugScreenModel(
-    private val dartDetector: DartDetector,
+    private val dartDetector: DartDetector?,
 ) : ScreenModel {
 
-    private val _state = MutableStateFlow(VisionDebugState())
+    private val _state = MutableStateFlow(
+        VisionDebugState(
+            modelError = if (dartDetector == null) "ONNX model not found" else null,
+            isDetectionEnabled = dartDetector != null,
+        ),
+    )
     val state: StateFlow<VisionDebugState> = _state.asStateFlow()
 
     private var isProcessing = false
 
     fun onFrameAvailable(imageData: ByteArray, width: Int, height: Int) {
+        val detector = dartDetector ?: return
         if (!_state.value.isDetectionEnabled || isProcessing) return
 
         isProcessing = true
@@ -35,7 +42,7 @@ class VisionDebugScreenModel(
 
         screenModelScope.launch {
             try {
-                val result = dartDetector.detect(imageData, width, height)
+                val result = detector.detect(imageData, width, height)
                 _state.update { it.copy(detectionStatus = DetectionStatus.Success(result)) }
             } catch (e: Exception) {
                 _state.update {
@@ -48,6 +55,7 @@ class VisionDebugScreenModel(
     }
 
     fun toggleDetection() {
+        if (dartDetector == null) return
         _state.update {
             val newEnabled = !it.isDetectionEnabled
             it.copy(
