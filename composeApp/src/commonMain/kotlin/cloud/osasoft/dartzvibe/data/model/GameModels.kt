@@ -273,7 +273,7 @@ data class CheckoutPracticeState(
     val currentRoundIndex: Int = 0,
     val roundResults: List<CheckoutRoundResult> = emptyList(),
 ) {
-    val currentTarget: Int get() = targets[currentRoundIndex]
+    val currentTarget: Int get() = targets.getOrElse(currentRoundIndex) { targets.last() }
     val totalRounds: Int get() = targets.size
     val isComplete: Boolean get() = roundResults.size >= totalRounds
     val successCount: Int get() = roundResults.count { it.success }

@@ -23,8 +23,11 @@ internal data class CheckoutPracticeModeEngine(
 
     private fun currentPlayerId() = GameEngineHelper.getCurrentPlayerId(config, session)
 
-    override fun getCurrentPlayerScore(): Int =
-        pendingScore ?: pendingCheckoutPracticeState.currentTarget
+    override fun getCurrentPlayerScore(): Int = when {
+        pendingScore != null -> pendingScore
+        pendingCheckoutPracticeState.isComplete -> 0
+        else -> pendingCheckoutPracticeState.currentTarget
+    }
 
     override fun isTurnEnded(): Boolean = isBusted
 
