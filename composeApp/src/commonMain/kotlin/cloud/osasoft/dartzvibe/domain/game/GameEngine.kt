@@ -8,6 +8,7 @@ import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.data.model.RouletteState
 import cloud.osasoft.dartzvibe.data.model.Throw
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -38,6 +39,12 @@ sealed class ThrowResult {
     ) : ThrowResult()
 
     data class CricketWin(val winnerId: Uuid) : ThrowResult()
+
+    data class RouletteHit(
+        val segment: Int,
+        val pointsScored: Int,
+        val newTotalScore: Int,
+    ) : ThrowResult()
 }
 
 /**
@@ -90,6 +97,14 @@ class GameEngine private constructor(
                     CheckoutPracticeModeEngine(
                         session = session,
                         pendingCheckoutPracticeState = initialState,
+                    )
+                }
+
+                GameMode.ROULETTE -> {
+                    val initialState = session.currentLeg.rouletteState ?: RouletteState()
+                    RouletteModeEngine(
+                        session = session,
+                        pendingRouletteState = initialState,
                     )
                 }
             }
@@ -148,6 +163,10 @@ class GameEngine private constructor(
     fun getCheckoutPracticeState(): CheckoutPracticeState? =
         (modeEngine as? CheckoutPracticeModeEngine)?.getCheckoutPracticeState()
             ?: modeEngine.session.currentLeg.checkoutPracticeState
+
+    fun getRouletteState(): RouletteState? =
+        (modeEngine as? RouletteModeEngine)?.getRouletteState()
+            ?: modeEngine.session.currentLeg.rouletteState
 
     fun toGameSession(): GameSession = modeEngine.session
 

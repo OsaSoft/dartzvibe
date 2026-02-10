@@ -6,8 +6,10 @@ import cloud.osasoft.dartzvibe.data.model.CheckoutPracticeState
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
+import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.data.model.RouletteState
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
@@ -104,10 +106,32 @@ data class ActiveGameState(
     val checkoutTotalRounds: Int
         get() = checkoutPracticeState?.totalRounds ?: 0
 
+    val isRoulette: Boolean
+        get() = session?.config?.isRoulette == true
+
+    val rouletteState: RouletteState?
+        get() = engine?.getRouletteState()
+
+    val currentRouletteTarget: Int?
+        get() {
+            val state = rouletteState ?: return null
+            val targets = session?.config?.rouletteTargetSegments ?: return null
+            return if (targets.isEmpty()) null else targets[state.currentRoundIndex % targets.size]
+        }
+
+    val rouletteRoundNumber: Int
+        get() = (rouletteState?.currentRoundIndex ?: 0) + 1
+
+    val rouletteTotalRounds: Int?
+        get() = session?.config?.rouletteRounds
+
+    val rouletteTargetScore: Int?
+        get() = session?.config?.rouletteTargetScore
+
     val checkoutOptions: List<CheckoutPath>?
         get() {
-            // No checkout hints for Cricket
-            if (isCricket) return null
+            // No checkout hints for Cricket or Roulette
+            if (isCricket || isRoulette) return null
 
             val doubleOut = session?.config?.doubleOut ?: true
             // For Parcheesi, calculate remaining to target
@@ -133,7 +157,11 @@ data class ActiveGameState(
         val currentLeg = session?.currentLeg ?: return null
         val lastTurn = currentLeg.turns.lastOrNull { it.playerId == playerId }
         return if (lastTurn != null && !lastTurn.isBust) {
-            lastTurn.totalScore
+            if (isRoulette) {
+                lastTurn.scoreAfterTurn - lastTurn.scoreBeforeTurn
+            } else {
+                lastTurn.totalScore
+            }
         } else {
             null
         }

@@ -93,6 +93,8 @@ class NewGameScreen : Screen {
             onDoubleOutChange = screenModel::setDoubleOut,
             onLegsToWinChange = screenModel::setLegsToWin,
             onCheckoutRoundsChange = screenModel::setCheckoutPracticeRounds,
+            onRouletteRoundsChange = screenModel::setRouletteRounds,
+            onRouletteTargetScoreChange = screenModel::setRouletteTargetScore,
             onPlayerToggle = screenModel::togglePlayerSelection,
             onMoveUp = screenModel::movePlayerUp,
             onMoveDown = screenModel::movePlayerDown,
@@ -120,6 +122,8 @@ fun NewGameContent(
     onDoubleOutChange: (Boolean) -> Unit,
     onLegsToWinChange: (Int) -> Unit,
     onCheckoutRoundsChange: (Int) -> Unit,
+    onRouletteRoundsChange: (Int) -> Unit = {},
+    onRouletteTargetScoreChange: (Int) -> Unit = {},
     onPlayerToggle: (Uuid) -> Unit,
     onMoveUp: (Uuid) -> Unit,
     onMoveDown: (Uuid) -> Unit,
@@ -181,15 +185,24 @@ fun NewGameContent(
                     showDoubleOptions = state.gameMode !in listOf(
                         GameMode.CRICKET,
                         GameMode.CHECKOUT_PRACTICE,
+                        GameMode.ROULETTE,
                     ),
-                    showLegsOption = !state.isCheckoutPractice,
+                    showLegsOption = !state.isCheckoutPractice && !state.isRoulette,
                     isCheckoutPractice = state.isCheckoutPractice,
                     checkoutPracticeRounds = state.checkoutPracticeRounds,
                     roundsOptions = state.roundsOptions,
+                    isRoulette = state.isRoulette,
+                    rouletteRounds = state.rouletteRounds,
+                    rouletteRoundsOptions = state.rouletteRoundsOptions,
+                    rouletteTargetScore = state.rouletteTargetScore,
+                    rouletteScoreOptions = state.rouletteScoreOptions,
+                    rouletteGameType = state.gameType,
                     onDoubleInChange = onDoubleInChange,
                     onDoubleOutChange = onDoubleOutChange,
                     onLegsToWinChange = onLegsToWinChange,
                     onCheckoutRoundsChange = onCheckoutRoundsChange,
+                    onRouletteRoundsChange = onRouletteRoundsChange,
+                    onRouletteTargetScoreChange = onRouletteTargetScoreChange,
                 )
 
                 // Player Selection
@@ -343,6 +356,9 @@ fun GameModeSection(
 
                 GameMode.CHECKOUT_PRACTICE ->
                     "Practice finishing! Random checkout targets with 3 darts per round."
+
+                GameMode.ROULETTE ->
+                    "Random target each round! Score points by hitting the target segment."
             }
             Text(
                 text = modeDescription,
@@ -365,10 +381,18 @@ fun GameOptionsSection(
     isCheckoutPractice: Boolean = false,
     checkoutPracticeRounds: Int = 10,
     roundsOptions: List<Int> = emptyList(),
+    isRoulette: Boolean = false,
+    rouletteRounds: Int = 10,
+    rouletteRoundsOptions: List<Int> = emptyList(),
+    rouletteTargetScore: Int = 30,
+    rouletteScoreOptions: List<Int> = emptyList(),
+    rouletteGameType: GameType = GameType.CLASSIC_501,
     onDoubleInChange: (Boolean) -> Unit,
     onDoubleOutChange: (Boolean) -> Unit,
     onLegsToWinChange: (Int) -> Unit,
     onCheckoutRoundsChange: (Int) -> Unit = {},
+    onRouletteRoundsChange: (Int) -> Unit = {},
+    onRouletteTargetScoreChange: (Int) -> Unit = {},
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -439,6 +463,56 @@ fun GameOptionsSection(
                         options = roundsOptions,
                         onLegsChange = onCheckoutRoundsChange,
                     )
+                }
+            }
+
+            if (isRoulette) {
+                when (rouletteGameType) {
+                    GameType.ROULETTE_ROUNDS -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                Text("Rounds", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "$rouletteRounds rounds of random targets",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            LegsDropdown(
+                                selectedLegs = rouletteRounds,
+                                options = rouletteRoundsOptions,
+                                onLegsChange = onRouletteRoundsChange,
+                            )
+                        }
+                    }
+
+                    GameType.ROULETTE_SCORE -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                Text("Target Score", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "First to $rouletteTargetScore points wins",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            LegsDropdown(
+                                selectedLegs = rouletteTargetScore,
+                                options = rouletteScoreOptions,
+                                onLegsChange = onRouletteTargetScoreChange,
+                            )
+                        }
+                    }
+
+                    else -> {}
                 }
             }
 

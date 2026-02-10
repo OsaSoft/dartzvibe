@@ -50,6 +50,16 @@ enum class GameType(
         description = "Targets from 2-170",
         startingScore = 0,
     ),
+    ROULETTE_ROUNDS(
+        displayName = "Rounds",
+        description = "Play a fixed number of rounds",
+        startingScore = 0,
+    ),
+    ROULETTE_SCORE(
+        displayName = "Score",
+        description = "First to reach the target score",
+        startingScore = 0,
+    ),
 }
 
 /**
@@ -62,6 +72,10 @@ enum class GameMode(val displayName: String, val supportedTypes: List<GameType>)
     CHECKOUT_PRACTICE(
         "Checkout",
         listOf(GameType.CHECKOUT_EASY, GameType.CHECKOUT_MEDIUM, GameType.CHECKOUT_HARD, GameType.CHECKOUT_FULL),
+    ),
+    ROULETTE(
+        "Roulette",
+        listOf(GameType.ROULETTE_ROUNDS, GameType.ROULETTE_SCORE),
     ),
 }
 
@@ -118,6 +132,14 @@ data class CricketState(
 }
 
 /**
+ * State tracking for roulette mode within a leg.
+ */
+@Serializable
+data class RouletteState(
+    val currentRoundIndex: Int = 0,
+)
+
+/**
  * Multiplier for a dart throw.
  */
 enum class Multiplier(val value: Int) {
@@ -149,6 +171,9 @@ data class GameConfig(
     val legsToWin: Int = 1,
     val cricketSegments: CricketSegments? = null,
     val checkoutPracticeTargets: List<Int>? = null,
+    val rouletteTargetSegments: List<Int>? = null,
+    val rouletteRounds: Int? = null,
+    val rouletteTargetScore: Int? = null,
 ) {
     val startingScore: Int
         get() = when (gameMode) {
@@ -156,15 +181,18 @@ data class GameConfig(
             GameMode.PARCHEESI -> 0
             GameMode.CRICKET -> 0
             GameMode.CHECKOUT_PRACTICE -> checkoutPracticeTargets?.firstOrNull() ?: 0
+            GameMode.ROULETTE -> 0
         }
 
     val targetScore: Int get() = gameType.startingScore
 
-    val isCountUp: Boolean get() = gameMode == GameMode.PARCHEESI
+    val isCountUp: Boolean get() = gameMode in listOf(GameMode.PARCHEESI, GameMode.ROULETTE)
 
     val isCricket: Boolean get() = gameMode == GameMode.CRICKET
 
     val isCheckoutPractice: Boolean get() = gameMode == GameMode.CHECKOUT_PRACTICE
+
+    val isRoulette: Boolean get() = gameMode == GameMode.ROULETTE
 
     /**
      * Human-readable description of the game configuration.
@@ -182,6 +210,13 @@ data class GameConfig(
             if (isCheckoutPractice) {
                 val rounds = checkoutPracticeTargets?.size ?: 0
                 append(" ($rounds rounds)")
+            }
+            if (isRoulette) {
+                when (gameType) {
+                    GameType.ROULETTE_ROUNDS -> append(" (${rouletteRounds ?: 0} rounds)")
+                    GameType.ROULETTE_SCORE -> append(" (target: ${rouletteTargetScore ?: 0})")
+                    else -> {}
+                }
             }
         }
 }
@@ -260,6 +295,7 @@ data class Leg(
     val winnerId: Uuid? = null,
     val cricketState: CricketState? = null,
     val checkoutPracticeState: CheckoutPracticeState? = null,
+    val rouletteState: RouletteState? = null,
 ) {
     /**
      * Player turns only (excludes phantom/system-generated turns).

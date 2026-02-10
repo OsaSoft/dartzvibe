@@ -33,6 +33,8 @@ data class NewGameState(
     val doubleOut: Boolean = true,
     val legsToWin: Int = 1,
     val checkoutPracticeRounds: Int = 10,
+    val rouletteRounds: Int = 10,
+    val rouletteTargetScore: Int = 30,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val error: String? = null,
@@ -44,7 +46,10 @@ data class NewGameState(
         }
 
     val maxPlayers: Int
-        get() = if (gameMode == GameMode.CHECKOUT_PRACTICE) 1 else 4
+        get() = when (gameMode) {
+            GameMode.CHECKOUT_PRACTICE -> 1
+            else -> 4
+        }
 
     val isValid: Boolean
         get() = selectedPlayerIds.size in 1..maxPlayers
@@ -53,8 +58,15 @@ data class NewGameState(
 
     val roundsOptions: List<Int> = listOf(5, 10, 15, 20)
 
+    val rouletteRoundsOptions: List<Int> = listOf(5, 10, 15, 20)
+
+    val rouletteScoreOptions: List<Int> = listOf(15, 20, 30, 50)
+
     val isCheckoutPractice: Boolean
         get() = gameMode == GameMode.CHECKOUT_PRACTICE
+
+    val isRoulette: Boolean
+        get() = gameMode == GameMode.ROULETTE
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -120,6 +132,14 @@ class NewGameScreenModel(
         _state.update { it.copy(checkoutPracticeRounds = rounds) }
     }
 
+    fun setRouletteRounds(rounds: Int) {
+        _state.update { it.copy(rouletteRounds = rounds) }
+    }
+
+    fun setRouletteTargetScore(score: Int) {
+        _state.update { it.copy(rouletteTargetScore = score) }
+    }
+
     fun togglePlayerSelection(playerId: Uuid) {
         _state.update { currentState ->
             val currentSelection = currentState.selectedPlayerIds
@@ -170,6 +190,7 @@ class NewGameScreenModel(
             try {
                 val isCheckout = currentState.gameMode == GameMode.CHECKOUT_PRACTICE
                 val isCricket = currentState.gameMode == GameMode.CRICKET
+                val isRoulette = currentState.gameMode == GameMode.ROULETTE
 
                 val cricketSegments = when (currentState.gameType) {
                     GameType.CRICKET_REGULAR -> CricketSegments.standard()
@@ -188,11 +209,24 @@ class NewGameScreenModel(
                     null
                 }
 
+                // Generate roulette target segments (1-20 + 25)
+                val rouletteSegments = ((1..20).toList() + 25)
+                val rouletteTargetSegments = if (isRoulette) {
+                    val count = when (currentState.gameType) {
+                        GameType.ROULETTE_ROUNDS -> currentState.rouletteRounds + 20
+                        GameType.ROULETTE_SCORE -> 200
+                        else -> 200
+                    }
+                    (1..count).map { rouletteSegments.random() }
+                } else {
+                    null
+                }
+
                 val config = GameConfig(
                     gameType = currentState.gameType,
                     gameMode = currentState.gameMode,
-                    doubleIn = if (isCricket || isCheckout) false else currentState.doubleIn,
-                    doubleOut = if (isCricket) {
+                    doubleIn = if (isCricket || isCheckout || isRoulette) false else currentState.doubleIn,
+                    doubleOut = if (isCricket || isRoulette) {
                         false
                     } else if (isCheckout) {
                         true
@@ -200,9 +234,20 @@ class NewGameScreenModel(
                         currentState.doubleOut
                     },
                     playerIds = currentState.selectedPlayerIds,
-                    legsToWin = if (isCheckout) 1 else currentState.legsToWin,
+                    legsToWin = if (isCheckout || isRoulette) 1 else currentState.legsToWin,
                     cricketSegments = cricketSegments,
                     checkoutPracticeTargets = checkoutTargets,
+                    rouletteTargetSegments = rouletteTargetSegments,
+                    rouletteRounds = if (currentState.gameType == GameType.ROULETTE_ROUNDS) {
+                        currentState.rouletteRounds
+                    } else {
+                        null
+                    },
+                    rouletteTargetScore = if (currentState.gameType == GameType.ROULETTE_SCORE) {
+                        currentState.rouletteTargetScore
+                    } else {
+                        null
+                    },
                 )
                 val session = gameRepository.createGameSession(config)
                 log.d { "Created game session: ${session.id}" }

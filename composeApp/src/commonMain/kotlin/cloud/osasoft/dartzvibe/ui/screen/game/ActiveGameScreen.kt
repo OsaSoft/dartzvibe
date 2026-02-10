@@ -56,6 +56,7 @@ import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
 import cloud.osasoft.dartzvibe.data.model.GameMode
+import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -149,18 +150,21 @@ fun ActiveGameContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            if (state.isCheckoutPractice) {
-                                "Checkout Practice"
-                            } else {
-                                state.session
-                                    ?.config
-                                    ?.gameType
-                                    ?.displayName ?: "Game"
+                            when {
+                                state.isCheckoutPractice -> "Checkout Practice"
+
+                                state.isRoulette -> "Roulette"
+
+                                else ->
+                                    state.session
+                                        ?.config
+                                        ?.gameType
+                                        ?.displayName ?: "Game"
                             },
                             fontWeight = FontWeight.Bold,
                         )
                         val isSoloGame = state.session?.config?.playerIds?.size == 1
-                        if (isSoloGame && !state.isCheckoutPractice) {
+                        if (isSoloGame && !state.isCheckoutPractice && !state.isRoulette) {
                             Image(
                                 painter = painterResource(Res.drawable.forever_alone_bw),
                                 contentDescription = "Forever alone",
@@ -213,8 +217,21 @@ fun ActiveGameContent(
                     .padding(padding)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // Player score cards, Cricket scoreboard, or Checkout Practice header
-                if (state.isCheckoutPractice) {
+                // Player score cards, Cricket scoreboard, Checkout Practice header, or Roulette header
+                if (state.isRoulette) {
+                    RouletteHeader(
+                        state = state,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                    PlayerScoresRow(
+                        state = state,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                    )
+                } else if (state.isCheckoutPractice) {
                     CheckoutPracticeHeader(
                         state = state,
                         modifier = Modifier
@@ -254,6 +271,7 @@ fun ActiveGameContent(
                     canUndo = state.canUndo,
                     onUndo = onUndo,
                     isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
+                    isRoulette = state.isRoulette,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp),
@@ -328,7 +346,12 @@ fun ActiveGameContent(
 
     // Game complete dialog
     if (state.showGameCompleteDialog) {
-        if (state.isCheckoutPractice) {
+        if (state.isRoulette) {
+            RouletteResultsDialog(
+                state = state,
+                onDismiss = onDismissGameComplete,
+            )
+        } else if (state.isCheckoutPractice) {
             CheckoutPracticeResultsDialog(
                 state = state,
                 onDismiss = onDismissGameComplete,
@@ -449,6 +472,7 @@ fun CurrentTurnDisplay(
     canUndo: Boolean,
     onUndo: () -> Unit,
     isCricket: Boolean = false,
+    isRoulette: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -494,6 +518,7 @@ fun CurrentTurnDisplay(
                     val isCheckout = lastThrowResult is ThrowResult.Checkout
                     val isCricketWin = lastThrowResult is ThrowResult.CricketWin
                     val isCricketMarks = lastThrowResult is ThrowResult.CricketMarks
+                    val isRouletteHit = lastThrowResult is ThrowResult.RouletteHit
                     val displayText = when {
                         isBust -> "BUST"
 
@@ -514,6 +539,17 @@ fun CurrentTurnDisplay(
                             }
                         }
 
+                        isRouletteHit -> {
+                            val rouletteResult = lastThrowResult as ThrowResult.RouletteHit
+                            if (rouletteResult.pointsScored > 0) {
+                                "+${rouletteResult.pointsScored}"
+                            } else {
+                                "Miss"
+                            }
+                        }
+
+                        isRoulette -> "0"
+
                         else -> if (isCricket) "-" else "${currentThrows.sumOf { it.score }}"
                     }
                     val displayColor = when {
@@ -527,6 +563,11 @@ fun CurrentTurnDisplay(
 
                         isCricketMarks && lastThrowResult.pointsScored > 0 ->
                             MaterialTheme.colorScheme.primary
+
+                        isRouletteHit && (lastThrowResult as ThrowResult.RouletteHit).pointsScored > 0 ->
+                            MaterialTheme.colorScheme.primary
+
+                        isRouletteHit -> MaterialTheme.colorScheme.error
 
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
@@ -743,6 +784,140 @@ fun CheckoutPracticeResultsDialog(
                                 MaterialTheme.colorScheme.error
                             },
                             fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Finish")
+            }
+        },
+    )
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+fun RouletteHeader(
+    state: ActiveGameState,
+    modifier: Modifier = Modifier,
+) {
+    val target = state.currentRouletteTarget ?: return
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Round info
+            val roundInfo = when (state.session?.config?.gameType) {
+                GameType.ROULETTE_ROUNDS -> {
+                    val total = state.rouletteTotalRounds ?: 0
+                    "Round ${state.rouletteRoundNumber} of $total"
+                }
+
+                GameType.ROULETTE_SCORE -> {
+                    val targetScore = state.rouletteTargetScore ?: 0
+                    "Round ${state.rouletteRoundNumber} - Target: $targetScore pts"
+                }
+
+                else -> "Round ${state.rouletteRoundNumber}"
+            }
+            Text(
+                text = roundInfo,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Target segment (large/prominent)
+            val targetDisplay = if (target == 25) "BULL" else "$target"
+            Text(
+                text = targetDisplay,
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+
+            Text(
+                text = "Hit this target!",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+fun RouletteResultsDialog(
+    state: ActiveGameState,
+    onDismiss: () -> Unit,
+) {
+    val session = state.session ?: return
+    val winnerName = session.winnerId?.let { state.getPlayer(it)?.name } ?: "Player"
+
+    AlertDialog(
+        onDismissRequest = { },
+        title = { Text("Roulette Complete!") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "$winnerName wins!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Final scores
+                Text(
+                    text = "Final Scores:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                session.config.playerIds.forEach { playerId ->
+                    val player = state.getPlayer(playerId)
+                    val score = state.getPlayerScore(playerId)
+                    val isWinner = playerId == session.winnerId
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = player?.name ?: "Unknown",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
+                        )
+                        Text(
+                            text = "$score pts",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isWinner) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                         )
                     }
                 }

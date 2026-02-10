@@ -124,6 +124,11 @@ class GameRepositoryImpl(
                 checkoutPracticeTargets = config.checkoutPracticeTargets?.let {
                     json.encodeToString(it)
                 },
+                rouletteTargetSegments = config.rouletteTargetSegments?.let {
+                    json.encodeToString(it)
+                },
+                rouletteRounds = config.rouletteRounds?.toLong(),
+                rouletteTargetScore = config.rouletteTargetScore?.toLong(),
             )
         }
         return session
@@ -167,6 +172,11 @@ class GameRepositoryImpl(
                 checkoutPracticeTargets = checkoutPracticeTargets?.let {
                     json.decodeFromString<List<Int>>(it)
                 },
+                rouletteTargetSegments = rouletteTargetSegments?.let {
+                    json.decodeFromString<List<Int>>(it)
+                },
+                rouletteRounds = rouletteRounds?.toInt(),
+                rouletteTargetScore = rouletteTargetScore?.toInt(),
             ),
             legs = legsList,
             currentLegIndex = currentLegIndex.toInt(),

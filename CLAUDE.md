@@ -114,7 +114,7 @@ ActiveGameScreen → SettingsScreen
 
 ## Data Model Quick Reference
 
-Models in `data/model/`: `GameModels.kt` (GameSession, GameConfig, Leg, Turn, Throw, enums), `StatisticsModels.kt` (PlayerStatistics, HeadToHeadStatistics), `Player.kt`, `AppSettingsData.kt`, `ThemeMode.kt`, `FixedDecimal.kt`. Read these files directly for field details.
+Models in `data/model/`: `GameModels.kt` (GameSession, GameConfig, Leg, Turn, Throw, RouletteState, enums), `StatisticsModels.kt` (PlayerStatistics, HeadToHeadStatistics), `Player.kt`, `AppSettingsData.kt`, `ThemeMode.kt`, `FixedDecimal.kt`. Read these files directly for field details.
 
 ## Game Engine
 
@@ -130,6 +130,7 @@ Models in `data/model/`: `GameModels.kt` (GameSession, GameConfig, Leg, Turn, Th
 | `ParcheesiModeEngine.kt` | `ParcheesiModeEngine` | Count-up with knockouts |
 | `CricketModeEngine.kt` | `CricketModeEngine` | Cricket segment marking |
 | `CheckoutPracticeModeEngine.kt` | `CheckoutPracticeModeEngine` | Solo checkout training |
+| `RouletteModeEngine.kt` | `RouletteModeEngine` | Roulette random-target mode |
 | `CheckoutCalculator.kt` | `CheckoutCalculator` (object), `CheckoutPath` | Checkout hints/paths |
 | `GameEngineHelper.kt` | `GameEngineHelper` (object) | Shared utilities (current player, scores, leg handling) |
 

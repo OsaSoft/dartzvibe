@@ -14,7 +14,10 @@ CREATE TABLE GameSession (
     finishedAt INTEGER,
     winnerId TEXT,
     cricketSegments TEXT,
-    checkoutPracticeTargets TEXT
+    checkoutPracticeTargets TEXT,
+    rouletteTargetSegments TEXT,
+    rouletteRounds INTEGER,
+    rouletteTargetScore INTEGER
 );
 
 -- Get all game sessions ordered by start date (most recent first)
@@ -35,8 +38,8 @@ SELECT * FROM GameSession WHERE playerIds LIKE ? ORDER BY startedAt DESC;
 
 -- Insert a new game session
 insert:
-INSERT INTO GameSession (id, gameType, gameMode, doubleIn, doubleOut, playerIds, legsToWin, legsJson, currentLegIndex, status, startedAt, finishedAt, winnerId, cricketSegments, checkoutPracticeTargets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO GameSession (id, gameType, gameMode, doubleIn, doubleOut, playerIds, legsToWin, legsJson, currentLegIndex, status, startedAt, finishedAt, winnerId, cricketSegments, checkoutPracticeTargets, rouletteTargetSegments, rouletteRounds, rouletteTargetScore)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- Update game session
 update:
