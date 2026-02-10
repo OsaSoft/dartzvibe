@@ -38,7 +38,9 @@ class VisionDebugScreenModel(
         if (!_state.value.isDetectionEnabled || isProcessing) return
 
         isProcessing = true
-        _state.update { it.copy(detectionStatus = DetectionStatus.Detecting) }
+        if (_state.value.detectionStatus !is DetectionStatus.Success) {
+            _state.update { it.copy(detectionStatus = DetectionStatus.Detecting) }
+        }
 
         screenModelScope.launch {
             try {
