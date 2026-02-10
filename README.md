@@ -211,6 +211,22 @@ The project uses Kotest with FreeSpec style for testing:
 - **Phantom Turns** - system-generated turns for Parcheesi knockouts that don't affect player turn order
 - **Compile-Time DI** - kotlin-inject resolves all dependencies at build time with no runtime reflection
 
+## Vision / Dart Detection
+
+The app includes an experimental vision feature that uses a camera feed to detect darts on the board in real time.
+
+### Model
+
+| Detail | Value |
+|--------|-------|
+| File | `composeApp/src/androidMain/assets/dart_detect.onnx` |
+| Format | ONNX |
+| Base model | [YOLOv8n](https://github.com/ultralytics/ultralytics) (Ultralytics, AGPL-3.0) |
+| Weights | [dart-sense](https://github.com/bnww/dart-sense) by Ben Willshaw (CC BY-NC 4.0) |
+| Runtime | ONNX Runtime (on-device inference) |
+
+The detection model is a YOLOv8n (nano) object-detection network fine-tuned on dart-board imagery from the dart-sense dataset. The ONNX file is stored via Git LFS.
+
 ## Learn More
 
 - [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)
