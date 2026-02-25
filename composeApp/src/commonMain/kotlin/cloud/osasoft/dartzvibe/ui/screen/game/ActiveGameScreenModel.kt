@@ -259,10 +259,9 @@ class ActiveGameScreenModel(
             )
         }
 
-        // Auto-end turn on checkout (leg won), bounce-back (Parcheesi overshoot), or Cricket win
+        // Auto-end turn on checkout (leg won) or Cricket win
         when (result) {
             is ThrowResult.Checkout -> endTurn()
-            is ThrowResult.BounceBack -> endTurn()
             is ThrowResult.CricketWin -> endTurn()
             else -> {}
         }
