@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,11 +30,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
+import cloud.osasoft.dartzvibe.config.BuildInfo
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 
@@ -93,10 +98,12 @@ fun SettingsScreenContent(
             )
         },
     ) { padding ->
+        val uriHandler = LocalUriHandler.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
             SettingSectionHeader(title = "Appearance")
@@ -142,6 +149,34 @@ fun SettingsScreenContent(
                 description = "Show S/D/T buttons (off = use swipe gestures on both keypads)",
                 checked = state.settings.showMultiplierButtons,
                 onCheckedChange = onShowMultiplierButtonsChange,
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SettingSectionHeader(title = "About")
+
+            Text(
+                text = "DartzVibe v${BuildInfo.VERSION_NAME}",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+
+            Text(
+                text = "Source Code on GitHub",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    textDecoration = TextDecoration.Underline,
+                ),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable { uriHandler.openUri("https://github.com/OsaSoft/dartzvibe") }
+                    .padding(vertical = 8.dp),
+            )
+
+            Text(
+                text = "Licensed under EUPL 1.2",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
             )
         }
     }

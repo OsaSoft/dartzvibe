@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.sqldelight)
 }
 
+val appVersionName: String = providers.gradleProperty("app.versionName").get()
+
 kotlin {
     // Set language and API version for all targets to help IntelliJ recognize Kotlin 2.0+ APIs
     compilerOptions {
@@ -133,8 +135,8 @@ android {
         targetSdk = libs.versions.android.targetSdk
             .get()
             .toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = providers.gradleProperty("app.versionCode").get().toInt()
+        versionName = appVersionName
     }
     packaging {
         resources {
@@ -162,6 +164,30 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 dependencies {
     debugImplementation(compose.uiTooling)
+}
+
+// Generate BuildInfo.kt with version from gradle.properties
+val generateBuildInfo by tasks.registering(Sync::class) {
+    from(
+        resources.text.fromString(
+            """
+            |package cloud.osasoft.dartzvibe.config
+            |
+            |object BuildInfo {
+            |    const val VERSION_NAME = "$appVersionName"
+            |}
+            |
+            """.trimMargin(),
+        ),
+    ) {
+        rename { "BuildInfo.kt" }
+        into("cloud/osasoft/dartzvibe/config")
+    }
+    into(layout.buildDirectory.dir("generated/buildinfo"))
+}
+
+kotlin.sourceSets.commonMain {
+    kotlin.srcDir(generateBuildInfo.map { layout.buildDirectory.dir("generated/buildinfo") })
 }
 
 // SQLDelight configuration
