@@ -20,5 +20,10 @@ node_modules/
 
 .claude/settings.local.json
 
+# Release signing
+*.keystore
+*.jks
+keystore.properties
+
 # local only files
 .local/

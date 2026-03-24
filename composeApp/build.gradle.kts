@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -9,6 +11,14 @@ plugins {
 }
 
 val appVersionName: String = providers.gradleProperty("app.versionName").get()
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+val hasReleaseSigning = keystorePropertiesFile.exists() &&
+    keystoreProperties["storePassword"].toString().isNotEmpty()
 
 kotlin {
     // Set language and API version for all targets to help IntelliJ recognize Kotlin 2.0+ APIs
@@ -127,6 +137,17 @@ android {
         .get()
         .toInt()
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(keystoreProperties["storeFile"].toString())
+                storePassword = keystoreProperties["storePassword"].toString()
+                keyAlias = keystoreProperties["keyAlias"].toString()
+                keyPassword = keystoreProperties["keyPassword"].toString()
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "cloud.osasoft.dartzvibe"
         minSdk = libs.versions.android.minSdk
@@ -145,7 +166,15 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
