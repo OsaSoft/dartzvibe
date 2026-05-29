@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -59,7 +60,9 @@ import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
-class PlayerListScreen : Screen {
+class PlayerListScreen(
+    private val fromNewGame: Boolean = false,
+) : Screen {
 
     @Composable
     override fun Content() {
@@ -70,6 +73,7 @@ class PlayerListScreen : Screen {
 
         PlayerListContent(
             state = state,
+            showNewGameHint = fromNewGame,
             onBack = { navigator.pop() },
             onAddPlayer = { navigator.push(AddEditPlayerScreen()) },
             onEditPlayer = { player ->
@@ -93,6 +97,7 @@ fun rememberPlayerListScreenModel(
 @Composable
 fun PlayerListContent(
     state: PlayerListState,
+    showNewGameHint: Boolean = false,
     onBack: () -> Unit,
     onAddPlayer: () -> Unit,
     onEditPlayer: (Player) -> Unit,
@@ -116,12 +121,12 @@ fun PlayerListContent(
                 actions = {
                     IconButton(
                         onClick = onNewGame,
-                        enabled = state.players.size >= 2,
+                        enabled = state.players.size >= 1,
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "New Game",
-                            tint = if (state.players.size >= 2) {
+                            tint = if (state.players.size >= 1) {
                                 MaterialTheme.colorScheme.onPrimaryContainer
                             } else {
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f)
@@ -144,43 +149,62 @@ fun PlayerListContent(
             }
         },
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            when {
-                state.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                }
-
-                state.error != null -> {
+            if (showNewGameHint) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(
-                        text = "Error: ${state.error}",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center),
+                        text = "Add at least one player, then tap ▶ to start your game.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
                 }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                when {
+                    state.isLoading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
 
-                state.players.isEmpty() -> {
-                    EmptyPlayersMessage(
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                }
+                    state.error != null -> {
+                        Text(
+                            text = "Error: ${state.error}",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
 
-                else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(state.players, key = { it.id }) { player ->
-                            PlayerCard(
-                                player = player,
-                                onEdit = { onEditPlayer(player) },
-                                onDelete = { onDeletePlayer(player) },
-                            )
+                    state.players.isEmpty() -> {
+                        EmptyPlayersMessage(
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            items(state.players, key = { it.id }) { player ->
+                                PlayerCard(
+                                    player = player,
+                                    onEdit = { onEditPlayer(player) },
+                                    onDelete = { onDeletePlayer(player) },
+                                )
+                            }
                         }
                     }
                 }
