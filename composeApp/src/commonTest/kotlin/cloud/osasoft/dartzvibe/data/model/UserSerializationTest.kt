@@ -17,6 +17,9 @@ class UserSerializationTest : FreeSpec({
     val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
+        // Encode default values too, so fields whose value equals the default
+        // (e.g. isActive = true) still appear in the output.
+        encodeDefaults = true
     }
 
     "User serialization" - {

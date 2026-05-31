@@ -1,13 +1,15 @@
 package cloud.osasoft.dartzvibe.ui.screen.home
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BarChart
@@ -35,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -67,7 +68,12 @@ class HomeScreen : Screen {
         HomeScreenContent(
             state = state,
             onNewGame = {
-                navigator.push(NewGameScreen())
+                if (state.playerCount >= 1) {
+                    navigator.push(NewGameScreen())
+                } else {
+                    // No players yet — route through player setup first instead of dead-ending.
+                    navigator.push(PlayerListScreen(fromNewGame = true))
+                }
             },
             onResumeGame = { sessionId ->
                 navigator.push(ActiveGameScreen(sessionId))
@@ -137,10 +143,12 @@ fun HomeScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
             // App title/logo area
             Text(
                 text = "DartzVibe",
@@ -164,7 +172,7 @@ fun HomeScreenContent(
                 val playerNames = state.inProgressGamePlayers.joinToString(" vs ") { it.name }
                 Button(
                     onClick = { onResumeGame(session.id) },
-                    modifier = Modifier.fillMaxWidth().height(64.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.tertiary,
                     ),
@@ -191,23 +199,12 @@ fun HomeScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // New Game button
+            // New Game button — always enabled; routes through player setup when no players exist.
             MenuButton(
                 text = "New Game",
                 icon = Icons.Default.PlayArrow,
-                enabled = state.playerCount >= 1,
                 onClick = onNewGame,
             )
-
-            if (state.playerCount < 1) {
-                Text(
-                    text = "Add at least 1 player to start a game",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -282,7 +279,7 @@ fun MenuButton(
         Button(
             onClick = onClick,
             enabled = enabled,
-            modifier = modifier.fillMaxWidth().height(56.dp),
+            modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))
@@ -297,7 +294,7 @@ fun MenuButton(
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
-            modifier = modifier.fillMaxWidth().height(56.dp),
+            modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))

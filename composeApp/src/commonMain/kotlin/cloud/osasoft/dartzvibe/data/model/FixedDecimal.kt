@@ -2,7 +2,6 @@ package cloud.osasoft.dartzvibe.data.model
 
 import kotlin.jvm.JvmInline
 import kotlin.math.abs
-import kotlin.math.roundToLong
 
 /**
  * Fixed-point decimal type for statistics calculations.
@@ -17,29 +16,38 @@ value class FixedDecimal private constructor(private val scaledValue: Long) : Co
     fun toDouble(): Double = scaledValue / SCALE.toDouble()
 
     /**
-     * Format to a specific number of decimal places.
+     * Format to a specific number of decimal places, truncating toward zero.
+     *
+     * Uses exact integer arithmetic on the internal scaled value so the result is
+     * identical across platforms (no floating-point rounding differences between
+     * Kotlin/JVM and Kotlin/Native).
      */
     fun format(decimalPlaces: Int = 1): String {
-        val doubleValue = toDouble()
-        val factor = when (decimalPlaces) {
-            0 -> 1.0
-            1 -> 10.0
-            2 -> 100.0
-            3 -> 1000.0
-            else -> 10.0 // Default to 1 decimal place
-        }
-        val rounded = (doubleValue * factor).roundToLong() / factor
-        return when (decimalPlaces) {
-            0 -> rounded.toLong().toString()
+        val places = decimalPlaces.coerceIn(0, 3)
+        val negative = scaledValue < 0L
+        val absScaled = abs(scaledValue)
 
-            1 -> {
-                val intPart = rounded.toLong()
-                val decPart = ((rounded - intPart) * 10).roundToLong()
-                "$intPart.${abs(decPart)}"
-            }
-
-            else -> rounded.toString()
+        // Drop the digits below the requested precision, keeping `places` decimals
+        // (truncation toward zero). SCALE has 3 decimals, so divide by 10^(3 - places).
+        val dropDivisor = when (places) {
+            0 -> SCALE
+            1 -> 100L
+            2 -> 10L
+            else -> 1L
         }
+        val truncated = absScaled / dropDivisor
+        val sign = if (negative) "-" else ""
+
+        if (places == 0) return "$sign$truncated"
+
+        val unit = when (places) {
+            1 -> 10L
+            2 -> 100L
+            else -> 1000L
+        }
+        val intPart = truncated / unit
+        val decPart = (truncated % unit).toString().padStart(places, '0')
+        return "$sign$intPart.$decPart"
     }
 
     operator fun plus(other: FixedDecimal): FixedDecimal =

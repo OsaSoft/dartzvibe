@@ -316,29 +316,37 @@ class ParcheesiGameEngineTest : FreeSpec({
             result.shouldBeInstanceOf<TurnResult.NextPlayer>()
         }
 
-        "Should handle multiple knockouts in one throw" {
-            // GIVEN a Parcheesi game with 3 players, 2 at same score
+        "Should knock out the lone occupant of a matched score" {
+            // GIVEN a Parcheesi game with 3 players.
+            // Two opponents can never simultaneously hold the same non-zero score:
+            // whoever reaches an occupied score immediately knocks the occupant back
+            // to 0. So when P3 reaches 20 (where P2 already sits), P2 is knocked out
+            // as part of that throw — leaving P3 as the sole player at 20.
             var engine = createParcheesiEngine(playerIds = listOf(playerId1, playerId2, playerId3))
-            // Get players 2 and 3 to score 20
             val (e1, _) = engine.addThrow(0, Multiplier.SINGLE) // P1 stays at 0
             val (e2, _) = e1.endTurn()
-            val (e3, _) = e2.addThrow(20, Multiplier.SINGLE) // P2 at 20
+            val (e3, _) = e2.addThrow(20, Multiplier.SINGLE) // P2 -> 20
             val (e4, _) = e3.endTurn()
-            val (e5, _) = e4.addThrow(20, Multiplier.SINGLE) // P3 at 20
+            val (e5, knockoutOfP2) = e4.addThrow(20, Multiplier.SINGLE) // P3 -> 20, knocks out P2
             val (e6, _) = e5.endTurn()
             engine = e6
-            // P1: 0, P2: 20, P3: 20
+            // P1: 0, P2: 0 (knocked out by P3), P3: 20
 
-            // WHEN player 1 throws 20 to match both
+            // P3 reaching 20 already knocked P2 back to 0
+            knockoutOfP2.shouldBeInstanceOf<ThrowResult.SuccessWithKnockout>()
+            (knockoutOfP2 as ThrowResult.SuccessWithKnockout).knockedOutPlayerIds shouldBe
+                listOf(playerId2)
+
+            // WHEN player 1 throws 20 to match P3
             val (e7, result) = engine.addThrow(20, Multiplier.SINGLE)
 
-            // THEN both players 2 and 3 are knocked out immediately
+            // THEN only P3 (the sole player at 20) is knocked out
             result.shouldBeInstanceOf<ThrowResult.SuccessWithKnockout>()
             val knockout = result as ThrowResult.SuccessWithKnockout
-            knockout.knockedOutPlayerIds shouldHaveSize 2
-            knockout.knockedOutPlayerIds shouldBe listOf(playerId2, playerId3)
+            knockout.knockedOutPlayerIds shouldHaveSize 1
+            knockout.knockedOutPlayerIds shouldBe listOf(playerId3)
 
-            // AND both are reset to 0
+            // AND both opponents are at 0
             e7.getPlayerScore(playerId2) shouldBe 0
             e7.getPlayerScore(playerId3) shouldBe 0
         }
