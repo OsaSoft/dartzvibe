@@ -120,6 +120,12 @@ kotlin {
             // Coroutines testing
             implementation(libs.kotlinx.coroutines.test)
         }
+
+        // Kotest's JUnit Platform runner lets the commonTest specs execute on the
+        // Android/JVM unit-test target (testDebugUnitTest) without a macOS/iOS simulator.
+        androidUnitTest.dependencies {
+            implementation(libs.kotest.runner.junit5)
+        }
     }
 }
 
@@ -180,6 +186,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.all { test ->
+            test.useJUnitPlatform()
+        }
     }
 }
 

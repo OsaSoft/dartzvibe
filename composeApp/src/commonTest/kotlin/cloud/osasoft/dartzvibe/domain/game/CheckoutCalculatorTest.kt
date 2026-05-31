@@ -472,15 +472,22 @@ class CheckoutCalculatorTest : FreeSpec({
         }
 
         "Should provide options for all checkable scores (2-170)" {
-            // GIVEN all checkable scores
-            val checkableScores = (2..170).toList()
+            // GIVEN all scores in 2..170 except the darts "bogey numbers" that
+            // cannot be finished with a double-out
+            val bogeyNumbers = setOf(169, 168, 166, 165, 163, 162, 159)
+            val checkableScores = (2..170).filter { it !in bogeyNumbers }
 
             // WHEN getting checkout options for each
             checkableScores.forEach { score ->
                 val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true)
 
-                // THEN options should not be null (all 2-170 are checkable with double-out)
+                // THEN every checkable score has at least one double-out path
                 options.shouldNotBeNull()
+            }
+
+            // AND each bogey number correctly reports no checkout path
+            bogeyNumbers.forEach { score ->
+                CheckoutCalculator.getCheckoutOptions(score, doubleOut = true).shouldBeNull()
             }
         }
 
