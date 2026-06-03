@@ -53,6 +53,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Leg
@@ -170,6 +171,7 @@ fun GameDetailContent(
                             LegSection(
                                 legIndex = index,
                                 leg = leg,
+                                session = state.session,
                                 players = state.players,
                                 isExpanded = index in state.expandedLegs,
                                 onToggle = { onToggleLeg(index) },
@@ -344,6 +346,7 @@ private fun GameSummaryHeader(
 private fun LegSection(
     legIndex: Int,
     leg: Leg,
+    session: GameSession,
     players: Map<Uuid, Player>,
     isExpanded: Boolean,
     onToggle: () -> Unit,
@@ -423,11 +426,21 @@ private fun LegSection(
                         .padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    leg.playerTurns.forEach { turn ->
-                        TurnRow(
-                            turn = turn,
-                            playerName = players[turn.playerId]?.name ?: "Unknown",
-                        )
+                    when (session.config.gameMode) {
+                        GameMode.CRICKET -> CricketLegContent(leg, session, players)
+
+                        GameMode.CHECKOUT_PRACTICE -> CheckoutPracticeLegContent(leg)
+
+                        GameMode.ROULETTE -> RouletteLegContent(leg, session, players)
+
+                        GameMode.CLASSIC, GameMode.PARCHEESI ->
+                            leg.playerTurns.forEach { turn ->
+                                TurnRow(
+                                    turn = turn,
+                                    playerName = players[turn.playerId]?.name ?: "Unknown",
+                                    showCheckout = session.config.gameMode == GameMode.CLASSIC,
+                                )
+                            }
                     }
                 }
             }
@@ -441,6 +454,7 @@ private fun LegSection(
 private fun TurnRow(
     turn: Turn,
     playerName: String,
+    showCheckout: Boolean = true,
 ) {
     Row(
         modifier = Modifier
@@ -511,7 +525,7 @@ private fun TurnRow(
                         color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Bold,
                     )
-                } else if (turn.scoreAfterTurn == 0) {
+                } else if (showCheckout && turn.scoreAfterTurn == 0) {
                     Icon(
                         Icons.Default.EmojiEvents,
                         contentDescription = "Checkout",
@@ -582,4 +596,216 @@ private fun formatThrow(dart: Throw?): String = when {
     dart.multiplier == Multiplier.TRIPLE -> "T${dart.segment}"
     dart.multiplier == Multiplier.DOUBLE -> "D${dart.segment}"
     else -> dart.segment.toString()
+}
+
+private fun segmentLabel(segment: Int): String = when (segment) {
+    50 -> "Bull"
+    25 -> "25"
+    else -> segment.toString()
+}
+
+private fun marksSymbol(marks: Int): String = when (marks) {
+    0 -> "·"
+    1 -> "/"
+    2 -> "X"
+    else -> "✓"
+}
+
+// ---- Cricket: per-leg mark grid (segments x players) ----
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun CricketLegContent(
+    leg: Leg,
+    session: GameSession,
+    players: Map<Uuid, Player>,
+) {
+    val state = leg.cricketState
+    val segments = state?.segments?.segments ?: session.config.cricketSegments?.segments.orEmpty()
+    val playerIds = session.config.playerIds
+
+    if (state == null || segments.isEmpty()) {
+        Text(
+            text = "No marks recorded",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    // Header row: segment column + player columns
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Spacer(modifier = Modifier.weight(0.8f))
+        playerIds.forEach { pid ->
+            Text(
+                text = players[pid]?.name?.take(6) ?: "?",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+    segments.forEach { seg ->
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = segmentLabel(seg),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(0.8f),
+            )
+            playerIds.forEach { pid ->
+                val ps = state.getPlayerState(pid)
+                val closed = ps.isClosed(seg)
+                Text(
+                    text = marksSymbol(ps.getMarks(seg)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (closed) FontWeight.Bold else FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    color = if (closed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+
+    // Points row
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = "Points",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(0.8f),
+        )
+        playerIds.forEach { pid ->
+            Text(
+                text = state.getPlayerState(pid).points.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+// ---- Checkout practice: per-round pass/fail list ----
+
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun CheckoutPracticeLegContent(leg: Leg) {
+    val results = leg.checkoutPracticeState?.roundResults.orEmpty()
+    if (results.isEmpty()) {
+        Text(
+            text = "No rounds recorded",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    results.forEach { result ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                )
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Target ${result.target}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (result.success) "PASS" else "FAIL",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (result.success) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "${result.dartsUsed} darts",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+// ---- Roulette: round-by-round target + hit ----
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun RouletteLegContent(
+    leg: Leg,
+    session: GameSession,
+    players: Map<Uuid, Player>,
+) {
+    val targets = session.config.rouletteTargetSegments.orEmpty()
+    val playerCount = session.config.playerIds.size.coerceAtLeast(1)
+
+    leg.playerTurns.forEachIndexed { index, turn ->
+        val round = index / playerCount
+        val target = if (targets.isEmpty()) 1 else targets[round % targets.size]
+        val points = turn.scoreAfterTurn - turn.scoreBeforeTurn
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                )
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = players[turn.playerId]?.name ?: "Unknown",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "R${round + 1} • target ${segmentLabel(target)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.weight(1.5f),
+            ) {
+                turn.throws.forEach { dart -> ThrowBadge(dart) }
+                repeat(3 - turn.throws.size) { ThrowBadge(null) }
+            }
+            Text(
+                text = "+$points",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (points >
+                    0
+                ) {
+                    MaterialTheme.colorScheme.tertiary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.weight(0.6f),
+                textAlign = TextAlign.End,
+            )
+        }
+    }
 }

@@ -61,10 +61,12 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
-import cloud.osasoft.dartzvibe.data.model.GameType
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.H2HGameSummary
 import cloud.osasoft.dartzvibe.data.model.HeadToHeadStatistics
+import cloud.osasoft.dartzvibe.data.model.ModeStatistics
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.util.formatDate
@@ -88,7 +90,7 @@ class HeadToHeadScreen : Screen {
             onSelectPlayer1 = screenModel::selectPlayer1,
             onSelectPlayer2 = screenModel::selectPlayer2,
             onSwapPlayers = screenModel::swapPlayers,
-            onSelectGameType = screenModel::selectGameType,
+            onSelectMode = screenModel::selectMode,
         )
     }
 }
@@ -110,7 +112,7 @@ fun HeadToHeadContent(
     onSelectPlayer1: (Uuid) -> Unit,
     onSelectPlayer2: (Uuid) -> Unit,
     onSwapPlayers: () -> Unit,
-    onSelectGameType: (GameType?) -> Unit,
+    onSelectMode: (GameMode) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -177,21 +179,16 @@ fun HeadToHeadContent(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Game type filter chips
+                        // Mode selector (solo modes excluded — no two-player comparison)
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            FilterChip(
-                                selected = state.selectedGameType == null,
-                                onClick = { onSelectGameType(null) },
-                                label = { Text("All Games") },
-                            )
-                            GameType.entries.forEach { gameType ->
+                            H2H_MODES.forEach { mode ->
                                 FilterChip(
-                                    selected = state.selectedGameType == gameType,
-                                    onClick = { onSelectGameType(gameType) },
-                                    label = { Text(gameType.displayName) },
+                                    selected = state.selectedMode == mode,
+                                    onClick = { onSelectMode(mode) },
+                                    label = { Text(mode.displayName) },
                                 )
                             }
                         }
@@ -203,7 +200,7 @@ fun HeadToHeadContent(
                         if (stats != null && state.selectedPlayer1 != null && state.selectedPlayer2 != null) {
                             if (stats.gamesPlayed == 0) {
                                 Text(
-                                    text = "No head-to-head games found",
+                                    text = "No shared ${state.selectedMode.displayName} games",
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -531,75 +528,111 @@ private fun ComparisonStatsGrid(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Stats rows
-            ComparisonRow(
-                label = "3-Dart Avg",
-                value1 = formatDecimal(stats.player1Stats.threeDartAverage),
-                value2 = formatDecimal(stats.player2Stats.threeDartAverage),
-                higher1IsBetter = true,
-                value1Higher = stats.player1Stats.threeDartAverage > stats.player2Stats.threeDartAverage,
-            )
-
-            ComparisonRow(
-                label = "Best Checkout",
-                value1 = stats.player1Stats.bestCheckout?.toString() ?: "-",
-                value2 = stats.player2Stats.bestCheckout?.toString() ?: "-",
-                higher1IsBetter = true,
-                value1Higher = (stats.player1Stats.bestCheckout ?: 0) >
-                    (stats.player2Stats.bestCheckout ?: 0),
-            )
-
-            ComparisonRow(
-                label = "Leg Win Rate",
-                value1 = "${formatDecimal(stats.player1Stats.legWinRate)}%",
-                value2 = "${formatDecimal(stats.player2Stats.legWinRate)}%",
-                higher1IsBetter = true,
-                value1Higher = stats.player1Stats.legWinRate > stats.player2Stats.legWinRate,
-            )
-
-            ComparisonRow(
-                label = "180s",
-                value1 = stats.player1Stats.count180s.toString(),
-                value2 = stats.player2Stats.count180s.toString(),
-                higher1IsBetter = true,
-                value1Higher = stats.player1Stats.count180s > stats.player2Stats.count180s,
-            )
-
-            ComparisonRow(
-                label = "140+",
-                value1 = stats.player1Stats.count140Plus.toString(),
-                value2 = stats.player2Stats.count140Plus.toString(),
-                higher1IsBetter = true,
-                value1Higher = stats.player1Stats.count140Plus > stats.player2Stats.count140Plus,
-            )
-
-            // Knockout stats (only show if either player has knockout stats)
-            val hasKnockoutStats = stats.player1Stats.knockoutsDealt > 0 ||
-                stats.player1Stats.timesKnockedOut > 0 ||
-                stats.player2Stats.knockoutsDealt > 0 ||
-                stats.player2Stats.timesKnockedOut > 0
-
-            if (hasKnockoutStats) {
-                Spacer(modifier = Modifier.height(8.dp))
-
+            comparisonRows(stats.player1Stats, stats.player2Stats).forEach { row ->
                 ComparisonRow(
-                    label = "Knockouts Dealt",
-                    value1 = stats.player1Stats.knockoutsDealt.toString(),
-                    value2 = stats.player2Stats.knockoutsDealt.toString(),
-                    higher1IsBetter = true,
-                    value1Higher = stats.player1Stats.knockoutsDealt > stats.player2Stats.knockoutsDealt,
-                )
-
-                ComparisonRow(
-                    label = "Times Knocked Out",
-                    value1 = stats.player1Stats.timesKnockedOut.toString(),
-                    value2 = stats.player2Stats.timesKnockedOut.toString(),
-                    higher1IsBetter = false,
-                    value1Higher = stats.player1Stats.timesKnockedOut > stats.player2Stats.timesKnockedOut,
+                    label = row.label,
+                    value1 = row.value1,
+                    value2 = row.value2,
+                    higher1IsBetter = row.higherIsBetter,
+                    value1Higher = row.raw1 > row.raw2,
                 )
             }
         }
     }
+}
+
+private data class CompRow(
+    val label: String,
+    val value1: String,
+    val value2: String,
+    val raw1: FixedDecimal,
+    val raw2: FixedDecimal,
+    val higherIsBetter: Boolean = true,
+)
+
+/** Build mode-appropriate comparison rows from each player's mode-scoped statistics. */
+@OptIn(ExperimentalUuidApi::class)
+private fun comparisonRows(
+    p1: PlayerStatistics,
+    p2: PlayerStatistics,
+): List<CompRow> {
+    val rows = mutableListOf<CompRow>()
+    val m1 = p1.modeStats
+    val m2 = p2.modeStats
+
+    // Primary metric for the mode (label/format come from the mode itself).
+    if (m1 != null && m2 != null) {
+        rows +=
+            CompRow(
+                m1.primaryMetricLabel,
+                m1.primaryMetricDisplay,
+                m2.primaryMetricDisplay,
+                m1.primaryMetric,
+                m2.primaryMetric,
+            )
+    }
+
+    rows += CompRow("Win Rate", "${p1.winRate.format(1)}%", "${p2.winRate.format(1)}%", p1.winRate, p2.winRate)
+    rows +=
+        CompRow(
+            "Leg Win Rate",
+            "${p1.legWinRate.format(1)}%",
+            "${p2.legWinRate.format(1)}%",
+            p1.legWinRate,
+            p2.legWinRate,
+        )
+
+    // A couple of mode-specific extras when both players are in the same mode.
+    if (m1 is ModeStatistics.Classic && m2 is ModeStatistics.Classic) {
+        rows += CompRow(
+            "Best Checkout",
+            m1.bestCheckout?.value?.toString() ?: "-",
+            m2.bestCheckout?.value?.toString() ?: "-",
+            FixedDecimal.fromInt(m1.bestCheckout?.value ?: 0),
+            FixedDecimal.fromInt(m2.bestCheckout?.value ?: 0),
+        )
+        rows +=
+            CompRow(
+                "180s",
+                m1.count180s.toString(),
+                m2.count180s.toString(),
+                FixedDecimal.fromInt(m1.count180s),
+                FixedDecimal.fromInt(m2.count180s),
+            )
+    }
+    if (m1 is ModeStatistics.Parcheesi && m2 is ModeStatistics.Parcheesi) {
+        rows +=
+            CompRow(
+                "Knockouts Dealt",
+                m1.knockoutsDealt.toString(),
+                m2.knockoutsDealt.toString(),
+                FixedDecimal.fromInt(m1.knockoutsDealt),
+                FixedDecimal.fromInt(m2.knockoutsDealt),
+            )
+    }
+    if (m1 is ModeStatistics.Cricket && m2 is ModeStatistics.Cricket) {
+        rows +=
+            CompRow(
+                "Close Rate",
+                "${m1.closeRate.format(1)}%",
+                "${m2.closeRate.format(1)}%",
+                m1.closeRate,
+                m2.closeRate,
+            )
+        rows += CompRow("Hit Rate", "${m1.hitRate.format(1)}%", "${m2.hitRate.format(1)}%", m1.hitRate, m2.hitRate)
+    }
+    if (m1 is ModeStatistics.Roulette && m2 is ModeStatistics.Roulette) {
+        rows += CompRow("Hit Rate", "${m1.hitRate.format(1)}%", "${m2.hitRate.format(1)}%", m1.hitRate, m2.hitRate)
+        rows +=
+            CompRow(
+                "Best Round",
+                m1.bestRoundScore.toString(),
+                m2.bestRoundScore.toString(),
+                FixedDecimal.fromInt(m1.bestRoundScore),
+                FixedDecimal.fromInt(m2.bestRoundScore),
+            )
+    }
+    return rows
 }
 
 @Suppress("ktlint:standard:function-naming")

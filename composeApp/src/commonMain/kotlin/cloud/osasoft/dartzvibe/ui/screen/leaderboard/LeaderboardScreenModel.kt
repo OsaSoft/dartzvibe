@@ -2,12 +2,16 @@ package cloud.osasoft.dartzvibe.ui.screen.leaderboard
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import cloud.osasoft.dartzvibe.data.model.FixedDecimal
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
+import cloud.osasoft.dartzvibe.data.model.StatisticsFilter
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.statistics.StatisticsCalculator
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,11 +22,15 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlin.uuid.ExperimentalUuidApi
 
+/**
+ * Leaderboard ranking axis. Rankings are always scoped to a single [GameMode]; there is no
+ * honest cross-mode ranking, so [PRIMARY] ranks on that mode's primary metric (MPR for
+ * Cricket, 3-dart avg for Classic, success rate for Checkout, …).
+ */
 enum class LeaderboardSortMetric(val displayName: String) {
+    PRIMARY("Top metric"),
     WIN_RATE("Win Rate"),
-    THREE_DART_AVERAGE("3-Dart Avg"),
     GAMES_WON("Games Won"),
-    COUNT_180S("180s"),
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -36,7 +44,8 @@ data class LeaderboardEntry(
 data class LeaderboardScreenState(
     val entries: List<LeaderboardEntry> = emptyList(),
     val allPlayerStats: Map<Player, PlayerStatistics> = emptyMap(),
-    val sortMetric: LeaderboardSortMetric = LeaderboardSortMetric.WIN_RATE,
+    val selectedMode: GameMode = GameMode.CLASSIC,
+    val sortMetric: LeaderboardSortMetric = LeaderboardSortMetric.PRIMARY,
     val isLoading: Boolean = true,
     val error: String? = null,
 )
@@ -53,20 +62,25 @@ class LeaderboardScreenModel(
     private val _state = MutableStateFlow(LeaderboardScreenState())
     val state: StateFlow<LeaderboardScreenState> = _state.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init {
         loadData()
     }
 
     private fun loadData() {
-        combine(
+        loadJob?.cancel()
+        loadJob = combine(
             playerRepository.getAllPlayers(),
             gameRepository.getAllGameSessions(),
         ) { players, games ->
+            val mode = _state.value.selectedMode
             val playerStats = players.associateWith { player ->
                 calculator.calculatePlayerStatistics(
                     playerId = player.id,
                     games = games,
                     players = players,
+                    filter = StatisticsFilter(gameMode = mode),
                 )
             }
             playerStats to sortAndRank(playerStats, _state.value.sortMetric)
@@ -85,15 +99,21 @@ class LeaderboardScreenModel(
         }.launchIn(screenModelScope)
     }
 
+    fun selectMode(mode: GameMode) {
+        if (mode == _state.value.selectedMode) return
+
+        _state.update { it.copy(selectedMode = mode) }
+        loadData()
+    }
+
     fun selectSortMetric(metric: LeaderboardSortMetric) {
         if (metric == _state.value.sortMetric) return
 
         val currentState = _state.value
-        val sortedEntries = sortAndRank(currentState.allPlayerStats, metric)
         _state.update {
             it.copy(
                 sortMetric = metric,
-                entries = sortedEntries,
+                entries = sortAndRank(currentState.allPlayerStats, metric),
             )
         }
     }
@@ -105,21 +125,16 @@ class LeaderboardScreenModel(
         val playersWithGames = playerStats.filter { it.value.gamesPlayed > 0 }
 
         val sorted = when (metric) {
-            LeaderboardSortMetric.WIN_RATE -> {
+            LeaderboardSortMetric.PRIMARY ->
+                playersWithGames.entries.sortedByDescending {
+                    it.value.modeStats?.primaryMetric ?: FixedDecimal.ZERO
+                }
+
+            LeaderboardSortMetric.WIN_RATE ->
                 playersWithGames.entries.sortedByDescending { it.value.winRate }
-            }
 
-            LeaderboardSortMetric.THREE_DART_AVERAGE -> {
-                playersWithGames.entries.sortedByDescending { it.value.threeDartAverage }
-            }
-
-            LeaderboardSortMetric.GAMES_WON -> {
+            LeaderboardSortMetric.GAMES_WON ->
                 playersWithGames.entries.sortedByDescending { it.value.gamesWon }
-            }
-
-            LeaderboardSortMetric.COUNT_180S -> {
-                playersWithGames.entries.sortedByDescending { it.value.count180s }
-            }
         }
 
         return sorted.mapIndexed { index, entry ->

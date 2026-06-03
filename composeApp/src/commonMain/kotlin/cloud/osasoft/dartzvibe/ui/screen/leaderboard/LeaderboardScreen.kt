@@ -49,6 +49,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.FixedDecimal
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import kotlin.uuid.ExperimentalUuidApi
@@ -67,6 +68,7 @@ class LeaderboardScreen : Screen {
         LeaderboardContent(
             state = state,
             onBack = { navigator.pop() },
+            onSelectMode = screenModel::selectMode,
             onSelectMetric = screenModel::selectSortMetric,
         )
     }
@@ -86,6 +88,7 @@ fun rememberLeaderboardScreenModel(
 fun LeaderboardContent(
     state: LeaderboardScreenState,
     onBack: () -> Unit,
+    onSelectMode: (GameMode) -> Unit,
     onSelectMetric: (LeaderboardSortMetric) -> Unit,
 ) {
     Scaffold(
@@ -109,11 +112,27 @@ fun LeaderboardContent(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            // Mode selector (per-mode leaderboards; no unified cross-mode ranking)
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                GameMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = state.selectedMode == mode,
+                        onClick = { onSelectMode(mode) },
+                        label = { Text(mode.displayName) },
+                    )
+                }
+            }
+
             // Sort metric chips
             FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 LeaderboardSortMetric.entries.forEach { metric ->
@@ -254,7 +273,7 @@ private fun LeaderboardCard(
                     },
                 )
                 Text(
-                    text = sortMetric.displayName,
+                    text = getPrimaryStatLabel(entry, sortMetric),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -333,10 +352,18 @@ private fun getPrimaryStatValue(
     entry: LeaderboardEntry,
     metric: LeaderboardSortMetric,
 ): String = when (metric) {
+    LeaderboardSortMetric.PRIMARY -> entry.statistics.modeStats?.primaryMetricDisplay ?: "-"
     LeaderboardSortMetric.WIN_RATE -> "${formatDecimal(entry.statistics.winRate)}%"
-    LeaderboardSortMetric.THREE_DART_AVERAGE -> formatDecimal(entry.statistics.threeDartAverage)
     LeaderboardSortMetric.GAMES_WON -> entry.statistics.gamesWon.toString()
-    LeaderboardSortMetric.COUNT_180S -> entry.statistics.count180s.toString()
+}
+
+@OptIn(ExperimentalUuidApi::class)
+private fun getPrimaryStatLabel(
+    entry: LeaderboardEntry,
+    metric: LeaderboardSortMetric,
+): String = when (metric) {
+    LeaderboardSortMetric.PRIMARY -> entry.statistics.modeStats?.primaryMetricLabel ?: metric.displayName
+    else -> metric.displayName
 }
 
 private fun formatDecimal(value: FixedDecimal): String = value.format(1)

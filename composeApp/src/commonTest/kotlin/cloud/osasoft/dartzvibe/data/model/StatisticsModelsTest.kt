@@ -13,61 +13,37 @@ class StatisticsModelsTest : FreeSpec({
 
     val playerId = Uuid.parse("00000000-0000-0000-0000-000000000001")
 
-    "PlayerStatistics" - {
-        "Should calculate win rate correctly" {
-            // GIVEN stats with 4 games, 3 wins
-            val stats = PlayerStatistics(
-                playerId = playerId,
-                gamesPlayed = 4,
-                gamesWon = 3,
-                gamesWonList = emptyList(),
-                legsPlayed = 5,
-                legsWon = 4,
-                totalTurns = 20,
-                totalScore = 2000,
-                threeDartAverage = FixedDecimal.fromInt(100),
-                first9Average = FixedDecimal.fromInt(120),
-                checkoutAttempts = 10,
-                checkoutsHit = 5,
-                checkoutPercentage = FixedDecimal.fromInt(50),
-                bestCheckout = null,
-                count180s = 2,
-                games180s = emptyList(),
-                count140Plus = 5,
-                count100Plus = 10,
-                highestTurnScore = null,
-            )
+    fun statsWith(
+        gamesPlayed: Int,
+        gamesWon: Int,
+        legsPlayed: Int = 0,
+        legsWon: Int = 0,
+    ): PlayerStatistics = PlayerStatistics(
+        playerId = playerId,
+        gamesPlayed = gamesPlayed,
+        gamesWon = gamesWon,
+        gamesWonList = emptyList(),
+        legsPlayed = legsPlayed,
+        legsWon = legsWon,
+        totalTurns = 0,
+        modeStats = null,
+    )
 
-            // THEN win rate is 3/4 = 0.75
-            stats.winRate.format(2) shouldBe "0.75"
+    "PlayerStatistics" - {
+        "Should calculate win rate as a percentage" {
+            // GIVEN stats with 4 games, 3 wins
+            val stats = statsWith(gamesPlayed = 4, gamesWon = 3)
+
+            // THEN win rate is 3/4 = 75%
+            stats.winRate.format(1) shouldBe "75.0"
         }
 
-        "Should calculate leg win rate correctly" {
+        "Should calculate leg win rate as a percentage" {
             // GIVEN stats with 5 legs, 4 wins
-            val stats = PlayerStatistics(
-                playerId = playerId,
-                gamesPlayed = 2,
-                gamesWon = 1,
-                gamesWonList = emptyList(),
-                legsPlayed = 5,
-                legsWon = 4,
-                totalTurns = 20,
-                totalScore = 2000,
-                threeDartAverage = FixedDecimal.fromInt(100),
-                first9Average = FixedDecimal.fromInt(120),
-                checkoutAttempts = 10,
-                checkoutsHit = 5,
-                checkoutPercentage = FixedDecimal.fromInt(50),
-                bestCheckout = null,
-                count180s = 2,
-                games180s = emptyList(),
-                count140Plus = 5,
-                count100Plus = 10,
-                highestTurnScore = null,
-            )
+            val stats = statsWith(gamesPlayed = 2, gamesWon = 1, legsPlayed = 5, legsWon = 4)
 
-            // THEN leg win rate is 4/5 = 0.8
-            stats.legWinRate.format(1) shouldBe "0.8"
+            // THEN leg win rate is 4/5 = 80%
+            stats.legWinRate.format(1) shouldBe "80.0"
         }
 
         "Should return 0 win rate when no games played" {
@@ -79,11 +55,11 @@ class StatisticsModelsTest : FreeSpec({
             stats.legWinRate shouldBe FixedDecimal.ZERO
         }
 
-        "Should create empty stats correctly" {
+        "Should create empty stats with null modeStats" {
             // GIVEN empty stats factory
             val stats = PlayerStatistics.empty(playerId)
 
-            // THEN all values are zero/empty
+            // THEN all universal values are zero and there are no mode stats
             stats.playerId shouldBe playerId
             stats.gamesPlayed shouldBe 0
             stats.gamesWon shouldBe 0
@@ -91,34 +67,51 @@ class StatisticsModelsTest : FreeSpec({
             stats.legsPlayed shouldBe 0
             stats.legsWon shouldBe 0
             stats.totalTurns shouldBe 0
-            stats.totalScore shouldBe 0
-            stats.threeDartAverage shouldBe FixedDecimal.ZERO
-            stats.first9Average shouldBe FixedDecimal.ZERO
-            stats.checkoutAttempts shouldBe 0
-            stats.checkoutsHit shouldBe 0
-            stats.checkoutPercentage shouldBe FixedDecimal.ZERO
-            stats.bestCheckout shouldBe null
-            stats.count180s shouldBe 0
-            stats.games180s.size shouldBe 0
-            stats.count140Plus shouldBe 0
-            stats.count100Plus shouldBe 0
-            stats.highestTurnScore shouldBe null
+            stats.modeStats shouldBe null
+        }
+    }
+
+    "ModeStatistics" - {
+        "Classic primary metric is the 3-dart average" {
+            val classic = ModeStatistics.Classic(
+                threeDartAverage = FixedDecimal.fromInt(80),
+                first9Average = FixedDecimal.ZERO,
+                checkoutAttempts = 0,
+                checkoutsHit = 0,
+                checkoutPercentage = FixedDecimal.ZERO,
+                bestCheckout = null,
+                count180s = 0,
+                games180s = emptyList(),
+                count140Plus = 0,
+                count100Plus = 0,
+                highestTurnScore = null,
+            )
+            classic.primaryMetric shouldBe FixedDecimal.fromInt(80)
+            classic.primaryMetricLabel shouldBe "3-dart avg"
+            classic.primaryMetricDisplay shouldBe "80.0"
+        }
+
+        "Parcheesi knockout ratio is N/A signalled by hasKnockoutData" {
+            val none = ModeStatistics.Parcheesi(
+                threeDartAverage = FixedDecimal.ZERO,
+                knockoutsDealt = 0,
+                timesKnockedOut = 0,
+                bounceBackRate = FixedDecimal.ZERO,
+                avgTurnsToWin = FixedDecimal.ZERO,
+                winRate = FixedDecimal.ZERO,
+            )
+            none.hasKnockoutData shouldBe false
+
+            val some = none.copy(knockoutsDealt = 2)
+            some.hasKnockoutData shouldBe true
         }
     }
 
     "GameReference" - {
         "Should store game reference data correctly" {
-            // GIVEN a game reference
             val sessionId = Uuid.parse("00000000-0000-0000-0000-000000000100")
-            val timestamp = 1704067200000L // Jan 1, 2024
-
-            val ref = GameReference(
-                sessionId = sessionId,
-                timestamp = timestamp,
-                opponentNames = "Bob vs Charlie",
-            )
-
-            // THEN all fields are stored
+            val timestamp = 1704067200000L
+            val ref = GameReference(sessionId, timestamp, "Bob vs Charlie")
             ref.sessionId shouldBe sessionId
             ref.timestamp shouldBe timestamp
             ref.opponentNames shouldBe "Bob vs Charlie"
@@ -127,87 +120,58 @@ class StatisticsModelsTest : FreeSpec({
 
     "StatAchievement" - {
         "Should store achievement with game reference" {
-            // GIVEN an achievement
-            val sessionId = Uuid.parse("00000000-0000-0000-0000-000000000100")
             val gameRef = GameReference(
-                sessionId = sessionId,
+                sessionId = Uuid.parse("00000000-0000-0000-0000-000000000100"),
                 timestamp = 1704067200000L,
                 opponentNames = "Bob",
             )
-
-            val achievement = StatAchievement(
-                value = 170,
-                game = gameRef,
-            )
-
-            // THEN achievement stores value and game reference
+            val achievement = StatAchievement(value = 170, game = gameRef)
             achievement.value shouldBe 170
             achievement.game shouldBe gameRef
         }
     }
 
     "StatisticsFilter" - {
-        "Should have null game type by default" {
-            // GIVEN default filter
+        "Should default to no mode and no type" {
             val filter = StatisticsFilter()
-
-            // THEN game type is null (all games)
+            filter.gameMode shouldBe null
             filter.gameType shouldBe null
         }
 
-        "Should store game type filter" {
-            // GIVEN filter with game type
-            val filter = StatisticsFilter(gameType = GameType.CLASSIC_501)
-
-            // THEN game type is stored
-            filter.gameType shouldBe GameType.CLASSIC_501
+        "Should store mode and type filters" {
+            val filter = StatisticsFilter(gameMode = GameMode.CRICKET, gameType = GameType.CRICKET_REGULAR)
+            filter.gameMode shouldBe GameMode.CRICKET
+            filter.gameType shouldBe GameType.CRICKET_REGULAR
         }
     }
 
     "FixedDecimal" - {
         "Should format with correct decimal places" {
-            // GIVEN a fixed decimal representing 123.456
             val value = FixedDecimal.divide(123456, 1000)
-
-            // THEN formatting works correctly
             value.format(0) shouldBe "123"
             value.format(1) shouldBe "123.4"
         }
 
         "Should perform basic arithmetic" {
-            // GIVEN two values
             val a = FixedDecimal.fromInt(10)
             val b = FixedDecimal.fromInt(5)
-
-            // THEN arithmetic works
             (a + b) shouldBe FixedDecimal.fromInt(15)
             (a - b) shouldBe FixedDecimal.fromInt(5)
             (a * 3) shouldBe FixedDecimal.fromInt(30)
         }
 
         "Should calculate percentage correctly" {
-            // GIVEN numerator 1 and denominator 2
-            val percentage = FixedDecimal.percentage(1, 2)
-
-            // THEN percentage is 50
-            percentage shouldBe FixedDecimal.fromInt(50)
+            FixedDecimal.percentage(1, 2) shouldBe FixedDecimal.fromInt(50)
         }
 
         "Should handle division by zero" {
-            // GIVEN division by zero
-            val result = FixedDecimal.divide(10, 0)
-
-            // THEN returns ZERO
-            result shouldBe FixedDecimal.ZERO
+            FixedDecimal.divide(10, 0) shouldBe FixedDecimal.ZERO
         }
 
         "Should compare values correctly" {
-            // GIVEN various values
             val a = FixedDecimal.fromInt(10)
             val b = FixedDecimal.fromInt(5)
             val c = FixedDecimal.fromInt(10)
-
-            // THEN comparison works
             (a > b) shouldBe true
             (b < a) shouldBe true
             (a == c) shouldBe true
