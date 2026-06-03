@@ -2,7 +2,7 @@ package cloud.osasoft.dartzvibe.ui.screen.statistics
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import cloud.osasoft.dartzvibe.data.model.GameType
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.model.StatisticsFilter
@@ -26,7 +26,7 @@ import kotlin.uuid.Uuid
 data class StatisticsScreenState(
     val players: List<Player> = emptyList(),
     val selectedPlayerId: Uuid? = null,
-    val selectedGameType: GameType? = null,
+    val selectedMode: GameMode = GameMode.CLASSIC,
     val statistics: PlayerStatistics? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -39,6 +39,7 @@ data class StatisticsScreenState(
 enum class StatSection {
     GAMES_WON,
     GAMES_180S,
+    CHECKOUT_BANDS,
 }
 
 @OptIn(ExperimentalUuidApi::class)
@@ -73,7 +74,7 @@ class StatisticsScreenModel(
                     playerId = selectedPlayerId,
                     games = games,
                     players = players,
-                    filter = StatisticsFilter(gameType = currentState.selectedGameType),
+                    filter = StatisticsFilter(gameMode = currentState.selectedMode),
                 )
             } else {
                 null
@@ -82,13 +83,13 @@ class StatisticsScreenModel(
             StatisticsScreenState(
                 players = players,
                 selectedPlayerId = selectedPlayerId,
-                selectedGameType = currentState.selectedGameType,
+                selectedMode = currentState.selectedMode,
                 statistics = statistics,
                 isLoading = false,
                 expandedSections = currentState.expandedSections,
             )
         }.onEach { newState ->
-            log.d { "Statistics loaded for player ${newState.selectedPlayerId}" }
+            log.d { "Statistics loaded for player ${newState.selectedPlayerId} (${newState.selectedMode})" }
             _state.update { newState }
         }.catch { e ->
             log.e(e) { "Error loading statistics" }
@@ -100,15 +101,13 @@ class StatisticsScreenModel(
         if (playerId == _state.value.selectedPlayerId) return
 
         _state.update { it.copy(selectedPlayerId = playerId) }
-        // Trigger recalculation
         loadData()
     }
 
-    fun selectGameType(gameType: GameType?) {
-        if (gameType == _state.value.selectedGameType) return
+    fun selectMode(mode: GameMode) {
+        if (mode == _state.value.selectedMode) return
 
-        _state.update { it.copy(selectedGameType = gameType) }
-        // Trigger recalculation
+        _state.update { it.copy(selectedMode = mode) }
         loadData()
     }
 

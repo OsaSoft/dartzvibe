@@ -2,8 +2,8 @@ package cloud.osasoft.dartzvibe.ui.screen.statistics
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
-import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.HeadToHeadStatistics
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -21,13 +21,16 @@ import kotlinx.coroutines.flow.update
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/** Game modes that support head-to-head comparison (solo modes are excluded). */
+val H2H_MODES: List<GameMode> = GameMode.entries.filter { it != GameMode.CHECKOUT_PRACTICE }
+
 @OptIn(ExperimentalUuidApi::class)
 data class HeadToHeadScreenState(
     val players: List<Player> = emptyList(),
     val allGames: List<GameSession> = emptyList(),
     val selectedPlayer1: Player? = null,
     val selectedPlayer2: Player? = null,
-    val selectedGameType: GameType? = null,
+    val selectedMode: GameMode = GameMode.CLASSIC,
     val statistics: HeadToHeadStatistics? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -55,13 +58,13 @@ class HeadToHeadScreenModel(
             gameRepository.getAllGameSessions(),
         ) { players, games ->
             val sortedPlayers = players.sortedBy { it.name }
+            val current = _state.value
 
-            HeadToHeadScreenState(
+            current.copy(
                 players = sortedPlayers,
                 allGames = games,
-                selectedPlayer1 = sortedPlayers.getOrNull(0),
-                selectedPlayer2 = sortedPlayers.getOrNull(1),
-                selectedGameType = null,
+                selectedPlayer1 = current.selectedPlayer1 ?: sortedPlayers.getOrNull(0),
+                selectedPlayer2 = current.selectedPlayer2 ?: sortedPlayers.getOrNull(1),
                 isLoading = false,
             )
         }.onEach { newState ->
@@ -101,8 +104,9 @@ class HeadToHeadScreenModel(
         calculateStatistics()
     }
 
-    fun selectGameType(gameType: GameType?) {
-        _state.update { it.copy(selectedGameType = gameType) }
+    fun selectMode(mode: GameMode) {
+        if (mode == _state.value.selectedMode) return
+        _state.update { it.copy(selectedMode = mode) }
         calculateStatistics()
     }
 
@@ -120,7 +124,8 @@ class HeadToHeadScreenModel(
             player1Id = player1.id,
             player2Id = player2.id,
             games = currentState.allGames,
-            gameTypeFilter = currentState.selectedGameType,
+            players = currentState.players,
+            gameMode = currentState.selectedMode,
         )
 
         _state.update { it.copy(statistics = stats) }

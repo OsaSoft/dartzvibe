@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -38,6 +40,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.ScreenModel
@@ -47,6 +51,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Player
@@ -356,12 +361,16 @@ fun GameCard(
                     },
                 )
 
-                // Game type
-                Text(
-                    text = session.config.displayDescription,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // Mode badge + game type
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ModeBadge(mode = session.config.gameMode)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = session.config.displayDescription,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 // Legs info
                 if (session.config.legsToWin > 1) {
@@ -407,5 +416,32 @@ fun GameCard(
                 )
             }
         }
+    }
+}
+
+/** Distinct colour per game mode, for at-a-glance scanning of the history list. */
+private fun modeColor(mode: GameMode): Color = when (mode) {
+    GameMode.CLASSIC -> Color(0xFF1565C0)
+    GameMode.PARCHEESI -> Color(0xFF6A1B9A)
+    GameMode.CRICKET -> Color(0xFF2E7D32)
+    GameMode.CHECKOUT_PRACTICE -> Color(0xFFEF6C00)
+    GameMode.ROULETTE -> Color(0xFFC62828)
+}
+
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun ModeBadge(mode: GameMode) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(modeColor(mode))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = mode.displayName,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }

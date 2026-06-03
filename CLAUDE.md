@@ -114,7 +114,9 @@ ActiveGameScreen → SettingsScreen
 
 ## Data Model Quick Reference
 
-Models in `data/model/`: `GameModels.kt` (GameSession, GameConfig, Leg, Turn, Throw, RouletteState, enums), `StatisticsModels.kt` (PlayerStatistics, HeadToHeadStatistics), `Player.kt`, `AppSettingsData.kt`, `ThemeMode.kt`, `FixedDecimal.kt`. Read these files directly for field details.
+Models in `data/model/`: `GameModels.kt` (GameSession, GameConfig, Leg, Turn, Throw, RouletteState, enums), `StatisticsModels.kt` (PlayerStatistics, `ModeStatistics` sealed, CheckoutBandStat, HeadToHeadStatistics), `Player.kt`, `AppSettingsData.kt`, `ThemeMode.kt`, `FixedDecimal.kt`. Read these files directly for field details.
+
+**Statistics are mode-scoped.** `PlayerStatistics` holds universal fields (games/legs/winRate as **percentages**) plus `modeStats: ModeStatistics?` — a sealed hierarchy (`Classic`/`Parcheesi`/`Cricket`/`CheckoutPractice`/`Roulette`) carrying that mode's metrics and a `primaryMetric` (leaderboard sort axis). `StatisticsFilter` has a `gameMode` that selects which subtype is produced; `StatisticsCalculator` dispatches per-mode via an exhaustive `when` (no `else`). All metrics — incl. Cricket MPR and Roulette hit rate — are computed live from stored throws (no `Turn` change, no cache). H2H reuses mode-scoped `PlayerStatistics` per player. Stats UI (`StatisticsScreen`, `LeaderboardScreen`, `HeadToHeadScreen`) is mode-first via `GameMode` FilterChips; `GameDetailScreen` renders per-mode leg content.
 
 ## Game Engine
 
@@ -190,10 +192,11 @@ DI wiring: `di/AppComponent.kt`. CompositionLocals defined in `App.kt`: `LocalPl
 
 ### Add a statistic
 
-1. Add field to `PlayerStatistics` in `data/model/StatisticsModels.kt`
-2. Compute it in the statistics calculation (in `StatisticsScreenModel` or `LeaderboardScreenModel`)
-3. Display it in `StatisticsScreen` or `LeaderboardScreen` UI
-4. **Update Data Model Quick Reference in this file**
+1. Decide scope: universal (add to `PlayerStatistics`) or mode-specific (add to the relevant `ModeStatistics.<Mode>` subtype) in `data/model/StatisticsModels.kt`
+2. Compute it in `StatisticsCalculator` — universal in `calculatePlayerStatistics`, mode-specific in that mode's `calculate<Mode>Stats` helper
+3. Display it in the matching `when(modeStats)` branch in `StatisticsScreen` (and/or `comparisonRows` in `HeadToHeadScreen`)
+4. Add a golden assertion in `StatisticsCalculatorTest`
+5. **Update Data Model Quick Reference in this file**
 
 ### Add a new app setting
 
