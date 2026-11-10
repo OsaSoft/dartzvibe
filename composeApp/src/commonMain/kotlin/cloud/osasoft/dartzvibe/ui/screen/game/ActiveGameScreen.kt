@@ -264,9 +264,11 @@ fun ActiveGameContent(
                 }
 
                 // Current turn display
-                // Roulette and Checkout Practice headers already show their own round progress
+                // Roulette and Checkout Practice headers already show their own round progress; after the
+                // match is won the "next round" would flash behind the game-over dialog
+                val hideRoundNumber = state.isRoulette || state.isCheckoutPractice || state.isGameComplete
                 CurrentTurnDisplay(
-                    roundNumber = if (state.isRoulette || state.isCheckoutPractice) null else state.currentRoundNumber,
+                    roundNumber = if (hideRoundNumber) null else state.currentRoundNumber,
                     currentThrows = state.currentTurnThrows,
                     selectedMultiplier = state.selectedMultiplier,
                     lastThrowResult = state.lastThrowResult,
@@ -613,7 +615,8 @@ fun ThrowDisplay(throwObj: Throw) {
         else -> "${throwObj.multiplier.name.first()}${throwObj.segment}"
     }
 
-    // Color-coded by multiplier, consistent with GameDetail throw badges and the keypad
+    // Doubles/triples use the shared multiplier accents (as in GameDetail and the keypad); singles use
+    // secondaryContainer because surfaceVariant would vanish on this card
     val colorScheme = MaterialTheme.colorScheme
     val multiplierColors = MaterialTheme.multiplierColors
     val (backgroundColor, textColor) = when (throwObj.multiplier) {

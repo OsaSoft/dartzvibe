@@ -14,7 +14,9 @@ import androidx.compose.ui.graphics.Color
  * double keeps the brand red. Kept separate from Material `tertiary` so other UI is unaffected.
  *
  * Contrast of text on chip (WCAG AA needs 4.5:1): red #C62828 / white ~5.6:1;
- * amber #FFA000 / #1A1A1A ~8.5:1; amber #FFB300 / #121212 ~10:1.
+ * amber #FF8F00 / #1A1A1A ~7.6:1; amber #FFB300 / #121212 ~10:1.
+ * Chip edge vs light surfaces is still low for the light amber (~2.3:1 on white, ~2.0:1 on #F0F0F0);
+ * the dark text label carries the meaning there.
  */
 @Immutable
 data class MultiplierColors(
@@ -27,8 +29,8 @@ data class MultiplierColors(
 internal val LightMultiplierColors = MultiplierColors(
     double = Color(0xFFC62828),
     onDouble = Color(0xFFFFFFFF),
-    // Amber 700: slightly deeper so the chip still reads against light surfaces
-    triple = Color(0xFFFFA000),
+    // Amber 800: deeper amber so the chip reads better against light surfaces
+    triple = Color(0xFFFF8F00),
     onTriple = Color(0xFF1A1A1A),
 )
 

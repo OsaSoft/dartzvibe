@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -224,6 +225,9 @@ fun RadialDartboard(
                     radius = canvasRadius,
                     textMeasurer = textMeasurer,
                     colorScheme = colorScheme,
+                    highlightedSegmentIndex = highlightedSegmentIndex,
+                    highlightedBull = highlightedBull,
+                    swipeIndicator = swipeIndicator,
                 )
             }
 
@@ -283,16 +287,9 @@ private fun DrawScope.drawWheel(
         val sweepAngle = endAngle - startAngle
         val canvasStartAngle = toCanvasAngle(startAngle)
 
-        val isHighlighted = index == highlightedSegmentIndex
-        val color = if (isHighlighted) {
-            getHighlightColor(swipeIndicator, colorScheme)
-        } else {
-            getWedgeColor(index, colorScheme)
-        }
-
         // Draw wedge (full pie slice)
         drawArc(
-            color = color,
+            color = wedgeFill(index, highlightedSegmentIndex, swipeIndicator, colorScheme),
             startAngle = canvasStartAngle,
             sweepAngle = sweepAngle,
             useCenter = true,
@@ -319,13 +316,8 @@ private fun DrawScope.drawWheel(
     }
 
     // Draw bull (center circle)
-    val bullColor = if (highlightedBull) {
-        getHighlightColor(swipeIndicator, colorScheme)
-    } else {
-        colorScheme.bull
-    }
     drawCircle(
-        color = bullColor,
+        color = bullFill(highlightedBull, swipeIndicator, colorScheme),
         radius = bullRadius,
         center = center,
     )
@@ -345,13 +337,40 @@ private fun DrawScope.drawWheel(
         center = center,
         style = wireStroke,
     )
+
+    // Outline the highlighted wedge/bull last (on top of the wires) so it stands out even when
+    // the highlight fill is close in lightness to the wedge colors (e.g. light-theme green wedges)
+    val highlightStroke = Stroke(width = 3.dp.toPx())
+    highlightedSegmentIndex?.let { index ->
+        val (startAngle, endAngle) = getSegmentAngles(index)
+        drawArc(
+            color = colorScheme.highlightOutline,
+            startAngle = toCanvasAngle(startAngle),
+            sweepAngle = endAngle - startAngle,
+            useCenter = true,
+            topLeft = Offset(center.x - radius, center.y - radius),
+            size = Size(radius * 2, radius * 2),
+            style = highlightStroke,
+        )
+    }
+    if (highlightedBull) {
+        drawCircle(
+            color = colorScheme.highlightOutline,
+            radius = bullRadius,
+            center = center,
+            style = highlightStroke,
+        )
+    }
 }
 
 private fun DrawScope.drawWedgeNumbers(
     center: Offset,
     radius: Float,
-    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    textMeasurer: TextMeasurer,
     colorScheme: WheelColorScheme,
+    highlightedSegmentIndex: Int?,
+    highlightedBull: Boolean,
+    swipeIndicator: SwipeDirection?,
 ) {
     val bullRadius = radius * BULL_RADIUS_RATIO
     // Position numbers towards the edge (like a real dartboard)
@@ -365,7 +384,12 @@ private fun DrawScope.drawWedgeNumbers(
         val x = center.x + numberRadius * cos(angleRad).toFloat()
         val y = center.y + numberRadius * sin(angleRad).toFloat()
 
-        val textColor = getWedgeTextColor(index, colorScheme)
+        // Highlighted wedges pick black/white from the actual fill; others keep the wedge text color
+        val textColor = if (index == highlightedSegmentIndex) {
+            textColorOn(wedgeFill(index, highlightedSegmentIndex, swipeIndicator, colorScheme))
+        } else {
+            getWedgeTextColor(index, colorScheme)
+        }
         val textStyle = TextStyle(
             color = textColor,
             fontSize = 16.sp,
@@ -388,7 +412,7 @@ private fun DrawScope.drawWedgeNumbers(
 
     // Draw "BULL" text in center
     val bullTextStyle = TextStyle(
-        color = Color.White,
+        color = textColorOn(bullFill(highlightedBull, swipeIndicator, colorScheme)),
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
     )
@@ -400,6 +424,30 @@ private fun DrawScope.drawWedgeNumbers(
             center.y - bullTextResult.size.height / 2,
         ),
     )
+}
+
+private fun wedgeFill(
+    index: Int,
+    highlightedSegmentIndex: Int?,
+    swipeIndicator: SwipeDirection?,
+    colorScheme: WheelColorScheme,
+): Color = if (index == highlightedSegmentIndex) {
+    getHighlightColor(swipeIndicator, colorScheme)
+} else {
+    getWedgeColor(index, colorScheme)
+}
+
+/**
+ * Bull has no triple: any swipe records a DOUBLE (50), so it always lights up in the double color.
+ */
+private fun bullFill(
+    highlightedBull: Boolean,
+    swipeIndicator: SwipeDirection?,
+    colorScheme: WheelColorScheme,
+): Color = when {
+    !highlightedBull -> colorScheme.bull
+    swipeIndicator != null -> colorScheme.highlightDouble
+    else -> colorScheme.highlight
 }
 
 private fun getHighlightColor(
