@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.settings
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
+import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,6 +70,12 @@ class SettingsScreenModel(
     fun setShowMultiplierButtons(value: Boolean) {
         screenModelScope.launch {
             appSettingsRepository.setShowMultiplierButtons(value)
+        }
+    }
+
+    fun setSwipeMultiplierMode(mode: SwipeMultiplierMode) {
+        screenModelScope.launch {
+            appSettingsRepository.setSwipeMultiplierMode(mode)
         }
     }
 }

@@ -1,6 +1,7 @@
 package cloud.osasoft.dartzvibe.data.repository
 
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
+import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,10 @@ class FakeAppSettingsRepository : AppSettingsRepository {
 
     override suspend fun setShowMultiplierButtons(value: Boolean) {
         _settings.update { it.copy(showMultiplierButtons = value) }
+    }
+
+    override suspend fun setSwipeMultiplierMode(mode: SwipeMultiplierMode) {
+        _settings.update { it.copy(swipeMultiplierMode = mode) }
     }
 
     // Test helpers

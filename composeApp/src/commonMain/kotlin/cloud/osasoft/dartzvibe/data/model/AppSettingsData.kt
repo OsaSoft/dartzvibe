@@ -6,4 +6,5 @@ data class AppSettingsData(
     val showCheckoutHints: Boolean = true,
     val useRadialKeypad: Boolean = false,
     val showMultiplierButtons: Boolean = true,
+    val swipeMultiplierMode: SwipeMultiplierMode = SwipeMultiplierMode.VERTICAL,
 )

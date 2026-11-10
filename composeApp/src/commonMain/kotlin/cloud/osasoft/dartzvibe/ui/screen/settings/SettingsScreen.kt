@@ -7,8 +7,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -31,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -38,6 +44,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
 import cloud.osasoft.dartzvibe.config.BuildInfo
+import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 
@@ -58,6 +65,7 @@ class SettingsScreen : Screen {
             onShowCheckoutHintsChange = screenModel::setShowCheckoutHints,
             onUseRadialKeypadChange = screenModel::setUseRadialKeypad,
             onShowMultiplierButtonsChange = screenModel::setShowMultiplierButtons,
+            onSwipeMultiplierModeChange = screenModel::setSwipeMultiplierMode,
         )
     }
 }
@@ -78,6 +86,7 @@ fun SettingsScreenContent(
     onShowCheckoutHintsChange: (Boolean) -> Unit,
     onUseRadialKeypadChange: (Boolean) -> Unit,
     onShowMultiplierButtonsChange: (Boolean) -> Unit,
+    onSwipeMultiplierModeChange: (SwipeMultiplierMode) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -149,6 +158,13 @@ fun SettingsScreenContent(
                 description = "Show S/D/T buttons (off = use swipe gestures on both keypads)",
                 checked = state.settings.showMultiplierButtons,
                 onCheckedChange = onShowMultiplierButtonsChange,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SwipeMultiplierModeSettingItem(
+                selectedMode = state.settings.swipeMultiplierMode,
+                onSwipeMultiplierModeChange = onSwipeMultiplierModeChange,
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -232,6 +248,66 @@ fun ThemeModeSettingItem(
                             ThemeMode.DARK -> "Dark"
                             ThemeMode.SYSTEM -> "System"
                         },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single choice with full-length labels: the options are too long for a segmented button
+ * and are not an on/off pair, so they are shown as a radio group.
+ */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+fun SwipeMultiplierModeSettingItem(
+    selectedMode: SwipeMultiplierMode,
+    onSwipeMultiplierModeChange: (SwipeMultiplierMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+    ) {
+        Text(
+            text = "Dartboard Swipe Direction",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = "How swipes pick Double/Triple on the radial dartboard when multiplier buttons are off. " +
+                "The grid keypad always uses up = Double, down = Triple.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Column(modifier = Modifier.selectableGroup()) {
+            SwipeMultiplierMode.entries.forEach { mode ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .selectable(
+                            selected = selectedMode == mode,
+                            onClick = { onSwipeMultiplierModeChange(mode) },
+                            role = Role.RadioButton,
+                        )
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = selectedMode == mode,
+                        onClick = null,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = when (mode) {
+                            SwipeMultiplierMode.VERTICAL -> "Up = Double, Down = Triple"
+                            SwipeMultiplierMode.RADIAL -> "Like a real board: toward center = Triple, outward = Double"
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
