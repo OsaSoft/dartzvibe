@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +76,13 @@ fun RadialDartboard(
 ) {
     val colorScheme = wheelColorScheme()
     val textMeasurer = rememberTextMeasurer()
+
+    // The pointerInput gesture handler below is long-lived: it is not restarted when these change
+    // (restarting it would cancel a drag in progress), so it must read them through updated state.
+    // Capturing the parameters directly made taps record the multiplier selected when the handler
+    // started, e.g. T20 again after switching from Triple to Double.
+    val currentSelectedMultiplier by rememberUpdatedState(selectedMultiplier)
+    val currentOnScoreSelect by rememberUpdatedState(onScoreSelect)
 
     var gestureState by remember { mutableStateOf(GestureState()) }
     var highlightedSegmentIndex by remember { mutableStateOf<Int?>(null) }
@@ -148,7 +156,7 @@ fun RadialDartboard(
                                 val up = waitForUpOrCancellation()
                                 if (up != null) {
                                     up.consume()
-                                    onScoreSelect(hit.segment, selectedMultiplier)
+                                    currentOnScoreSelect(hit.segment, currentSelectedMultiplier)
                                 }
                             } else {
                                 // Swipe mode: track drag for multiplier detection
@@ -163,45 +171,51 @@ fun RadialDartboard(
 
                                 var lastPosition = down.position
 
-                                drag(down.id) { change ->
-                                    change.consume()
-                                    lastPosition = change.position
-                                    gestureState = gestureState.copy(currentPosition = lastPosition)
+                                // finally: clear the highlight even if the handler is cancelled mid-drag
+                                // (e.g. pointerInput restarts), so it can't stay stuck on the board
+                                try {
+                                    // false = the gesture was cancelled rather than lifted: record nothing
+                                    val completed = drag(down.id) { change ->
+                                        change.consume()
+                                        lastPosition = change.position
+                                        gestureState = gestureState.copy(currentPosition = lastPosition)
 
-                                    val startY = gestureState.startPosition?.y ?: return@drag
-                                    val deltaY = lastPosition.y - startY
-                                    swipeIndicator = when {
-                                        deltaY < -swipeThresholdPx -> SwipeDirection.UP
-                                        deltaY > swipeThresholdPx -> SwipeDirection.DOWN
-                                        else -> null
+                                        val startY = gestureState.startPosition?.y ?: return@drag
+                                        val deltaY = lastPosition.y - startY
+                                        swipeIndicator = when {
+                                            deltaY < -swipeThresholdPx -> SwipeDirection.UP
+                                            deltaY > swipeThresholdPx -> SwipeDirection.DOWN
+                                            else -> null
+                                        }
                                     }
+
+                                    if (completed) {
+                                        // Lifted - determine multiplier and submit score
+                                        val startY = gestureState.startPosition?.y ?: 0f
+                                        val deltaY = lastPosition.y - startY
+
+                                        val multiplier = if (hit.isBull) {
+                                            // Bull has no triple - both up and down are double
+                                            if (abs(deltaY) > swipeThresholdPx) {
+                                                Multiplier.DOUBLE
+                                            } else {
+                                                Multiplier.SINGLE
+                                            }
+                                        } else {
+                                            when {
+                                                deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
+                                                deltaY > swipeThresholdPx -> Multiplier.TRIPLE
+                                                else -> Multiplier.SINGLE
+                                            }
+                                        }
+                                        currentOnScoreSelect(hit.segment, multiplier)
+                                    }
+                                } finally {
+                                    gestureState = GestureState()
+                                    highlightedSegmentIndex = null
+                                    highlightedBull = false
+                                    swipeIndicator = null
                                 }
-
-                                // Drag ended - determine multiplier and submit score
-                                val startY = gestureState.startPosition?.y ?: 0f
-                                val deltaY = lastPosition.y - startY
-
-                                val multiplier = if (hit.isBull) {
-                                    // Bull has no triple - both up and down are double
-                                    if (abs(deltaY) > swipeThresholdPx) {
-                                        Multiplier.DOUBLE
-                                    } else {
-                                        Multiplier.SINGLE
-                                    }
-                                } else {
-                                    when {
-                                        deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
-                                        deltaY > swipeThresholdPx -> Multiplier.TRIPLE
-                                        else -> Multiplier.SINGLE
-                                    }
-                                }
-                                onScoreSelect(hit.segment, multiplier)
-
-                                // Reset state
-                                gestureState = GestureState()
-                                highlightedSegmentIndex = null
-                                highlightedBull = false
-                                swipeIndicator = null
                             }
                         }
                     },
