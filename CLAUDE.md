@@ -38,7 +38,7 @@ composeApp/src/
 │   ├── domain/game/        # GameEngine facade, one ModeEngine per GameMode, GameEngineHelper, CheckoutCalculator
 │   ├── domain/statistics/  # StatisticsCalculator
 │   ├── ui/screen/<feature>/            # Voyager Screen + ScreenModel pairs
-│   ├── ui/screen/game/components/      # keypad, radial dartboard, MultiplierButton, scoreboards, checkout hint
+│   ├── ui/screen/game/components/      # keypad, radial dartboard, Roulette quick-input pad, MultiplierButton, scoreboards, checkout hint
 │   ├── ui/theme/           # Theme.kt, MultiplierColors, AvatarColors
 │   └── util/               # expect TimeUtils (currentTimeMillis), KeepScreenOn
 ├── commonMain/sqldelight/  # *.sq schemas + migrations/*.sqm
@@ -131,7 +131,11 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
   - **Videos**: one heading per feature. Mark each clip **Before**/**After** and **Dark**/**Light**.
 - **Media files:**
   - Store videos and screenshots in the gitignored `pr-media/<slug>/<feature>/<what>-{before,after}-{light,dark}.mp4`. Rename the folder to `pr-<N>-<slug>` once the PR exists.
-  - GitHub only plays videos uploaded through the browser, so the human drags them into the PR. Check the order afterwards.
+  - Attach them with `gh` 2.99 or later (`--attach`; you need push access).
+    - In the PR body (`--body-file`), put each video on its own line as `![](pr-media/…/clip.mp4)`, with a blank line before and after. A video inside a sentence becomes a plain link.
+    - Pass the same file with `--attach`, for example `gh pr create --body-file body.md --attach pr-media/…/clip.mp4`, repeating `--attach` for each file. `gh` uploads the file and replaces the local path with an inline player. Attached files the body doesn't mention are appended at the end. `gh pr edit` and `gh pr comment` accept `--attach` too.
+    - Videos can't have alt text, so put a **Before/After · Dark/Light** label line above each one.
+    - Afterwards, check the body with `gh pr view <N> --json body` and make sure no local `pr-media/` path is left.
 
 ## Recording demos (Android emulator, Windows)
 
