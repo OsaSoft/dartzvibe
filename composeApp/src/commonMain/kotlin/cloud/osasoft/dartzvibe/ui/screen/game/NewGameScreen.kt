@@ -100,6 +100,7 @@ class NewGameScreen : Screen {
             onPlayerToggle = screenModel::togglePlayerSelection,
             onMoveUp = screenModel::movePlayerUp,
             onMoveDown = screenModel::movePlayerDown,
+            onRandomizePlayerOrderChange = screenModel::setRandomizePlayerOrder,
             onStartGame = screenModel::startGame,
             onBack = { navigator.pop() },
         )
@@ -129,6 +130,7 @@ fun NewGameContent(
     onPlayerToggle: (Uuid) -> Unit,
     onMoveUp: (Uuid) -> Unit,
     onMoveDown: (Uuid) -> Unit,
+    onRandomizePlayerOrderChange: (Boolean) -> Unit,
     onStartGame: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -212,9 +214,12 @@ fun NewGameContent(
                     availablePlayers = state.availablePlayers,
                     selectedPlayerIds = state.selectedPlayerIds,
                     maxPlayers = state.maxPlayers,
+                    canRandomizePlayerOrder = state.canRandomizePlayerOrder,
+                    isPlayerOrderRandomized = state.isPlayerOrderRandomized,
                     onPlayerToggle = onPlayerToggle,
                     onMoveUp = onMoveUp,
                     onMoveDown = onMoveDown,
+                    onRandomizePlayerOrderChange = onRandomizePlayerOrderChange,
                 )
 
                 // Error message
@@ -592,9 +597,12 @@ fun PlayerSelectionSection(
     availablePlayers: List<Player>,
     selectedPlayerIds: List<Uuid>,
     maxPlayers: Int = 4,
+    canRandomizePlayerOrder: Boolean,
+    isPlayerOrderRandomized: Boolean,
     onPlayerToggle: (Uuid) -> Unit,
     onMoveUp: (Uuid) -> Unit,
     onMoveDown: (Uuid) -> Unit,
+    onRandomizePlayerOrderChange: (Boolean) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -623,24 +631,51 @@ fun PlayerSelectionSection(
             } else {
                 // Selected players (reorderable)
                 if (selectedPlayerIds.isNotEmpty()) {
+                    if (canRandomizePlayerOrder) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Random Order", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    "Shuffle the throwing order when the game starts",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(
+                                checked = isPlayerOrderRandomized,
+                                onCheckedChange = onRandomizePlayerOrderChange,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     if (maxPlayers > 1) {
                         Text(
-                            text = "Throwing Order:",
+                            text = if (isPlayerOrderRandomized) {
+                                "Throwing Order: randomized at start"
+                            } else {
+                                "Throwing Order:"
+                            },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
+                    val showReorderButtons = maxPlayers > 1 && !isPlayerOrderRandomized
                     selectedPlayerIds.forEachIndexed { index, playerId ->
                         val player = availablePlayers.find { it.id == playerId }
                         if (player != null) {
                             SelectedPlayerRow(
                                 player = player,
-                                position = index + 1,
-                                canMoveUp = index > 0 && maxPlayers > 1,
-                                canMoveDown = index < selectedPlayerIds.size - 1 && maxPlayers > 1,
-                                showReorderButtons = maxPlayers > 1,
+                                position = if (isPlayerOrderRandomized) null else index + 1,
+                                canMoveUp = index > 0 && showReorderButtons,
+                                canMoveDown = index < selectedPlayerIds.size - 1 && showReorderButtons,
+                                showReorderButtons = showReorderButtons,
                                 onMoveUp = { onMoveUp(playerId) },
                                 onMoveDown = { onMoveDown(playerId) },
                                 onRemove = { onPlayerToggle(playerId) },
@@ -680,7 +715,7 @@ fun PlayerSelectionSection(
 @Composable
 fun SelectedPlayerRow(
     player: Player,
-    position: Int,
+    position: Int?,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     showReorderButtons: Boolean = true,
@@ -700,7 +735,7 @@ fun SelectedPlayerRow(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Position number
+            // Position number ("?" when the order is randomized at start)
             Box(
                 modifier = Modifier
                     .size(28.dp)
@@ -709,7 +744,7 @@ fun SelectedPlayerRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "$position",
+                    text = position?.toString() ?: "?",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimary,
                 )

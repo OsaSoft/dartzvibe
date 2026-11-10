@@ -3,6 +3,8 @@ package cloud.osasoft.dartzvibe.ui.screen.game.components
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 
 /**
  * Color scheme for the simplified dartboard wheel.
@@ -24,6 +26,8 @@ data class WheelColorScheme(
     val highlightDouble: Color,
     /** Highlight color for swipe-down (triple) */
     val highlightTriple: Color,
+    /** Outline drawn around the highlighted wedge/bull */
+    val highlightOutline: Color,
 )
 
 /**
@@ -39,6 +43,12 @@ fun getWedgeTextColor(segmentIndex: Int, colorScheme: WheelColorScheme): Color =
     if (segmentIndex % 2 == 0) Color.White else Color.Black
 
 /**
+ * Black or white, whichever contrasts more with [fill]. 0.179 is the relative luminance at which
+ * black and white text have equal contrast.
+ */
+fun textColorOn(fill: Color): Color = if (fill.luminance() > 0.179f) Color.Black else Color.White
+
+/**
  * Provides the wheel color scheme based on the current Material theme.
  */
 @Suppress("ktlint:standard:function-naming")
@@ -51,8 +61,12 @@ fun wheelColorScheme(): WheelColorScheme {
         bull = colorScheme.tertiary,
         divider = colorScheme.outline,
         numberColor = colorScheme.onSurface,
-        highlight = Color(0xFFFFEB3B),
-        highlightDouble = Color(0xFF2196F3),
-        highlightTriple = Color(0xFFFF5722),
+        // Neutral "touched" highlight: blue, so it can't be mistaken for the red/amber multiplier accents
+        highlight = Color(0xFF42A5F5),
+        // Red family like MultiplierColors.double, but a light rose (Red A100): the brand red would be
+        // invisible on the even (primary red) wedges. ~2.5:1 vs #C62828, ~3.4:1 vs dark green wedges
+        highlightDouble = Color(0xFFFF8A80),
+        highlightTriple = MaterialTheme.multiplierColors.triple,
+        highlightOutline = colorScheme.onSurface,
     )
 }

@@ -27,3 +27,6 @@ keystore.properties
 
 # local only files
 .local/
+
+# PR demo videos/screenshots (attached to PRs manually, not committed)
+pr-media/

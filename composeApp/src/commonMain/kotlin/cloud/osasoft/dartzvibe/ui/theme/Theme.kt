@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 
@@ -106,8 +107,12 @@ fun DartzVibeTheme(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    MaterialTheme(
-        colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,
-        content = content,
-    )
+    CompositionLocalProvider(
+        LocalMultiplierColors provides if (isDarkTheme) DarkMultiplierColors else LightMultiplierColors,
+    ) {
+        MaterialTheme(
+            colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,
+            content = content,
+        )
+    }
 }

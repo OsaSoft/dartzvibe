@@ -63,6 +63,7 @@ import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import cloud.osasoft.dartzvibe.util.formatDate
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -559,18 +560,18 @@ private fun TurnRow(
 @Suppress("ktlint:standard:function-naming")
 @Composable
 private fun ThrowBadge(dart: Throw?) {
-    val backgroundColor = when {
-        dart == null -> MaterialTheme.colorScheme.surfaceVariant
-        dart.multiplier == Multiplier.TRIPLE -> MaterialTheme.colorScheme.tertiary
-        dart.multiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.surfaceVariant
+    val multiplierColors = MaterialTheme.multiplierColors
+    val backgroundColor = when (dart?.multiplier) {
+        null, Multiplier.SINGLE -> MaterialTheme.colorScheme.surfaceVariant
+        Multiplier.DOUBLE -> multiplierColors.double
+        Multiplier.TRIPLE -> multiplierColors.triple
     }
 
-    val textColor = when {
-        dart == null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        dart.multiplier == Multiplier.TRIPLE -> MaterialTheme.colorScheme.onTertiary
-        dart.multiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = when (dart?.multiplier) {
+        null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        Multiplier.SINGLE -> MaterialTheme.colorScheme.onSurfaceVariant
+        Multiplier.DOUBLE -> multiplierColors.onDouble
+        Multiplier.TRIPLE -> multiplierColors.onTriple
     }
 
     Box(

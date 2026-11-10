@@ -18,6 +18,15 @@ internal object GameEngineHelper {
         return config.playerIds[turnCount % playerCount]
     }
 
+    /**
+     * 1-based round number within the current leg. A round is complete once every player
+     * has thrown one (non-phantom) turn, so all players share the same round number.
+     */
+    fun getRoundNumber(session: GameSession): Int {
+        val playerCount = session.config.playerIds.size.coerceAtLeast(1)
+        return session.currentLeg.playerTurns.size / playerCount + 1
+    }
+
     fun getPlayerScore(config: GameConfig, session: GameSession, playerId: Uuid): Int {
         if (config.isCheckoutPractice) {
             val state = session.currentLeg.checkoutPracticeState ?: return config.startingScore

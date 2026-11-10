@@ -68,6 +68,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
+import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import dartzvibe.composeapp.generated.resources.Res
 import dartzvibe.composeapp.generated.resources.forever_alone_bw
 import org.jetbrains.compose.resources.painterResource
@@ -263,8 +264,11 @@ fun ActiveGameContent(
                 }
 
                 // Current turn display
+                // Roulette and Checkout Practice headers already show their own round progress; after the
+                // match is won the "next round" would flash behind the game-over dialog
+                val hideRoundNumber = state.isRoulette || state.isCheckoutPractice || state.isGameComplete
                 CurrentTurnDisplay(
-                    turnNumber = state.currentTurnNumber,
+                    roundNumber = if (hideRoundNumber) null else state.currentRoundNumber,
                     currentThrows = state.currentTurnThrows,
                     selectedMultiplier = state.selectedMultiplier,
                     lastThrowResult = state.lastThrowResult,
@@ -465,7 +469,7 @@ fun PlayerScoresRow(
 @Suppress("ktlint:standard:function-naming")
 @Composable
 fun CurrentTurnDisplay(
-    turnNumber: Int,
+    roundNumber: Int?,
     currentThrows: List<Throw>,
     selectedMultiplier: Multiplier,
     lastThrowResult: ThrowResult?,
@@ -487,14 +491,16 @@ fun CurrentTurnDisplay(
                 .padding(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Current turn throws
-            Text(
-                text = "Turn $turnNumber",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Current round (hidden when the mode header already shows round progress)
+            roundNumber?.let { round ->
+                Text(
+                    text = "Round $round",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
-            Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -609,17 +615,27 @@ fun ThrowDisplay(throwObj: Throw) {
         else -> "${throwObj.multiplier.name.first()}${throwObj.segment}"
     }
 
+    // Doubles/triples use the shared multiplier accents (as in GameDetail and the keypad); singles use
+    // secondaryContainer because surfaceVariant would vanish on this card
+    val colorScheme = MaterialTheme.colorScheme
+    val multiplierColors = MaterialTheme.multiplierColors
+    val (backgroundColor, textColor) = when (throwObj.multiplier) {
+        Multiplier.SINGLE -> colorScheme.secondaryContainer to colorScheme.onSecondaryContainer
+        Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
+        Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
+    }
+
     Box(
         modifier = Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.primary),
+            .background(backgroundColor),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = displayText,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = textColor,
             fontWeight = FontWeight.Bold,
         )
     }
