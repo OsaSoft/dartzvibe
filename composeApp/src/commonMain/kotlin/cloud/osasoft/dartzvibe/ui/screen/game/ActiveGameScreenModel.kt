@@ -113,11 +113,27 @@ data class ActiveGameState(
     val rouletteState: RouletteState?
         get() = engine?.getRouletteState()
 
+    /**
+     * Current Roulette target, or null outside Roulette. Mirrors `RouletteModeEngine`: a missing or empty
+     * target list falls back to 1 and a missing state to the first round, so the input pad always renders.
+     */
     val currentRouletteTarget: Int?
         get() {
-            val state = rouletteState ?: return null
-            val targets = session?.config?.rouletteTargetSegments ?: return null
-            return if (targets.isEmpty()) null else targets[state.currentRoundIndex % targets.size]
+            if (!isRoulette) return null
+            val targets = session?.config?.rouletteTargetSegments.orEmpty()
+            val roundIndex = rouletteState?.currentRoundIndex ?: 0
+            return if (targets.isEmpty()) 1 else targets[roundIndex % targets.size]
+        }
+
+    /**
+     * Points the current player has scored so far this turn in Roulette, or null outside Roulette.
+     * Taken from the engine (pending score minus committed score), so it always matches the score cards.
+     */
+    val rouletteTurnPoints: Int?
+        get() {
+            if (!isRoulette) return null
+            val playerId = currentPlayerId ?: return 0
+            return currentPlayerScore - getPlayerScore(playerId)
         }
 
     val rouletteRoundNumber: Int

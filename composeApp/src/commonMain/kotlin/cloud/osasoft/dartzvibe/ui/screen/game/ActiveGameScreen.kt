@@ -66,6 +66,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketScoreboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
+import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
@@ -275,7 +276,7 @@ fun ActiveGameContent(
                     canUndo = state.canUndo,
                     onUndo = onUndo,
                     isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
-                    isRoulette = state.isRoulette,
+                    rouletteTurnPoints = state.rouletteTurnPoints,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp),
@@ -293,7 +294,18 @@ fun ActiveGameContent(
 
                 // Score input keypad (hidden when turn is complete)
                 if (state.canThrow) {
-                    if (settings.useRadialKeypad) {
+                    if (state.isRoulette) {
+                        // Only the current target scores in Roulette: quick Miss/Hit/Double/Triple pad,
+                        // regardless of the keypad settings
+                        state.currentRouletteTarget?.let { target ->
+                            RouletteInputPad(
+                                target = target,
+                                onScoreSelect = onScoreSelect,
+                                onMiss = onMiss,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    } else if (settings.useRadialKeypad) {
                         RadialDartboard(
                             selectedMultiplier = state.selectedMultiplier,
                             canThrow = state.canThrow,
@@ -476,7 +488,7 @@ fun CurrentTurnDisplay(
     canUndo: Boolean,
     onUndo: () -> Unit,
     isCricket: Boolean = false,
-    isRoulette: Boolean = false,
+    rouletteTurnPoints: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -524,7 +536,6 @@ fun CurrentTurnDisplay(
                     val isCheckout = lastThrowResult is ThrowResult.Checkout
                     val isCricketWin = lastThrowResult is ThrowResult.CricketWin
                     val isCricketMarks = lastThrowResult is ThrowResult.CricketMarks
-                    val isRouletteHit = lastThrowResult is ThrowResult.RouletteHit
                     val displayText = when {
                         isBust -> "BUST"
 
@@ -545,16 +556,8 @@ fun CurrentTurnDisplay(
                             }
                         }
 
-                        isRouletteHit -> {
-                            val rouletteResult = lastThrowResult as ThrowResult.RouletteHit
-                            if (rouletteResult.pointsScored > 0) {
-                                "+${rouletteResult.pointsScored}"
-                            } else {
-                                "Miss"
-                            }
-                        }
-
-                        isRoulette -> "0"
+                        // Roulette shows the whole turn's points, not just the last dart's
+                        rouletteTurnPoints != null -> "+$rouletteTurnPoints"
 
                         else -> if (isCricket) "-" else "${currentThrows.sumOf { it.score }}"
                     }
@@ -570,10 +573,9 @@ fun CurrentTurnDisplay(
                         isCricketMarks && lastThrowResult.pointsScored > 0 ->
                             MaterialTheme.colorScheme.primary
 
-                        isRouletteHit && (lastThrowResult as ThrowResult.RouletteHit).pointsScored > 0 ->
-                            MaterialTheme.colorScheme.primary
+                        rouletteTurnPoints != null && rouletteTurnPoints > 0 -> MaterialTheme.colorScheme.primary
 
-                        isRouletteHit -> MaterialTheme.colorScheme.error
+                        rouletteTurnPoints != null -> MaterialTheme.colorScheme.error
 
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }

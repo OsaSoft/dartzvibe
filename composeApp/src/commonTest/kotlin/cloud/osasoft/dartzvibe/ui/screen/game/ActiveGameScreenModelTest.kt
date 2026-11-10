@@ -12,12 +12,14 @@ import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.datatest.withData
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -36,6 +38,145 @@ class ActiveGameScreenModelTest : FreeSpec({
 
     afterSpec {
         Dispatchers.resetMain()
+    }
+
+    val rouletteSessionId = Uuid.parse("00000000-0000-0000-0000-000000000098")
+    val roulettePlayer1Id = Uuid.parse("00000000-0000-0000-0000-000000000011")
+    val roulettePlayer2Id = Uuid.parse("00000000-0000-0000-0000-000000000012")
+
+    // Builds a loaded ScreenModel for a two-player Roulette game whose first round targets [targets].first()
+    suspend fun TestScope.rouletteScreenModel(
+        targets: List<Int>?,
+        gameType: GameType = GameType.ROULETTE_ROUNDS,
+    ): ActiveGameScreenModel {
+        val playerRepository = FakePlayerRepository()
+        playerRepository.insertPlayer(Player(id = roulettePlayer1Id, name = "Player 1", createdAt = 0L))
+        playerRepository.insertPlayer(Player(id = roulettePlayer2Id, name = "Player 2", createdAt = 0L))
+
+        val session = GameSession(
+            id = rouletteSessionId,
+            config = GameConfig(
+                gameType = gameType,
+                gameMode = GameMode.ROULETTE,
+                doubleIn = false,
+                doubleOut = false,
+                playerIds = listOf(roulettePlayer1Id, roulettePlayer2Id),
+                legsToWin = 1,
+                rouletteTargetSegments = targets,
+                rouletteRounds = 5,
+                rouletteTargetScore = 20,
+            ),
+            legs = listOf(Leg()),
+            currentLegIndex = 0,
+            status = GameStatus.IN_PROGRESS,
+            startedAt = 0L,
+        )
+        val gameRepository = FakeGameRepository()
+        gameRepository.insertSession(session)
+
+        val screenModel = ActiveGameScreenModel(
+            gameRepository = gameRepository,
+            playerRepository = playerRepository,
+            sessionId = session.id,
+        )
+        advanceUntilIdle()
+        return screenModel
+    }
+
+    "Roulette quick input" - {
+        "Should score the multiplier value for a Double on the target" - {
+            withData(GameType.ROULETTE_ROUNDS, GameType.ROULETTE_SCORE) { gameType ->
+                runTest {
+                    // GIVEN a Roulette game on target 7
+                    val screenModel = rouletteScreenModel(targets = listOf(7, 12), gameType = gameType)
+
+                    // WHEN the player taps Double (D7)
+                    screenModel.onScoreSelect(7, Multiplier.DOUBLE)
+                    advanceUntilIdle()
+                    val state = screenModel.state.first()
+
+                    // THEN the dart scores 2 points
+                    val result = state.lastThrowResult.shouldBeInstanceOf<ThrowResult.RouletteHit>()
+                    result.pointsScored shouldBe 2
+                    // AND the turn total and the score show it
+                    state.rouletteTurnPoints shouldBe 2
+                    state.currentPlayerScore shouldBe 2
+                }
+            }
+        }
+
+        "Should ignore a triple bull" {
+            runTest {
+                // GIVEN a Roulette game on the bull
+                val screenModel = rouletteScreenModel(targets = listOf(25))
+
+                // WHEN a triple bull is submitted
+                screenModel.onScoreSelect(25, Multiplier.TRIPLE)
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN no dart is recorded
+                state.currentTurnThrows shouldBe emptyList()
+                state.lastThrowResult shouldBe null
+                state.rouletteTurnPoints shouldBe 0
+            }
+        }
+
+        "Should record a miss with 0 points" {
+            runTest {
+                // GIVEN a Roulette game on target 7
+                val screenModel = rouletteScreenModel(targets = listOf(7))
+
+                // WHEN the player taps Miss
+                screenModel.onMiss()
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN a miss is recorded
+                state.currentTurnThrows.single().segment shouldBe 0
+                // AND it scores nothing
+                val result = state.lastThrowResult.shouldBeInstanceOf<ThrowResult.RouletteHit>()
+                result.pointsScored shouldBe 0
+                state.rouletteTurnPoints shouldBe 0
+            }
+        }
+
+        "Should show the whole turn's points, not just the last dart's" {
+            runTest {
+                // GIVEN a Roulette game on target 7
+                val screenModel = rouletteScreenModel(targets = listOf(7))
+
+                // WHEN the player throws T7, a miss and S7
+                screenModel.onScoreSelect(7, Multiplier.TRIPLE)
+                screenModel.onMiss()
+                screenModel.onScoreSelect(7, Multiplier.SINGLE)
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN the last dart alone scored 1
+                (state.lastThrowResult as ThrowResult.RouletteHit).pointsScored shouldBe 1
+                // AND the turn total is 4, matching the score
+                state.rouletteTurnPoints shouldBe 4
+                state.currentPlayerScore shouldBe 4
+                // AND the pad is replaced by End Turn
+                state.canThrow shouldBe false
+            }
+        }
+
+        "Should fall back to target 1 when the target list is missing or empty" - {
+            withData<List<Int>?>(nameFn = { "targets = $it" }, null, emptyList()) { targets ->
+                runTest {
+                    // GIVEN a Roulette game without stored targets
+                    val screenModel = rouletteScreenModel(targets = targets)
+
+                    // WHEN the state is read
+                    val state = screenModel.state.first()
+
+                    // THEN the target falls back to 1, like RouletteModeEngine, so the input pad still renders
+                    state.currentRouletteTarget shouldBe 1
+                }
+            }
+        }
     }
 
     "Parcheesi BounceBack" - {
