@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,21 +37,12 @@ internal fun MultiplierButton(
     }
 
     if (isSelected) {
-        val multiplierColors = MaterialTheme.multiplierColors
-        val (containerColor, contentColor) = when (multiplier) {
-            Multiplier.SINGLE -> MaterialTheme.colorScheme.secondary to MaterialTheme.colorScheme.onSecondary
-            Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
-            Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
-        }
         Button(
             onClick = onClick,
             modifier = modifier.height(40.dp),
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-            ),
+            colors = multiplierButtonColors(multiplier),
         ) {
             Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
         }
@@ -64,4 +56,23 @@ internal fun MultiplierButton(
             Text(text, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.titleSmall)
         }
     }
+}
+
+/**
+ * Filled-button colors for a [multiplier]: Double and Triple use the dedicated multiplier accents,
+ * Single uses the secondary (dartboard green). Disabled colors stay Material's neutral defaults.
+ * Shared by [MultiplierButton] and [RouletteInputPad].
+ */
+@Composable
+internal fun multiplierButtonColors(multiplier: Multiplier): ButtonColors {
+    val multiplierColors = MaterialTheme.multiplierColors
+    val (containerColor, contentColor) = when (multiplier) {
+        Multiplier.SINGLE -> MaterialTheme.colorScheme.secondary to MaterialTheme.colorScheme.onSecondary
+        Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
+        Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
+    }
+    return ButtonDefaults.buttonColors(
+        containerColor = containerColor,
+        contentColor = contentColor,
+    )
 }
