@@ -1,286 +1,159 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+DartzVibe is a darts scoring app for Android and iOS: Kotlin Multiplatform with Compose Multiplatform UI. Game modes: Classic (301/501), Parcheesi, Cricket, Roulette and Checkout Practice. Everything is stored locally; there is no backend.
 
-## Workflow
+This file is for agents working in the repo. Keep it short and true. Only write down what the code doesn't make obvious, and fix any statement here that you find to be wrong.
 
-**Always run `./gradlew spotlessApply` before committing code or after finishing a task.**
+## Commands
 
-**After completing a task, always provide a clickable list of changed files so they can be opened in the IDE.**
-
-## Documentation Maintenance
-
-**After every task that changes the project structure, update the documentation:**
-
-- **Added/removed/renamed a screen?** → Update the Screen Inventory table in this file
-- **Added/removed/renamed a data model or changed its fields?** → Update the Data Model Quick Reference in this file
-- **Added/renamed a file that changes the File Lookup Table?** → Update it
-- **Added a new game mode or engine?** → Update the Game Engine section and task recipes
-- **Changed DI wiring or added a repository?** → Update the DI & Repository section
-- **Discovered a new pattern, gotcha, or build quirk?** → Update MEMORY.md
-- **Added a new common task recipe?** → Add it to the Common Task Recipes section
-
-**Keep CLAUDE.md accurate and current — it is the primary source of truth that prevents redundant codebase exploration.**
-
-**Keep MEMORY.md under 200 lines** (it gets truncated beyond that). Move detailed content to separate files in the memory directory and link from MEMORY.md.
-
-## Build Commands
-
-```shell
-# Build Android debug APK
-./gradlew :composeApp:assembleDebug
-
-# Run all tests
-./gradlew :composeApp:allTests
-
-# Run Android unit tests only
-./gradlew :composeApp:testDebugUnitTest
-
-# Format code with Spotless/ktlint
-./gradlew spotlessApply
-
-# Check code formatting
-./gradlew spotlessCheck
-
-# Build iOS framework (macOS only)
-./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+```sh
+./gradlew spotlessApply                       # format; run before every commit
+./gradlew spotlessCheck                       # verify formatting
+./gradlew :composeApp:testDebugUnitTest       # all commonTest specs (Kotest, JUnit 5 runner)
+./gradlew :composeApp:assembleDebug           # debug APK → composeApp/build/outputs/apk/debug/
+./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64   # iOS framework (macOS only)
 ```
 
+- Check that tests actually ran: count them in `composeApp/build/test-results/testDebugUnitTest/*.xml`.
+- There is no JVM/desktop target. iOS test execution hasn't been verified: the Kotest Gradle plugin isn't applied, so on Native it may find 0 specs.
+
+## Build gotchas
+
+- **One Gradle build at a time per checkout.** On Windows, two parallel builds (for example two agents) corrupted the dex output. The APK built "successfully" but crashed with `ClassNotFoundException: AppKt`. Give parallel agents their own git worktree. To recover: `./gradlew --stop`, `rm -rf composeApp/build`, then rebuild with `--no-build-cache --no-configuration-cache`.
+- **After `clean`**, or any deletion of `build/`, a reused configuration cache makes `generateBuildInfo` produce nothing ("Unresolved reference 'BuildInfo'"). Build with `--no-configuration-cache`. Both caches are on in `gradle.properties`.
+- **SQLDelight `verifyMigrations` is disabled on Windows** (the `sqldelight {}` block in `composeApp/build.gradle.kts`), so a migration mistake won't fail the build here. Check `.sqm` files by hand.
+- "Unable to strip" warnings for native libs are expected.
+
 ## Architecture
-
-DartzVibe is a Kotlin Multiplatform (KMP) darts scoring app targeting Android and iOS with Compose Multiplatform UI.
-
-### Project Structure
 
 ```
 composeApp/src/
 ├── commonMain/kotlin/cloud/osasoft/dartzvibe/
-│   ├── config/          # App settings
-│   ├── data/
-│   │   ├── local/       # SQLDelight database (*.sq files in sqldelight/)
-│   │   ├── model/       # Data classes (GameSession, Player, etc.)
-│   │   └── repository/  # Data access layer
-│   ├── di/              # kotlin-inject DI component
-│   ├── domain/game/     # Core game logic (GameEngine)
-│   ├── network/         # Ktor HTTP client setup
-│   ├── ui/
-│   │   ├── screen/      # Voyager screens and ScreenModels
-│   │   └── theme/       # Compose theme
-│   └── util/            # Shared utilities
-├── commonTest/          # Shared tests (Kotest)
-├── androidMain/         # Android-specific (OkHttp, SQLDelight Android driver)
-└── iosMain/             # iOS-specific (Darwin client, Native driver)
+│   ├── App.kt              # root composable; provides repositories as CompositionLocals
+│   ├── di/AppComponent.kt  # kotlin-inject (Android only, see DI below)
+│   ├── config/             # generated BuildInfo (version name); empty AppSettings object
+│   ├── data/model/         # GameSession, GameConfig, Leg, Turn, Throw, enums, statistics models, FixedDecimal
+│   ├── data/repository/    # Player, Game, AppSettings repositories (interface + Impl)
+│   ├── data/local/         # expect DatabaseDriverFactory / SettingsFactory
+│   ├── domain/game/        # GameEngine facade, one ModeEngine per GameMode, GameEngineHelper, CheckoutCalculator
+│   ├── domain/statistics/  # StatisticsCalculator
+│   ├── ui/screen/<feature>/            # Voyager Screen + ScreenModel pairs
+│   ├── ui/screen/game/components/      # keypad, radial dartboard, MultiplierButton, scoreboards, checkout hint
+│   ├── ui/theme/           # Theme.kt, MultiplierColors, AvatarColors
+│   └── util/               # expect TimeUtils (currentTimeMillis), KeepScreenOn
+├── commonMain/sqldelight/  # *.sq schemas + migrations/*.sqm
+├── commonTest/             # Kotest specs + Fake*Repository for ScreenModel tests
+├── androidMain/            # MainActivity, DartzVibeApplication (builds AppComponent), actuals
+└── iosMain/                # MainViewController (wires dependencies by hand), actuals
 ```
 
-### Key Libraries
+- **DI:** kotlin-inject `AppComponent` is only used on Android (`DartzVibeApplication`). iOS builds its repositories by hand in `MainViewController.kt` (`IosAppDependencies`). Both pass the repositories to `App(...)`, which exposes them as `LocalXRepository` CompositionLocals.
+- **Navigation:** Voyager. `HomeScreen` is the entry point. Use `navigator.push(...)`. New Game uses `replace(ActiveGameScreen(id))`.
+- **Screens and ScreenModels:**
+  - A screen's `Content()` reads repositories from `LocalXRepository.current` and builds its ScreenModel with a `rememberXScreenModel(...)` factory. The factory uses plain `remember { }`, not DI.
+  - ScreenModels take dependencies as constructor parameters and expose `StateFlow<XState>`.
+  - The UI lives in a separate stateless composable that takes state and callbacks. It's usually named `XContent`; a few are named `XScreenContent`.
+- **Game engine is immutable.**
+  - Every operation returns a new engine: `addThrow` → `(engine, ThrowResult)`, `endTurn` → `(engine, TurnResult)`, and `undoLastThrow()` returns null when the current turn has no throws.
+  - `GameEngine.fromSession(session)` picks the `ModeEngine` from `GameConfig.gameMode`, and `toGameSession()` exports the state for saving.
+  - `GameEngineHelper` holds the shared logic: current player, scores, leg handling, and `getRoundNumber` (rounds restart each leg).
+- **In-progress throws are not saved.** The current turn's throws live only in the engine until `endTurn()`, and `toGameSession()` doesn't include them. Rotation survives only because `AndroidManifest.xml` declares `configChanges` on the activity. Removing that brings the bug back, and process death still loses the throws.
+- **Phantom turns:** Parcheesi knockouts add `Turn(isPhantom = true)`. For turn order, round number and display, use `Leg.playerTurns`, which leaves them out.
+- **Multiplier colors:** anything color-coded by multiplier uses `MaterialTheme.multiplierColors` (`ui/theme/MultiplierColors.kt`): triple is amber, double is brand red. S/D/T selectors reuse `components/MultiplierButton`. Don't use Material `tertiary` or `primary` for multipliers; `tertiary` is still fine for other things.
+- **Statistics are per mode:**
+  - `PlayerStatistics` holds the fields every mode shares; rates such as `winRate` are **percentages**. It also holds `modeStats: ModeStatistics?`, which is sealed with one subtype per mode. Each subtype's `primaryMetric` is the leaderboard sort axis.
+  - `StatisticsCalculator` dispatches with an exhaustive `when`, and computes everything live from stored throws.
+  - Use `FixedDecimal` rather than `Double` for decimals, so JVM and Native produce identical output.
+- **Template leftovers:** `Greeting`, `GreetingRepository`, `User`, `Platform`/`getPlatform`, `network/HttpClientFactory` and the Ktor dependencies come from the project template, and no feature uses them. They are still wired into `AppComponent` and have tests, so removing them means touching both. Don't build on them.
 
-- **DI**: kotlin-inject (compile-time, uses `@Component`, `@Provides`, `@Inject`)
-- **Navigation**: Voyager (screens + ScreenModels)
-- **Database**: SQLDelight (type-safe SQL, schemas in `*.sq` files)
-- **Networking**: Ktor Client
-- **Testing**: Kotest with FreeSpec style (`"description" - { "test" { } }`)
+### Persistence
 
-## Screen Inventory
+- **Legs:** a `GameSession` row stores its legs as JSON (`legsJson`, read with `ignoreUnknownKeys`). New fields on `Leg`/`Turn`/`Throw` need **default values** but no SQL migration.
+- **Config:** `GameConfig` fields are separate **columns**. A new one needs:
+  - the column in `GameSession.sq`;
+  - a new `migrations/N.sqm`;
+  - the `insert` query;
+  - the row mapping in `GameRepositoryImpl`.
 
-All screens live under `ui/screen/`. Path prefix: `composeApp/src/commonMain/kotlin/cloud/osasoft/dartzvibe/ui/screen/`
+  The `update` query only writes legs, leg index, status, finish time and winner, so config can't change after a game starts.
+- **Enums** (`GameType`, `GameMode`, `GameStatus`, and `Multiplier` inside the JSON) are stored by **name**. Renaming a constant breaks every saved game.
 
-| Screen | Screen File | ScreenModel File | Navigates To |
-|--------|------------|-----------------|-------------|
-| HomeScreen | `home/HomeScreen.kt` | `home/HomeScreenModel.kt` | NewGame, ActiveGame, GamesList, Statistics, HeadToHead, Leaderboard, PlayerList, Settings |
-| GamesListScreen | `home/GamesListScreen.kt` | (inline in same file) | ActiveGame, GameDetail |
-| NewGameScreen | `game/NewGameScreen.kt` | `game/NewGameScreenModel.kt` | ActiveGame (replace) |
-| ActiveGameScreen | `game/ActiveGameScreen.kt` | `game/ActiveGameScreenModel.kt` | Settings |
-| PlayerListScreen | `players/PlayerListScreen.kt` | `players/PlayerListScreenModel.kt` | AddEditPlayer, NewGame |
-| AddEditPlayerScreen | `players/AddEditPlayerScreen.kt` | `players/AddEditPlayerScreenModel.kt` | (pops on save) |
-| GameDetailScreen | `gamedetail/GameDetailScreen.kt` | `gamedetail/GameDetailScreenModel.kt` | (read-only) |
-| LeaderboardScreen | `leaderboard/LeaderboardScreen.kt` | `leaderboard/LeaderboardScreenModel.kt` | (read-only) |
-| StatisticsScreen | `statistics/StatisticsScreen.kt` | `statistics/StatisticsScreenModel.kt` | (read-only) |
-| HeadToHeadScreen | `statistics/HeadToHeadScreen.kt` | `statistics/HeadToHeadScreenModel.kt` | (read-only) |
-| SettingsScreen | `settings/SettingsScreen.kt` | `settings/SettingsScreenModel.kt` | (read-only) |
+## Common changes
 
-### Navigation Flow
+- **New game mode:**
+  - a `GameMode` value (plus `GameType` values if needed);
+  - a `<Mode>ModeEngine` and its branch in `GameEngine.fromSession`;
+  - the mode selection and config in `NewGameScreen`/`NewGameScreenModel` (the compiler won't flag a missing one);
+  - mode handling in `ActiveGameScreen`;
+  - a `ModeStatistics` subtype and its `StatisticsCalculator` branch;
+  - the leg content in `GameDetailScreen`;
+  - any config columns, with a migration (see Persistence);
+  - engine tests.
+- **New app setting:** a field on `AppSettingsData`, a key plus getter/setter in the `AppSettingsRepository` interface and impl, a toggle in `SettingsScreen`, and support in `FakeAppSettingsRepository`. `getSettings()` uses a typed `combine` over 5 flows, the most that overload takes, so a 6th setting needs the array form.
+- **New repository:** interface + `@Inject` impl, a `@Provides` in `AppComponent`, the iOS `IosAppDependencies`, a CompositionLocal in `App.kt`, and a `Fake*Repository` in commonTest.
 
-```
-HomeScreen (entry point)
-├── NewGameScreen → ActiveGameScreen (replace)
-├── GamesListScreen → ActiveGameScreen | GameDetailScreen
-├── PlayerListScreen → AddEditPlayerScreen | NewGameScreen
-├── StatisticsScreen
-├── HeadToHeadScreen
-├── LeaderboardScreen
-└── SettingsScreen
-ActiveGameScreen → SettingsScreen
-```
+## Code style
 
-## Data Model Quick Reference
+ktlint runs through Spotless. The rule overrides live in **two places that have to stay in sync**: `editorConfigOverride` in the root `build.gradle.kts`, and `.editorconfig`, which also sets the 120 max line length. The following rules are conventions for new code; lint doesn't enforce all of them, and old code doesn't always follow them.
 
-Models in `data/model/`: `GameModels.kt` (GameSession, GameConfig, Leg, Turn, Throw, RouletteState, enums), `StatisticsModels.kt` (PlayerStatistics, `ModeStatistics` sealed, CheckoutBandStat, HeadToHeadStatistics), `Player.kt`, `AppSettingsData.kt`, `ThemeMode.kt`, `FixedDecimal.kt`. Read these files directly for field details.
+- Imports only: no fully qualified names (use an alias import for clashes) and no wildcard imports.
+- `val` over `var`; collection functions (`map`, `forEach`, `flatMap`) over `for` loops.
+- An exhaustive `when` over enums and sealed types, with no `else`, so the compiler flags any new case you miss.
+- Expression bodies for single-expression functions. The `=` never ends a line: `fun foo(): Int = when { … }`.
+- Named arguments on multi-line calls.
+- Lowercase-named composable functions, such as the `rememberXScreenModel` factories, carry `@Suppress("ktlint:standard:function-naming")`; follow the existing code.
 
-**Statistics are mode-scoped.** `PlayerStatistics` holds universal fields (games/legs/winRate as **percentages**) plus `modeStats: ModeStatistics?` — a sealed hierarchy (`Classic`/`Parcheesi`/`Cricket`/`CheckoutPractice`/`Roulette`) carrying that mode's metrics and a `primaryMetric` (leaderboard sort axis). `StatisticsFilter` has a `gameMode` that selects which subtype is produced; `StatisticsCalculator` dispatches per-mode via an exhaustive `when` (no `else`). All metrics — incl. Cricket MPR and Roulette hit rate — are computed live from stored throws (no `Turn` change, no cache). H2H reuses mode-scoped `PlayerStatistics` per player. Stats UI (`StatisticsScreen`, `LeaderboardScreen`, `HeadToHeadScreen`) is mode-first via `GameMode` FilterChips; `GameDetailScreen` renders per-mode leg content.
+## Tests
 
-## Game Engine
+- Kotest `FreeSpec`. Test names start with "Should". Mark the GIVEN / WHEN / THEN steps with comments. Use `withData` (`io.kotest.datatest.withData`) for data-driven cases.
+- New game rules get engine-level tests in `commonTest/.../domain/game/`. ScreenModel tests use the `Fake*Repository` classes; update the fakes whenever a repository interface changes.
+- In new code, inject randomness and time (for example `random: Random = Random.Default`) so tests can pin them. Most existing code still calls global `Random` and `currentTimeMillis()`.
 
-`GameEngine` in `domain/game/` is immutable — all operations return new engine instances. Read `GameEngine.kt` for the full API (methods, `ThrowResult`/`TurnResult` sealed classes).
+## Feature workflow
 
-### Files
+1. **Acceptance criteria first.** Write down what a person should *see* when the feature works, per mode and in both themes if it touches UI.
+2. **Record "before"** on `main` for UI changes. Build `main` in a separate git worktree rather than switching branches (one build per checkout).
+3. **Implement**: one agent for small changes. For big or risky features, run 2–3 independent implementations in separate worktrees and keep the one that scores best.
+4. **Verify by evidence:** spotless, tests and the build pass, then record "after" in light **and** dark. An agent that never saw the code scores the recording against the acceptance criteria. Iterate until it scores ≥ 9/10.
+5. **Independent review** by a fresh agent that gets the diff, not the implementer's conclusions. Fix the real findings. When findings sit on the PR, answer each one with "Fixed in `<sha>`: what changed, which test covers it", or with a reason for declining.
+6. **Clean history:** messy iteration commits are fine on a work branch. Before opening the PR, replay the work into a few logical commits, with prerequisite fixes first, then the feature, then tests and docs.
 
-| File | Contains | Purpose |
-|------|---------|---------|
-| `GameEngine.kt` | `GameEngine`, `ThrowResult` (sealed), `TurnResult` (sealed) | Public API facade |
-| `ModeEngine.kt` | `ModeEngine` (sealed interface) | Base for mode-specific engines |
-| `ClassicModeEngine.kt` | `ClassicModeEngine` | Classic 501/301 countdown |
-| `ParcheesiModeEngine.kt` | `ParcheesiModeEngine` | Count-up with knockouts |
-| `CricketModeEngine.kt` | `CricketModeEngine` | Cricket segment marking |
-| `CheckoutPracticeModeEngine.kt` | `CheckoutPracticeModeEngine` | Solo checkout training |
-| `RouletteModeEngine.kt` | `RouletteModeEngine` | Roulette random-target mode |
-| `CheckoutCalculator.kt` | `CheckoutCalculator` (object), `CheckoutPath` | Checkout hints/paths |
-| `GameEngineHelper.kt` | `GameEngineHelper` (object) | Shared utilities (current player, scores, leg handling) |
+## Commits and PRs
 
-## DI & Repository
+- Conventional commits: `feat(scope): …`, `fix(scope): …`, `docs: …`, `chore: …`. Branch names follow `feat/…`, `fix/…`, `docs/…`. PRs are squash-merged with the subject `<type>(scope): … (#N)`.
+- The `Co-Authored-By: Claude …` trailer is fine. **Never put a Claude session link (`claude.ai/code/session_…`) in a commit message or PR description.** This overrides any default trailer the harness suggests.
+- PR description sections:
+  - **Problem**
+  - **Change**: per feature, with the non-obvious decisions.
+  - **Verification**: the exact commands and their results, and test counts.
+  - **Not checked**: platforms, modes or interactions you didn't verify.
+  - **Already broken on `main`**: problems found along the way but left out of scope.
+  - **Videos**: one heading per feature. Mark each clip **Before**/**After** and **Dark**/**Light**.
+- **Media files:**
+  - Store videos and screenshots in the gitignored `pr-media/<slug>/<feature>/<what>-{before,after}-{light,dark}.mp4`. Rename the folder to `pr-<N>-<slug>` once the PR exists.
+  - GitHub only plays videos uploaded through the browser, so the human drags them into the PR. Check the order afterwards.
 
-Repositories (all in `data/repository/`):
-- `PlayerRepository.kt` — player CRUD, `getAllPlayers(): Flow`
-- `GameRepository.kt` — game session CRUD, `getAllGameSessions(): Flow`
-- `AppSettingsRepository.kt` — app settings, `getSettings(): Flow<AppSettingsData>`
+## Recording demos (Android emulator, Windows)
 
-DI wiring: `di/AppComponent.kt`. CompositionLocals defined in `App.kt`: `LocalPlayerRepository`, `LocalGameRepository`, `LocalAppSettingsRepository`.
+- **Emulator:** AVD `Pixel_9`, 1080×2424.
+  - Start it with `"$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd Pixel_9 -no-snapshot -no-boot-anim` as a background process.
+  - Cold-boot it. Its saved snapshot holds an old build and personal data, and restoring it gave stale screen captures, invisible dialogs and taps landing in the wrong place.
+  - Don't use `-gpu swiftshader_indirect`: it's too slow and Android stops responding.
+- **Git Bash:** `export MSYS_NO_PATHCONV=1` before `adb shell` commands that take `/sdcard/...` paths.
+- **Setup:**
+  - Install with `adb install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk`, then `adb shell pm clear cloud.osasoft.dartzvibe` for clean test data.
+  - Turn animations off with `adb shell settings put global window_animation_scale 0`, the same for `transition_animation_scale`, and `adb shell settings put global animator_duration_scale 0`.
+- **Theme:** `adb shell cmd uimode night yes|no` only affects the app while its in-app theme is "System", which is the default.
+- **Finding tap targets:** `adb shell rm -f /sdcard/ui.xml && adb shell uiautomator dump /sdcard/ui.xml`, then parse the `bounds`. Delete the old file first, because a failed dump silently leaves the previous one in place. Check the result with `adb exec-out screencap -p`.
+- **Recording:** `adb shell screenrecord --time-limit N /sdcard/x.mp4` as a background process, then `adb pull`.
+- **Dartboard:**
+  - It only appears with Settings → "Radial Dartboard Keypad" on, which is off by default.
+  - Swipe-to-multiply also needs "Show Multiplier Buttons" off.
+  - A slow `input swipe x y x y2 2500` works; separate `input motionevent` calls don't form one gesture.
+- **Game history:** only completed or abandoned games open `GameDetailScreen`. To get one, abandon the game: the X in the top bar, then Yes.
 
-**Access**: In `Screen.Content()` use `LocalXRepository.current` → pass to `rememberXScreenModel()`. In ScreenModels, use constructor injection.
+## Known issues
 
-## File Lookup Table
-
-| I want to... | Go to |
-|--------------|-------|
-| Add/modify a screen | `ui/screen/<feature>/` (see Screen Inventory) |
-| Change game scoring rules | `domain/game/<Mode>ModeEngine.kt` |
-| Add a game mode | `domain/game/` + `data/model/GameModels.kt` (enums) |
-| Modify checkout hints | `domain/game/CheckoutCalculator.kt` |
-| Change player data | `data/model/Player.kt` + `data/repository/PlayerRepository.kt` + `Player.sq` |
-| Change game session persistence | `data/repository/GameRepository.kt` + `GameSession.sq` |
-| Change app settings | `data/model/AppSettingsData.kt` + `data/repository/AppSettingsRepository.kt` |
-| Change theme/colors | `ui/theme/` |
-| Change double/triple accent colors | `ui/theme/MultiplierColors.kt` (`MaterialTheme.multiplierColors`; don't use `tertiary` for multipliers) |
-| Add platform-specific code | `commonMain` (expect) + `androidMain`/`iosMain` (actual) |
-| Modify DI wiring | `di/AppComponent.kt` |
-| Modify HTTP client | `network/HttpClientFactory.kt` |
-| Change database schema | `commonMain/sqldelight/cloud/osasoft/dartzvibe/data/local/*.sq` |
-| Add a utility function | `util/` |
-| Modify app entry point | `App.kt` (composable root with CompositionLocals) |
-| Android app initialization | `androidMain/.../DartzVibeApplication.kt` + `MainActivity.kt` |
-| iOS app initialization | `iosMain/.../MainViewController.kt` |
-
-## Common Task Recipes
-
-### Add a new Screen
-
-1. Create `ui/screen/<feature>/<Name>Screen.kt` with `class <Name>Screen : Screen`
-2. Create `ui/screen/<feature>/<Name>ScreenModel.kt` with `class <Name>ScreenModel(...) : ScreenModel`
-3. Add state class (e.g. `data class <Name>ScreenState(...)`) in the ScreenModel file
-4. Add `@Composable fun remember<Name>ScreenModel(...)` factory in the Screen file
-5. In `Content()`, get repos from `LocalXRepository.current`, create model via factory
-6. Add navigation from the calling screen via `navigator.push(<Name>Screen())`
-7. **Update Screen Inventory table in this file**
-
-### Add a new game mode
-
-1. Add enum value to `GameMode` in `data/model/GameModels.kt`
-2. Add supported `GameType` entries if needed
-3. Create `domain/game/<Mode>ModeEngine.kt` implementing `ModeEngine`
-4. Add branch in `GameEngine.fromSession()` to instantiate the new engine
-5. Add UI support in `NewGameScreen` for selecting the mode
-6. Add handling in `ActiveGameScreen`/`ActiveGameScreenModel` for mode-specific UI
-7. **Update this file's Game Engine and Data Model sections**
-
-### Add a statistic
-
-1. Decide scope: universal (add to `PlayerStatistics`) or mode-specific (add to the relevant `ModeStatistics.<Mode>` subtype) in `data/model/StatisticsModels.kt`
-2. Compute it in `StatisticsCalculator` — universal in `calculatePlayerStatistics`, mode-specific in that mode's `calculate<Mode>Stats` helper
-3. Display it in the matching `when(modeStats)` branch in `StatisticsScreen` (and/or `comparisonRows` in `HeadToHeadScreen`)
-4. Add a golden assertion in `StatisticsCalculatorTest`
-5. **Update Data Model Quick Reference in this file**
-
-### Add a new app setting
-
-1. Add field to `AppSettingsData` in `data/model/AppSettingsData.kt`
-2. Add setter method to `AppSettingsRepository` interface and impl
-3. Add key constant and read/write in `AppSettingsRepositoryImpl`
-4. Add UI toggle in `SettingsScreen`
-5. **Update Data Model Quick Reference in this file**
-
-### Modify scoring rules
-
-1. Identify the mode engine: `ClassicModeEngine`, `ParcheesiModeEngine`, `CricketModeEngine`, or `CheckoutPracticeModeEngine`
-2. Edit `addThrow()` for per-throw rules or `endTurn()` for turn-end rules
-3. Add tests in `commonTest/` using Kotest FreeSpec
-4. Remember: engines are immutable — return new instances
-
-### Add a new repository
-
-1. Create interface + impl in `data/repository/`
-2. Add `@Inject` to the impl class
-3. Add `@Provides` binding in `di/AppComponent.kt`
-4. If needed from composables: add `staticCompositionLocalOf` in `App.kt` and provide it in `CompositionLocalProvider`
-5. **Update DI & Repository Quick Map in this file**
-
-## Testing Guidelines
-
-- Use Kotest `FreeSpec` as the base class
-- Test names should start with "Should"
-- Structure tests with GIVEN, WHEN, THEN comments
-- Use `withData` for data-driven tests
-
-```kotlin
-class GameEngineTest : FreeSpec({
-    "Checkout" - {
-        "Should detect checkout with double" {
-            // GIVEN a game session with score at 40
-            val engine = createEngineWithScore(40)
-            // AND player 1 is on turn
-
-            // WHEN player hits D20
-            val (newEngine, result) = engine.addThrow(20, Multiplier.DOUBLE)
-
-            // THEN checkout is detected
-            result.shouldBeInstanceOf<ThrowResult.Checkout>()
-            // AND player 1 is the winner
-            (result as ThrowResult.Checkout).winnerId shouldBe playerId1
-        }
-    }
-})
-```
-
-Fake repositories exist in `commonTest/` for testing ScreenModels.
-
-## Code Style
-
-- Never use fully qualified names; use imports (alias imports for name clashes)
-- Never use wildcard imports
-- Use expression body syntax for single-expression functions
-- Use `val` over `var` wherever possible
-- Use named arguments for multi-line function calls
-- Prefer exhaustive `when` over `else` branch (compiler catches missing enum values)
-- For expression body syntax, `=` must NOT trail at the end of a line:
-  ```kotlin
-  // Correct - = on same line as expression
-  fun foo(): Int = when { ... }
-
-  // Correct - long args, = with expression on last line
-  fun foo(
-      param1: String,
-      param2: Int,
-  ): Int = when { ... }
-
-  // Incorrect - = trailing at end of line
-  fun foo(): Int =
-      when { ... }
-  ```
-- Prefer Kotlin collection functions over `for` loops:
-  ```kotlin
-  // Preferred
-  items.forEach { item -> process(item) }
-  (1..20).map { segment -> createThrow(segment) }
-  items.flatMap { item -> transform(item) }
-
-  // Avoid
-  for (item in items) { process(item) }
-  ```
+- `migrations/1.sqm` runs `CREATE TABLE` on tables a v1 database already has, so an install that never moved past schema v1 crashes on upgrade. New installs aren't affected.
+- Suspected, not verified: ScreenModels use `screenModelScope` but are created with plain `remember { }` rather than Voyager's `rememberScreenModel`. Their collecting coroutines may outlive popped screens.
+- `CONTRIBUTING.md` mentions CI, but there's no CI workflow in the repo yet.
