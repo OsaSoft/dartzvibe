@@ -17,12 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.ui.theme.MultiplierColors
+import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 
 /**
  * Floating indicator that displays the current multiplier during swipe gestures.
  *
- * Shows "DOUBLE" with primary background when swiping up,
- * or "TRIPLE" with tertiary background when swiping down.
+ * Shows "DOUBLE" with the red double accent when swiping up,
+ * or "TRIPLE" with the amber triple accent when swiping down (see [MultiplierColors]).
  * Hidden when multiplier is null or SINGLE.
  */
 @Suppress("ktlint:standard:function-naming")
@@ -39,15 +41,15 @@ fun MultiplierIndicator(
         exit = fadeOut() + scaleOut(targetScale = 0.8f),
         modifier = modifier,
     ) {
+        val multiplierColors = MaterialTheme.multiplierColors
+        // SINGLE/null are never visible; they fall back to the double colors for the exit animation
         val backgroundColor = when (multiplier) {
-            Multiplier.DOUBLE -> MaterialTheme.colorScheme.primary
-            Multiplier.TRIPLE -> MaterialTheme.colorScheme.tertiary
-            else -> MaterialTheme.colorScheme.primary
+            Multiplier.TRIPLE -> multiplierColors.triple
+            Multiplier.DOUBLE, Multiplier.SINGLE, null -> multiplierColors.double
         }
         val textColor = when (multiplier) {
-            Multiplier.DOUBLE -> MaterialTheme.colorScheme.onPrimary
-            Multiplier.TRIPLE -> MaterialTheme.colorScheme.onTertiary
-            else -> MaterialTheme.colorScheme.onPrimary
+            Multiplier.TRIPLE -> multiplierColors.onTriple
+            Multiplier.DOUBLE, Multiplier.SINGLE, null -> multiplierColors.onDouble
         }
         val text = when (multiplier) {
             Multiplier.DOUBLE -> "DOUBLE"

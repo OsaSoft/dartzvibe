@@ -13,12 +13,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -94,19 +91,19 @@ fun RadialDartboard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 MultiplierButton(
-                    text = "Single",
+                    multiplier = Multiplier.SINGLE,
                     isSelected = selectedMultiplier == Multiplier.SINGLE,
                     onClick = { onMultiplierChange(Multiplier.SINGLE) },
                     modifier = Modifier.weight(1f),
                 )
                 MultiplierButton(
-                    text = "Double",
+                    multiplier = Multiplier.DOUBLE,
                     isSelected = selectedMultiplier == Multiplier.DOUBLE,
                     onClick = { onMultiplierChange(Multiplier.DOUBLE) },
                     modifier = Modifier.weight(1f),
                 )
                 MultiplierButton(
-                    text = "Triple",
+                    multiplier = Multiplier.TRIPLE,
                     isSelected = selectedMultiplier == Multiplier.TRIPLE,
                     onClick = { onMultiplierChange(Multiplier.TRIPLE) },
                     modifier = Modifier.weight(1f),
@@ -266,35 +263,6 @@ fun RadialDartboard(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-        }
-    }
-}
-
-@Suppress("ktlint:standard:function-naming")
-@Composable
-private fun MultiplierButton(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (isSelected) {
-        Button(
-            onClick = onClick,
-            modifier = modifier.height(40.dp),
-            shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(8.dp),
-        ) {
-            Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier.height(40.dp),
-            shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(8.dp),
-        ) {
-            Text(text, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.titleSmall)
         }
     }
 }

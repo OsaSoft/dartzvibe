@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game.components
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 
 /**
  * Color scheme for the simplified dartboard wheel.
@@ -51,8 +52,11 @@ fun wheelColorScheme(): WheelColorScheme {
         bull = colorScheme.tertiary,
         divider = colorScheme.outline,
         numberColor = colorScheme.onSurface,
-        highlight = Color(0xFFFFEB3B),
-        highlightDouble = Color(0xFF2196F3),
-        highlightTriple = Color(0xFFFF5722),
+        // Neutral "touched" highlight: blue, so it can't be mistaken for the red/amber multiplier accents
+        highlight = Color(0xFF42A5F5),
+        // Red family like MultiplierColors.double, but a lighter red: the exact brand red would be
+        // invisible on the even (primary red) wedges
+        highlightDouble = Color(0xFFFF5252),
+        highlightTriple = MaterialTheme.multiplierColors.triple,
     )
 }

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -35,6 +36,7 @@ data class NewGameState(
     val checkoutPracticeRounds: Int = 10,
     val rouletteRounds: Int = 10,
     val rouletteTargetScore: Int = 30,
+    val randomizePlayerOrder: Boolean = false,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val error: String? = null,
@@ -53,6 +55,13 @@ data class NewGameState(
 
     val isValid: Boolean
         get() = selectedPlayerIds.size in 1..maxPlayers
+
+    /** Random order only makes sense with 2+ players in a multi-player mode. */
+    val canRandomizePlayerOrder: Boolean
+        get() = maxPlayers > 1 && selectedPlayerIds.size > 1
+
+    val isPlayerOrderRandomized: Boolean
+        get() = randomizePlayerOrder && canRandomizePlayerOrder
 
     val legsOptions: List<Int> = listOf(1, 3, 5, 7)
 
@@ -73,6 +82,7 @@ data class NewGameState(
 class NewGameScreenModel(
     private val playerRepository: PlayerRepository,
     private val gameRepository: GameRepository,
+    private val random: Random = Random.Default,
 ) : ScreenModel {
 
     private val log = Logger.withTag("NewGameScreenModel")
@@ -138,6 +148,10 @@ class NewGameScreenModel(
 
     fun setRouletteTargetScore(score: Int) {
         _state.update { it.copy(rouletteTargetScore = score) }
+    }
+
+    fun setRandomizePlayerOrder(enabled: Boolean) {
+        _state.update { it.copy(randomizePlayerOrder = enabled) }
     }
 
     fun togglePlayerSelection(playerId: Uuid) {
@@ -233,7 +247,11 @@ class NewGameScreenModel(
                     } else {
                         currentState.doubleOut
                     },
-                    playerIds = currentState.selectedPlayerIds,
+                    playerIds = if (currentState.isPlayerOrderRandomized) {
+                        currentState.selectedPlayerIds.shuffled(random)
+                    } else {
+                        currentState.selectedPlayerIds
+                    },
                     legsToWin = if (isCheckout || isRoulette) 1 else currentState.legsToWin,
                     cricketSegments = cricketSegments,
                     checkoutPracticeTargets = checkoutTargets,

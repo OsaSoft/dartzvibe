@@ -16,6 +16,7 @@ import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
+import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import co.touchlab.kermit.Logger
@@ -53,8 +54,8 @@ data class ActiveGameState(
     val currentTurnThrows: List<Throw>
         get() = engine?.getCurrentTurnThrows() ?: emptyList()
 
-    val currentTurnNumber: Int
-        get() = session?.currentLeg?.playerTurns?.size?.let { it + 1 } ?: 1
+    val currentRoundNumber: Int
+        get() = session?.let { GameEngineHelper.getRoundNumber(it) } ?: 1
 
     val throwsRemaining: Int
         get() = 3 - currentTurnThrows.size

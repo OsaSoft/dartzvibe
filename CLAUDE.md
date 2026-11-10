@@ -159,6 +159,7 @@ DI wiring: `di/AppComponent.kt`. CompositionLocals defined in `App.kt`: `LocalPl
 | Change game session persistence | `data/repository/GameRepository.kt` + `GameSession.sq` |
 | Change app settings | `data/model/AppSettingsData.kt` + `data/repository/AppSettingsRepository.kt` |
 | Change theme/colors | `ui/theme/` |
+| Change double/triple accent colors | `ui/theme/MultiplierColors.kt` (`MaterialTheme.multiplierColors`; don't use `tertiary` for multipliers) |
 | Add platform-specific code | `commonMain` (expect) + `androidMain`/`iosMain` (actual) |
 | Modify DI wiring | `di/AppComponent.kt` |
 | Modify HTTP client | `network/HttpClientFactory.kt` |

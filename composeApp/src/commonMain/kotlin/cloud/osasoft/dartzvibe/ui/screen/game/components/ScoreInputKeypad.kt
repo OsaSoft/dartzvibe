@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +27,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import kotlin.math.abs
 
 private const val SWIPE_THRESHOLD_DP = 30f
@@ -57,22 +57,19 @@ fun ScoreInputKeypad(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     MultiplierButton(
-                        text = "Single",
-                        shortText = "S",
+                        multiplier = Multiplier.SINGLE,
                         isSelected = selectedMultiplier == Multiplier.SINGLE,
                         onClick = { onMultiplierChange(Multiplier.SINGLE) },
                         modifier = Modifier.weight(1f),
                     )
                     MultiplierButton(
-                        text = "Double",
-                        shortText = "D",
+                        multiplier = Multiplier.DOUBLE,
                         isSelected = selectedMultiplier == Multiplier.DOUBLE,
                         onClick = { onMultiplierChange(Multiplier.DOUBLE) },
                         modifier = Modifier.weight(1f),
                     )
                     MultiplierButton(
-                        text = "Triple",
-                        shortText = "T",
+                        multiplier = Multiplier.TRIPLE,
                         isSelected = selectedMultiplier == Multiplier.TRIPLE,
                         onClick = { onMultiplierChange(Multiplier.TRIPLE) },
                         modifier = Modifier.weight(1f),
@@ -147,36 +144,6 @@ fun ScoreInputKeypad(
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun MultiplierButton(
-    text: String,
-    shortText: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (isSelected) {
-        Button(
-            onClick = onClick,
-            modifier = modifier.height(40.dp),
-            shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(8.dp),
-        ) {
-            Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            modifier = modifier.height(40.dp),
-            shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(8.dp),
-        ) {
-            Text(text, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.titleSmall)
-        }
-    }
-}
-
-@Suppress("ktlint:standard:function-naming")
-@Composable
 private fun ScoreButton(
     score: Int,
     selectedMultiplier: Multiplier,
@@ -210,16 +177,17 @@ private fun ScoreButton(
     }
 
     // Determine button colors based on drag state
+    val multiplierColors = MaterialTheme.multiplierColors
     val containerColor = when {
         !isPressed -> MaterialTheme.colorScheme.secondaryContainer
-        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.primary
-        displayMultiplier == Multiplier.TRIPLE -> MaterialTheme.colorScheme.tertiary
+        displayMultiplier == Multiplier.DOUBLE -> multiplierColors.double
+        displayMultiplier == Multiplier.TRIPLE -> multiplierColors.triple
         else -> MaterialTheme.colorScheme.secondaryContainer
     }
     val contentColor = when {
         !isPressed -> MaterialTheme.colorScheme.onSecondaryContainer
-        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.onPrimary
-        displayMultiplier == Multiplier.TRIPLE -> MaterialTheme.colorScheme.onTertiary
+        displayMultiplier == Multiplier.DOUBLE -> multiplierColors.onDouble
+        displayMultiplier == Multiplier.TRIPLE -> multiplierColors.onTriple
         else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
@@ -348,14 +316,15 @@ private fun BullButton(
     val subtitleText = if (displayMultiplier == Multiplier.DOUBLE) "50" else "Outer"
 
     // Determine button colors based on drag state
+    val multiplierColors = MaterialTheme.multiplierColors
     val containerColor = when {
         !isPressed -> MaterialTheme.colorScheme.secondaryContainer
-        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.primary
+        displayMultiplier == Multiplier.DOUBLE -> multiplierColors.double
         else -> MaterialTheme.colorScheme.secondaryContainer
     }
     val contentColor = when {
         !isPressed -> MaterialTheme.colorScheme.onSecondaryContainer
-        displayMultiplier == Multiplier.DOUBLE -> MaterialTheme.colorScheme.onPrimary
+        displayMultiplier == Multiplier.DOUBLE -> multiplierColors.onDouble
         else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
