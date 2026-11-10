@@ -310,6 +310,7 @@ fun ActiveGameContent(
                             selectedMultiplier = state.selectedMultiplier,
                             canThrow = state.canThrow,
                             showMultiplierButtons = settings.showMultiplierButtons,
+                            swipeMultiplierMode = settings.swipeMultiplierMode,
                             onMultiplierChange = onMultiplierChange,
                             onScoreSelect = onScoreSelect,
                             onMiss = onMiss,

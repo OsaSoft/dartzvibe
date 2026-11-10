@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,30 +38,24 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private data class GestureState(
-    val startPosition: Offset? = null,
-    val currentPosition: Offset? = null,
-    val activeHit: DartboardHit? = null,
-)
-
 private const val SWIPE_THRESHOLD_DP = 30f
-
-private enum class SwipeDirection { UP, DOWN }
 
 /**
  * Radial dartboard wheel input component.
  *
  * A simplified wheel layout with 20 wedges in dartboard segment order and a bull in the center.
- * Multiplier is determined by gestures (swipe up = double, swipe down = triple) or S/D/T buttons.
+ * Multiplier is determined by S/D/T buttons or, when they are hidden, by swipe direction according to
+ * [swipeMultiplierMode] (see [swipeMultiplier]).
  */
 @Suppress("ktlint:standard:function-naming")
 @Composable
@@ -68,6 +63,7 @@ fun RadialDartboard(
     selectedMultiplier: Multiplier,
     canThrow: Boolean,
     showMultiplierButtons: Boolean,
+    swipeMultiplierMode: SwipeMultiplierMode,
     onMultiplierChange: (Multiplier) -> Unit,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
@@ -76,10 +72,17 @@ fun RadialDartboard(
     val colorScheme = wheelColorScheme()
     val textMeasurer = rememberTextMeasurer()
 
-    var gestureState by remember { mutableStateOf(GestureState()) }
+    // The pointerInput gesture handler below is long-lived: it is not restarted when these change
+    // (restarting it would cancel a drag in progress), so it must read them through updated state.
+    // Capturing the parameters directly made taps record the multiplier selected when the handler
+    // started, e.g. T20 again after switching from Triple to Double.
+    val currentSelectedMultiplier by rememberUpdatedState(selectedMultiplier)
+    val currentOnScoreSelect by rememberUpdatedState(onScoreSelect)
+
     var highlightedSegmentIndex by remember { mutableStateOf<Int?>(null) }
     var highlightedBull by remember { mutableStateOf(false) }
-    var swipeIndicator by remember { mutableStateOf<SwipeDirection?>(null) }
+    // Multiplier the current swipe would record (null = not a swipe yet, i.e. single)
+    var swipePreview by remember { mutableStateOf<Multiplier?>(null) }
 
     Column(
         modifier = modifier.padding(8.dp),
@@ -126,7 +129,7 @@ fun RadialDartboard(
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(canThrow, showMultiplierButtons) {
+                    .pointerInput(canThrow, showMultiplierButtons, swipeMultiplierMode) {
                         if (!canThrow) return@pointerInput
 
                         val swipeThresholdPx = SWIPE_THRESHOLD_DP * density
@@ -148,60 +151,48 @@ fun RadialDartboard(
                                 val up = waitForUpOrCancellation()
                                 if (up != null) {
                                     up.consume()
-                                    onScoreSelect(hit.segment, selectedMultiplier)
+                                    currentOnScoreSelect(hit.segment, currentSelectedMultiplier)
                                 }
                             } else {
                                 // Swipe mode: track drag for multiplier detection
-                                gestureState = GestureState(
-                                    startPosition = down.position,
-                                    currentPosition = down.position,
-                                    activeHit = hit,
-                                )
                                 highlightedSegmentIndex = hit.segmentIndex
                                 highlightedBull = hit.isBull
-                                swipeIndicator = null
+                                swipePreview = null
+
+                                // Same inputs for the live preview and the recorded throw, so they always agree
+                                val swipeMultiplierAt = { position: Offset ->
+                                    swipeMultiplier(
+                                        start = down.position,
+                                        current = position,
+                                        center = canvasCenter,
+                                        thresholdPx = swipeThresholdPx,
+                                        mode = swipeMultiplierMode,
+                                        isBull = hit.isBull,
+                                    )
+                                }
 
                                 var lastPosition = down.position
 
-                                drag(down.id) { change ->
-                                    change.consume()
-                                    lastPosition = change.position
-                                    gestureState = gestureState.copy(currentPosition = lastPosition)
-
-                                    val startY = gestureState.startPosition?.y ?: return@drag
-                                    val deltaY = lastPosition.y - startY
-                                    swipeIndicator = when {
-                                        deltaY < -swipeThresholdPx -> SwipeDirection.UP
-                                        deltaY > swipeThresholdPx -> SwipeDirection.DOWN
-                                        else -> null
+                                // finally: clear the highlight even if the handler is cancelled mid-drag
+                                // (e.g. pointerInput restarts), so it can't stay stuck on the board
+                                try {
+                                    // false = the gesture was cancelled rather than lifted: record nothing
+                                    val completed = drag(down.id) { change ->
+                                        change.consume()
+                                        lastPosition = change.position
+                                        swipePreview = swipeMultiplierAt(lastPosition)
                                     }
+
+                                    if (completed) {
+                                        // Lifted - determine multiplier and submit score (no swipe = single)
+                                        val multiplier = swipeMultiplierAt(lastPosition) ?: Multiplier.SINGLE
+                                        currentOnScoreSelect(hit.segment, multiplier)
+                                    }
+                                } finally {
+                                    highlightedSegmentIndex = null
+                                    highlightedBull = false
+                                    swipePreview = null
                                 }
-
-                                // Drag ended - determine multiplier and submit score
-                                val startY = gestureState.startPosition?.y ?: 0f
-                                val deltaY = lastPosition.y - startY
-
-                                val multiplier = if (hit.isBull) {
-                                    // Bull has no triple - both up and down are double
-                                    if (abs(deltaY) > swipeThresholdPx) {
-                                        Multiplier.DOUBLE
-                                    } else {
-                                        Multiplier.SINGLE
-                                    }
-                                } else {
-                                    when {
-                                        deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
-                                        deltaY > swipeThresholdPx -> Multiplier.TRIPLE
-                                        else -> Multiplier.SINGLE
-                                    }
-                                }
-                                onScoreSelect(hit.segment, multiplier)
-
-                                // Reset state
-                                gestureState = GestureState()
-                                highlightedSegmentIndex = null
-                                highlightedBull = false
-                                swipeIndicator = null
                             }
                         }
                     },
@@ -216,7 +207,7 @@ fun RadialDartboard(
                     colorScheme = colorScheme,
                     highlightedSegmentIndex = highlightedSegmentIndex,
                     highlightedBull = highlightedBull,
-                    swipeIndicator = swipeIndicator,
+                    swipePreview = swipePreview,
                 )
 
                 // Draw segment numbers on each wedge
@@ -227,21 +218,13 @@ fun RadialDartboard(
                     colorScheme = colorScheme,
                     highlightedSegmentIndex = highlightedSegmentIndex,
                     highlightedBull = highlightedBull,
-                    swipeIndicator = swipeIndicator,
+                    swipePreview = swipePreview,
                 )
             }
 
-            // Floating multiplier indicator overlay
-            // Bull has no triple - both directions show DOUBLE
-            val indicatorMultiplier = when {
-                swipeIndicator == null -> null
-                highlightedBull -> Multiplier.DOUBLE
-                swipeIndicator == SwipeDirection.UP -> Multiplier.DOUBLE
-                swipeIndicator == SwipeDirection.DOWN -> Multiplier.TRIPLE
-                else -> null
-            }
+            // Floating multiplier indicator overlay (bull swipes already resolve to DOUBLE)
             MultiplierIndicator(
-                multiplier = indicatorMultiplier,
+                multiplier = swipePreview,
                 modifier = Modifier.align(Alignment.Center),
             )
 
@@ -257,16 +240,21 @@ fun RadialDartboard(
             ) {
                 Text("Miss", style = MaterialTheme.typography.labelSmall)
             }
+        }
 
-            // Swipe hint (only when multiplier buttons are hidden)
-            if (!showMultiplierButtons) {
-                Text(
-                    text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
-            }
+        // Swipe hint (only when multiplier buttons are hidden). Laid out below the board, not over it,
+        // so it can wrap at large font scales or on narrow screens without covering any wedge.
+        if (!showMultiplierButtons) {
+            Text(
+                text = when (swipeMultiplierMode) {
+                    SwipeMultiplierMode.VERTICAL -> "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple"
+                    SwipeMultiplierMode.RADIAL -> "Tap = Single • Swipe to center = Triple • Swipe out = Double"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -277,7 +265,7 @@ private fun DrawScope.drawWheel(
     colorScheme: WheelColorScheme,
     highlightedSegmentIndex: Int?,
     highlightedBull: Boolean,
-    swipeIndicator: SwipeDirection?,
+    swipePreview: Multiplier?,
 ) {
     val bullRadius = radius * BULL_RADIUS_RATIO
 
@@ -289,7 +277,7 @@ private fun DrawScope.drawWheel(
 
         // Draw wedge (full pie slice)
         drawArc(
-            color = wedgeFill(index, highlightedSegmentIndex, swipeIndicator, colorScheme),
+            color = wedgeFill(index, highlightedSegmentIndex, swipePreview, colorScheme),
             startAngle = canvasStartAngle,
             sweepAngle = sweepAngle,
             useCenter = true,
@@ -317,7 +305,7 @@ private fun DrawScope.drawWheel(
 
     // Draw bull (center circle)
     drawCircle(
-        color = bullFill(highlightedBull, swipeIndicator, colorScheme),
+        color = bullFill(highlightedBull, swipePreview, colorScheme),
         radius = bullRadius,
         center = center,
     )
@@ -370,7 +358,7 @@ private fun DrawScope.drawWedgeNumbers(
     colorScheme: WheelColorScheme,
     highlightedSegmentIndex: Int?,
     highlightedBull: Boolean,
-    swipeIndicator: SwipeDirection?,
+    swipePreview: Multiplier?,
 ) {
     val bullRadius = radius * BULL_RADIUS_RATIO
     // Position numbers towards the edge (like a real dartboard)
@@ -386,7 +374,7 @@ private fun DrawScope.drawWedgeNumbers(
 
         // Highlighted wedges pick black/white from the actual fill; others keep the wedge text color
         val textColor = if (index == highlightedSegmentIndex) {
-            textColorOn(wedgeFill(index, highlightedSegmentIndex, swipeIndicator, colorScheme))
+            textColorOn(wedgeFill(index, highlightedSegmentIndex, swipePreview, colorScheme))
         } else {
             getWedgeTextColor(index, colorScheme)
         }
@@ -412,7 +400,7 @@ private fun DrawScope.drawWedgeNumbers(
 
     // Draw "BULL" text in center
     val bullTextStyle = TextStyle(
-        color = textColorOn(bullFill(highlightedBull, swipeIndicator, colorScheme)),
+        color = textColorOn(bullFill(highlightedBull, swipePreview, colorScheme)),
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
     )
@@ -429,10 +417,10 @@ private fun DrawScope.drawWedgeNumbers(
 private fun wedgeFill(
     index: Int,
     highlightedSegmentIndex: Int?,
-    swipeIndicator: SwipeDirection?,
+    swipePreview: Multiplier?,
     colorScheme: WheelColorScheme,
 ): Color = if (index == highlightedSegmentIndex) {
-    getHighlightColor(swipeIndicator, colorScheme)
+    getHighlightColor(swipePreview, colorScheme)
 } else {
     getWedgeColor(index, colorScheme)
 }
@@ -442,19 +430,19 @@ private fun wedgeFill(
  */
 private fun bullFill(
     highlightedBull: Boolean,
-    swipeIndicator: SwipeDirection?,
+    swipePreview: Multiplier?,
     colorScheme: WheelColorScheme,
 ): Color = when {
     !highlightedBull -> colorScheme.bull
-    swipeIndicator != null -> colorScheme.highlightDouble
+    swipePreview != null -> colorScheme.highlightDouble
     else -> colorScheme.highlight
 }
 
 private fun getHighlightColor(
-    swipeIndicator: SwipeDirection?,
+    swipePreview: Multiplier?,
     colorScheme: WheelColorScheme,
-): Color = when (swipeIndicator) {
-    SwipeDirection.UP -> colorScheme.highlightDouble
-    SwipeDirection.DOWN -> colorScheme.highlightTriple
-    null -> colorScheme.highlight
+): Color = when (swipePreview) {
+    Multiplier.DOUBLE -> colorScheme.highlightDouble
+    Multiplier.TRIPLE -> colorScheme.highlightTriple
+    Multiplier.SINGLE, null -> colorScheme.highlight
 }

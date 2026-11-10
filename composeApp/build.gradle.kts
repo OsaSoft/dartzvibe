@@ -119,6 +119,9 @@ kotlin {
 
             // Coroutines testing
             implementation(libs.kotlinx.coroutines.test)
+
+            // In-memory MapSettings for testing AppSettingsRepositoryImpl
+            implementation(libs.multiplatformSettings.test)
         }
 
         // Kotest's JUnit Platform runner lets the commonTest specs execute on the

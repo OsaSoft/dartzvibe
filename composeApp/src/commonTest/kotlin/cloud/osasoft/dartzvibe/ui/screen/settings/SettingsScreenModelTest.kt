@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.settings
 
+import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.FakeAppSettingsRepository
 import io.kotest.core.spec.style.FreeSpec
@@ -96,6 +97,47 @@ class SettingsScreenModelTest : FreeSpec({
                 // THEN state.settings.showCheckoutHints should be false
                 val state = screenModel.state.first()
                 state.settings.showCheckoutHints shouldBe false
+            }
+        }
+
+        "Should default the dartboard swipe direction to up/down" {
+            runTest {
+                // GIVEN a fresh SettingsScreenModel
+                val repository = FakeAppSettingsRepository()
+                val screenModel = SettingsScreenModel(repository)
+
+                // WHEN state is observed after initialization
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN the swipe direction is the existing vertical mapping
+                state.settings.swipeMultiplierMode shouldBe SwipeMultiplierMode.VERTICAL
+            }
+        }
+
+        "Should update the dartboard swipe direction setting" {
+            runTest {
+                // GIVEN a SettingsScreenModel
+                val repository = FakeAppSettingsRepository()
+                val screenModel = SettingsScreenModel(repository)
+                advanceUntilIdle()
+
+                // WHEN setSwipeMultiplierMode(RADIAL) is called
+                screenModel.setSwipeMultiplierMode(SwipeMultiplierMode.RADIAL)
+                advanceUntilIdle()
+
+                // THEN state and the repository both hold RADIAL
+                screenModel.state.first().settings.swipeMultiplierMode shouldBe SwipeMultiplierMode.RADIAL
+                repository.getCurrentSettings().swipeMultiplierMode shouldBe SwipeMultiplierMode.RADIAL
+                // AND the other multiplier settings are unchanged
+                repository.getCurrentSettings().showMultiplierButtons shouldBe true
+
+                // AND WHEN it is switched back to VERTICAL
+                screenModel.setSwipeMultiplierMode(SwipeMultiplierMode.VERTICAL)
+                advanceUntilIdle()
+
+                // THEN state holds VERTICAL again
+                screenModel.state.first().settings.swipeMultiplierMode shouldBe SwipeMultiplierMode.VERTICAL
             }
         }
 

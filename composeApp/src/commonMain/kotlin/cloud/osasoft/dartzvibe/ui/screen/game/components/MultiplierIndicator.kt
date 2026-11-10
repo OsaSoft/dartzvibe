@@ -23,8 +23,8 @@ import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 /**
  * Floating indicator that displays the current multiplier during swipe gestures.
  *
- * Shows "DOUBLE" with the red double accent when swiping up,
- * or "TRIPLE" with the amber triple accent when swiping down (see [MultiplierColors]).
+ * Shows "DOUBLE" with the red double accent or "TRIPLE" with the amber triple accent
+ * (see [MultiplierColors]), for whichever multiplier the current swipe will record.
  * Hidden when multiplier is null or SINGLE.
  */
 @Suppress("ktlint:standard:function-naming")

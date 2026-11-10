@@ -89,7 +89,7 @@ composeApp/src/
   - the leg content in `GameDetailScreen`;
   - any config columns, with a migration (see Persistence);
   - engine tests.
-- **New app setting:** a field on `AppSettingsData`, a key plus getter/setter in the `AppSettingsRepository` interface and impl, a toggle in `SettingsScreen`, and support in `FakeAppSettingsRepository`. `getSettings()` uses a typed `combine` over 5 flows, the most that overload takes, so a 6th setting needs the array form.
+- **New app setting:** a field on `AppSettingsData`, a key plus getter/setter in the `AppSettingsRepository` interface and impl, a control in `SettingsScreen`, and support in `FakeAppSettingsRepository`. The typed `combine` overloads stop at 5 flows, so `getSettings()` combines the first five into `baseSettings()` and layers later settings on with a second `combine` + `copy`; add new ones there. Enum settings are stored by a stable string `value` with a `fromValue` fallback (`ThemeMode`, `SwipeMultiplierMode`), not by name.
 - **New repository:** interface + `@Inject` impl, a `@Provides` in `AppComponent`, the iOS `IosAppDependencies`, a CompositionLocal in `App.kt`, and a `Fake*Repository` in commonTest.
 
 ## Code style
@@ -154,6 +154,7 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
 - **Dartboard:**
   - It only appears with Settings → "Radial Dartboard Keypad" on, which is off by default.
   - Swipe-to-multiply also needs "Show Multiplier Buttons" off.
+  - The swipe direction comes from Settings → "Dartboard Swipe Direction": up/down (default), or "Like a real board" (toward center = triple, outward = double).
   - A slow `input swipe x y x y2 2500` works; separate `input motionevent` calls don't form one gesture.
 - **Game history:** only completed or abandoned games open `GameDetailScreen`. To get one, abandon the game: the X in the top bar, then Yes.
 
