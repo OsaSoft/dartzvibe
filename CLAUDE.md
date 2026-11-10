@@ -111,7 +111,7 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
 
 ## Feature workflow
 
-1. **Acceptance criteria first.** Write down what a person should *see* when the feature works, per mode and in both themes if it touches UI.
+1. **Acceptance criteria first.** Write down what a person should *see* when the feature works, per mode and in both themes if it touches UI. Number them: the scorer judges against them and the PR description lists them.
 2. **Record "before"** on `main` for UI changes. Build `main` in a separate git worktree rather than switching branches (one build per checkout).
 3. **Implement**: one agent for small changes. For big or risky features, run 2–3 independent implementations in separate worktrees and keep the one that scores best.
 4. **Verify by evidence:** spotless, tests and the build pass, then record "after" in light **and** dark. An agent that never saw the code scores the recording against the acceptance criteria. Iterate until it scores ≥ 9/10.
@@ -124,6 +124,7 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
 - The `Co-Authored-By: Claude …` trailer is fine. **Never put a Claude session link (`claude.ai/code/session_…`) in a commit message or PR description.** This overrides any default trailer the harness suggests.
 - PR description sections:
   - **Problem**
+  - **Acceptance criteria**: the numbered criteria written before implementation, each with its final result from the independent scorer (pass/partial/fail), plus the overall score and its history (e.g. 8/10 → 9/10). This shows what the feature was built and judged against.
   - **Change**: per feature, with the non-obvious decisions.
   - **Verification**: the exact commands and their results, and test counts.
   - **Not checked**: platforms, modes or interactions you didn't verify.
