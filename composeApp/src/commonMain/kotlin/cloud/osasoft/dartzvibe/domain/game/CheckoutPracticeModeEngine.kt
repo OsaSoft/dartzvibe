@@ -115,24 +115,6 @@ internal data class CheckoutPracticeModeEngine(
         return newEngine to TurnResult.NextPlayer(currentPlayerId)
     }
 
-    override fun undoLastThrow(): ModeEngine? {
-        if (currentTurnThrows.isEmpty()) return null
-
-        val newThrows = currentTurnThrows.dropLast(1)
-        val newScore = if (newThrows.isEmpty()) {
-            null
-        } else {
-            val target = pendingCheckoutPracticeState.currentTarget
-            target - newThrows.sumOf { it.score }
-        }
-
-        return copy(
-            currentTurnThrows = newThrows,
-            pendingScore = newScore,
-            isBusted = false,
-        )
-    }
-
     override fun withNonScoringThrow(throwObj: Throw): ModeEngine =
         copy(currentTurnThrows = currentTurnThrows + throwObj)
 

@@ -17,9 +17,11 @@ import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
+import cloud.osasoft.dartzvibe.domain.game.RewindResult
 import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
+import cloud.osasoft.dartzvibe.domain.game.TurnRewind
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -67,14 +71,22 @@ data class ActiveGameState(
     val isBounced: Boolean
         get() = lastThrowResult is ThrowResult.BounceBack
 
+    /** A reopened winning turn (after a dialog Undo) takes no more darts: End Turn wins again, Undo removes it. */
+    val isWinningDartThrown: Boolean
+        get() = lastThrowResult is ThrowResult.Checkout || lastThrowResult is ThrowResult.CricketWin
+
     val isTurnEnded: Boolean
-        get() = isBusted || isBounced
+        get() = isBusted || isBounced || isWinningDartThrown
 
     val canThrow: Boolean
         get() = throwsRemaining > 0 && !isTurnEnded
 
-    val canUndo: Boolean
-        get() = currentTurnThrows.isNotEmpty()
+    /** Darts in the current turn, or an earlier turn in this leg to go back to. Never into a finished leg. */
+    // Lazy: a rewind check replays the leg, so compute it at most once per state
+    val canUndo: Boolean by lazy { engine?.let { TurnRewind.canUndo(it) } == true }
+
+    /** Whether the win dialogs offer Undo: false when the stored leg can't be replayed. */
+    val canUndoWin: Boolean by lazy { engine?.let { TurnRewind.canUndoWin(it) } == true }
 
     val isGameComplete: Boolean
         get() = session?.status == GameStatus.COMPLETED
@@ -197,6 +209,11 @@ class ActiveGameScreenModel(
     private val _state = MutableStateFlow(ActiveGameState())
     val state: StateFlow<ActiveGameState> = _state.asStateFlow()
 
+    // Declared before init: loadGame() may run synchronously on an immediate dispatcher
+    private val saveMutex = Mutex()
+    private var pendingSave: GameSession? = null
+    private var lastSaveRequested: GameSession? = null
+
     init {
         loadGame()
     }
@@ -219,6 +236,7 @@ class ActiveGameScreenModel(
 
                 // Create game engine
                 val engine = GameEngine.fromSession(session)
+                lastSaveRequested = session
 
                 _state.update {
                     it.copy(
@@ -254,6 +272,8 @@ class ActiveGameScreenModel(
     }
 
     private fun submitThrow(segment: Int, multiplier: Multiplier) {
+        // The keypad is hidden then; also guards a reopened winning turn against a late tap
+        if (!_state.value.canThrow) return
         val engine = _state.value.engine ?: return
 
         val (newEngine, result) = engine.addThrow(segment, multiplier)
@@ -284,16 +304,47 @@ class ActiveGameScreenModel(
         }
     }
 
-    fun undoLastThrow() {
+    /**
+     * Removes the last dart or, with no darts thrown, reopens the previous player's turn in this leg
+     * with all their darts. Never crosses into a finished leg.
+     */
+    fun undo() {
         val engine = _state.value.engine ?: return
-        val newEngine = engine.undoLastThrow() ?: return
+        val rewind = TurnRewind.undo(engine) ?: return
+        applyRewind(rewind)
+    }
 
+    /**
+     * Undo from the leg-won / game-over dialogs: closes the dialog, reverts the leg (and match) win and reopens
+     * the winning turn with its last dart in place.
+     */
+    fun undoWin() {
+        val current = _state.value
+        // Only from a showing win dialog: a second tap before it closes must not rewind another turn
+        if (!current.showLegWonDialog && !current.showGameCompleteDialog) return
+        val engine = current.engine ?: return
+        val rewind = TurnRewind.rewindTurn(engine.toGameSession(), crossLegBoundary = true) ?: return
+        applyRewind(rewind)
+    }
+
+    private fun applyRewind(rewind: RewindResult) {
+        val newEngine = rewind.engine
         _state.update {
             it.copy(
                 engine = newEngine,
-                lastThrowResult = null,
+                session = newEngine.toGameSession(),
+                selectedMultiplier = Multiplier.SINGLE,
+                lastThrowResult = rewind.lastThrowResult,
+                lastTurnResult = null,
+                showGameCompleteDialog = false,
+                showLegWonDialog = false,
+                showKnockoutDialog = false,
+                knockedOutPlayerIds = emptyList(),
             )
         }
+        // In-progress darts are never saved: persist the state at the start of the reopened turn
+        val turnStart = TurnRewind.turnStartSession(newEngine.toGameSession())
+        if (turnStart != lastSaveRequested) saveGame(turnStart)
     }
 
     fun endTurn() {
@@ -322,21 +373,29 @@ class ActiveGameScreenModel(
         }
 
         // Save game state
-        saveGame()
+        saveGame(newEngine.toGameSession())
     }
 
-    private fun saveGame() {
-        val session = _state.value.engine?.toGameSession() ?: return
-
+    /**
+     * Saves are serialized and latest-wins: each launch writes whatever session is newest when it gets the lock,
+     * so a slow earlier save (e.g. the COMPLETED one before a dialog Undo) can never land after a newer one.
+     */
+    private fun saveGame(session: GameSession) {
+        pendingSave = session
+        lastSaveRequested = session
         screenModelScope.launch {
-            try {
-                _state.update { it.copy(isSaving = true) }
-                gameRepository.updateGameSession(session)
-                _state.update { it.copy(isSaving = false, session = session) }
-                log.d { "Saved game session: ${session.id}" }
-            } catch (e: Exception) {
-                log.e(e) { "Error saving game" }
-                _state.update { it.copy(isSaving = false, error = e.message) }
+            saveMutex.withLock {
+                val toSave = pendingSave ?: return@withLock
+                pendingSave = null
+                try {
+                    _state.update { it.copy(isSaving = true) }
+                    gameRepository.updateGameSession(toSave)
+                    _state.update { it.copy(isSaving = false) }
+                    log.d { "Saved game session: ${toSave.id}" }
+                } catch (e: Exception) {
+                    log.e(e) { "Error saving game" }
+                    _state.update { it.copy(isSaving = false, error = e.message) }
+                }
             }
         }
     }
@@ -354,16 +413,10 @@ class ActiveGameScreenModel(
     }
 
     fun abandonGame() {
-        val session = _state.value.session ?: return
-
-        screenModelScope.launch {
-            try {
-                val abandonedSession = session.copy(status = GameStatus.ABANDONED)
-                gameRepository.updateGameSession(abandonedSession)
-                _state.update { it.copy(session = abandonedSession) }
-            } catch (e: Exception) {
-                log.e(e) { "Error abandoning game" }
-            }
-        }
+        val session = _state.value.engine?.toGameSession() ?: return
+        // Without the in-progress turn, so a knockout phantom it caused isn't saved without its causing turn
+        val abandonedSession = TurnRewind.turnStartSession(session).copy(status = GameStatus.ABANDONED)
+        _state.update { it.copy(session = abandonedSession) }
+        saveGame(abandonedSession)
     }
 }

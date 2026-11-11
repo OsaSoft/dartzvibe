@@ -151,10 +151,8 @@ class GameEngine private constructor(
         return GameEngine(newModeEngine) to result
     }
 
-    fun undoLastThrow(): GameEngine? {
-        val newModeEngine = modeEngine.undoLastThrow() ?: return null
-        return GameEngine(newModeEngine)
-    }
+    /** Removes the last dart of the current turn (see [TurnRewind]); null when the turn has no darts. */
+    fun undoLastThrow(): GameEngine? = TurnRewind.undoLastThrow(this)?.engine
 
     fun getCricketState(): CricketState? =
         (modeEngine as? CricketModeEngine)?.getCricketState()

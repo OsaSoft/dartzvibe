@@ -5,6 +5,7 @@ import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Leg
 import cloud.osasoft.dartzvibe.util.currentTimeMillis
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -48,8 +49,19 @@ class FakeGameRepository : GameRepository {
         return session
     }
 
+    /** When set, the next update suspends until it completes, so tests can hold one save in flight. */
+    var updateGate: CompletableDeferred<Unit>? = null
+
+    /** Number of completed updateGameSession calls. */
+    var updateCount = 0
+        private set
+
     override suspend fun updateGameSession(session: GameSession) {
+        val gate = updateGate
+        updateGate = null
+        gate?.await()
         sessions.value = sessions.value + (session.id to session)
+        updateCount++
     }
 
     override suspend fun deleteGameSession(id: Uuid) {
