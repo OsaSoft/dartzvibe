@@ -37,11 +37,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,11 +102,10 @@ class ActiveGameScreen(
             onUndo = screenModel::undo,
             onUndoWin = screenModel::undoWin,
             onEndTurn = screenModel::endTurn,
-            onDismissLegWon = screenModel::dismissLegWonDialog,
-            onDismissGameComplete = {
-                screenModel.dismissGameCompleteDialog()
-                navigator.pop()
-            },
+            onContinueLegWon = screenModel::continueToNextLeg,
+            onCloseLegWon = screenModel::closeLegWonDialog,
+            // The dialog leaves with the screen: closing it first would flash the ended game
+            onDismissGameComplete = { navigator.pop() },
             onDismissKnockout = screenModel::dismissKnockoutDialog,
             onAbandonGame = {
                 screenModel.abandonGame()
@@ -136,7 +137,8 @@ fun ActiveGameContent(
     onUndo: () -> Unit,
     onUndoWin: () -> Unit,
     onEndTurn: () -> Unit,
-    onDismissLegWon: () -> Unit,
+    onContinueLegWon: () -> Unit,
+    onCloseLegWon: () -> Unit,
     onDismissGameComplete: () -> Unit,
     onDismissKnockout: () -> Unit,
     onAbandonGame: () -> Unit,
@@ -267,9 +269,9 @@ fun ActiveGameContent(
                 }
 
                 // Current turn display
-                // Roulette and Checkout Practice headers already show their own round progress; after the
-                // match is won the "next round" would flash behind the game-over dialog
-                val hideRoundNumber = state.isRoulette || state.isCheckoutPractice || state.isGameComplete
+                // Roulette and Checkout Practice headers already show their own round progress. Behind the
+                // win dialogs the engine is the one before the winning End Turn, so this is the leg's last round
+                val hideRoundNumber = state.isRoulette || state.isCheckoutPractice
                 CurrentTurnDisplay(
                     roundNumber = if (hideRoundNumber) null else state.currentRoundNumber,
                     currentThrows = state.currentTurnThrows,
@@ -349,6 +351,15 @@ fun ActiveGameContent(
     // Undo on the win dialogs, hidden when the stored leg can't be rewound
     val undoWin = onUndoWin.takeIf { (state.showLegWonDialog || state.showGameCompleteDialog) && state.canUndoWin }
 
+    // Continue swapped the next leg in under the dialog: close it only after a frame of that leg is drawn, so the
+    // ended leg never shows without the dialog
+    if (state.isLegWonDialogClosing) {
+        LaunchedEffect(Unit) {
+            repeat(2) { withFrameNanos { } }
+            onCloseLegWon()
+        }
+    }
+
     // Leg won dialog
     if (state.showLegWonDialog) {
         val result = state.lastTurnResult as? TurnResult.LegWon
@@ -360,7 +371,7 @@ fun ActiveGameContent(
             title = { Text("Leg Won!") },
             text = { Text("$winnerName wins the leg!") },
             confirmButton = {
-                TextButton(onClick = onDismissLegWon) {
+                TextButton(onClick = onContinueLegWon) {
                     Text("Continue")
                 }
             },
@@ -371,14 +382,15 @@ fun ActiveGameContent(
     // Game complete dialog
     if (state.showGameCompleteDialog) {
         if (state.isRoulette) {
+            // Final scores and winner come from the state after the last turn; the screen behind keeps the round
             RouletteResultsDialog(
-                state = state,
+                state = state.resultState,
                 onDismiss = onDismissGameComplete,
                 onUndo = undoWin,
             )
         } else if (state.isCheckoutPractice) {
             CheckoutPracticeResultsDialog(
-                state = state,
+                state = state.resultState,
                 onDismiss = onDismissGameComplete,
                 onUndo = undoWin,
             )
@@ -713,8 +725,9 @@ fun CheckoutPracticeHeader(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Remaining score
+            // Hidden at 0: a final checkout stays on screen behind Practice Complete, the darts row shows OUT!
             val remaining = state.currentPlayerScore
-            if (remaining != state.currentCheckoutTarget) {
+            if (remaining != state.currentCheckoutTarget && remaining != 0) {
                 Text(
                     text = "Remaining: $remaining",
                     style = MaterialTheme.typography.titleMedium,

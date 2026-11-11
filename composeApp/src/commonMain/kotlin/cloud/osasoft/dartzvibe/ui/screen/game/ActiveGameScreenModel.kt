@@ -49,6 +49,11 @@ data class ActiveGameState(
     val showLegWonDialog: Boolean = false,
     val showKnockoutDialog: Boolean = false,
     val knockedOutPlayerIds: List<Uuid> = emptyList(),
+    /**
+     * The engine after the winning `endTurn` (next leg, or the finished match) while a win dialog shows. [engine]
+     * stays the one before it, so the screen behind the dialog shows the leg as it ended.
+     */
+    val pendingWinEngine: GameEngine? = null,
 ) {
     val currentPlayerId: Uuid?
         get() = engine?.getCurrentPlayerId()
@@ -86,7 +91,20 @@ data class ActiveGameState(
     val canUndo: Boolean by lazy { engine?.let { TurnRewind.canUndo(it) } == true }
 
     /** Whether the win dialogs offer Undo: false when the stored leg can't be replayed. */
-    val canUndoWin: Boolean by lazy { engine?.let { TurnRewind.canUndoWin(it) } == true }
+    val canUndoWin: Boolean by lazy { pendingWinEngine?.let { TurnRewind.canUndoWin(it) } == true }
+
+    /** A win dialog is up, or its win is still pending: darts, End Turn and the normal Undo do nothing. */
+    val isWinDialogUp: Boolean
+        get() = pendingWinEngine != null || showLegWonDialog || showGameCompleteDialog
+
+    /** Continue swapped the next leg in under the Leg Won dialog; the UI closes it once that leg is drawn. */
+    val isLegWonDialogClosing: Boolean
+        get() = showLegWonDialog && pendingWinEngine == null
+
+    /** The state after the win, for the results dialogs (final scores, round results); this state otherwise. */
+    val resultState: ActiveGameState by lazy {
+        pendingWinEngine?.let { copy(engine = it, session = it.toGameSession(), pendingWinEngine = null) } ?: this
+    }
 
     val isGameComplete: Boolean
         get() = session?.status == GameStatus.COMPLETED
@@ -273,7 +291,7 @@ class ActiveGameScreenModel(
 
     private fun submitThrow(segment: Int, multiplier: Multiplier) {
         // The keypad is hidden then; also guards a reopened winning turn against a late tap
-        if (!_state.value.canThrow) return
+        if (!_state.value.canThrow || _state.value.isWinDialogUp) return
         val engine = _state.value.engine ?: return
 
         val (newEngine, result) = engine.addThrow(segment, multiplier)
@@ -309,6 +327,7 @@ class ActiveGameScreenModel(
      * with all their darts. Never crosses into a finished leg.
      */
     fun undo() {
+        if (_state.value.isWinDialogUp) return
         val engine = _state.value.engine ?: return
         val rewind = TurnRewind.undo(engine) ?: return
         applyRewind(rewind)
@@ -320,11 +339,22 @@ class ActiveGameScreenModel(
      */
     fun undoWin() {
         val current = _state.value
-        // Only from a showing win dialog: a second tap before it closes must not rewind another turn
-        if (!current.showLegWonDialog && !current.showGameCompleteDialog) return
+        // Only while the win is pending: not after a second tap, nor once Continue swapped in the next leg
+        if (current.pendingWinEngine == null || !current.canUndoWin) return
         val engine = current.engine ?: return
-        val rewind = TurnRewind.rewindTurn(engine.toGameSession(), crossLegBoundary = true) ?: return
-        applyRewind(rewind)
+        // The screen already shows the engine before the winning End Turn, which is what rewinding the win
+        // produces (TurnRewindTest): keep it, so nothing moves when the dialog closes
+        _state.update {
+            it.copy(
+                lastTurnResult = null,
+                showGameCompleteDialog = false,
+                showLegWonDialog = false,
+                pendingWinEngine = null,
+            )
+        }
+        // In-progress darts are never saved: persist the state at the start of the reopened turn
+        val turnStart = TurnRewind.turnStartSession(engine.toGameSession())
+        if (turnStart != lastSaveRequested) saveGame(turnStart)
     }
 
     private fun applyRewind(rewind: RewindResult) {
@@ -340,6 +370,7 @@ class ActiveGameScreenModel(
                 showLegWonDialog = false,
                 showKnockoutDialog = false,
                 knockedOutPlayerIds = emptyList(),
+                pendingWinEngine = null,
             )
         }
         // In-progress darts are never saved: persist the state at the start of the reopened turn
@@ -348,6 +379,7 @@ class ActiveGameScreenModel(
     }
 
     fun endTurn() {
+        if (_state.value.isWinDialogUp) return
         val engine = _state.value.engine ?: return
 
         val (newEngine, result) = engine.endTurn()
@@ -357,19 +389,29 @@ class ActiveGameScreenModel(
         } else {
             emptyList()
         }
+        val isWin = result is TurnResult.LegWon || result is TurnResult.MatchWon
 
         _state.update {
-            it.copy(
-                engine = newEngine,
-                session = newEngine.toGameSession(),
-                lastTurnResult = result,
-                showGameCompleteDialog = result is TurnResult.MatchWon,
-                showLegWonDialog = result is TurnResult.LegWon,
-                showKnockoutDialog = knockedOutIds.isNotEmpty(),
-                knockedOutPlayerIds = knockedOutIds,
-                selectedMultiplier = Multiplier.SINGLE,
-                lastThrowResult = null,
-            )
+            if (isWin) {
+                // Freeze the screen on the leg as it ended behind the dialog; Continue swaps in the next leg
+                it.copy(
+                    pendingWinEngine = newEngine,
+                    lastTurnResult = result,
+                    showGameCompleteDialog = result is TurnResult.MatchWon,
+                    showLegWonDialog = result is TurnResult.LegWon,
+                    selectedMultiplier = Multiplier.SINGLE,
+                )
+            } else {
+                it.copy(
+                    engine = newEngine,
+                    session = newEngine.toGameSession(),
+                    lastTurnResult = result,
+                    showKnockoutDialog = knockedOutIds.isNotEmpty(),
+                    knockedOutPlayerIds = knockedOutIds,
+                    selectedMultiplier = Multiplier.SINGLE,
+                    lastThrowResult = null,
+                )
+            }
         }
 
         // Save game state
@@ -400,13 +442,34 @@ class ActiveGameScreenModel(
         }
     }
 
-    fun dismissLegWonDialog() {
-        _state.update { it.copy(showLegWonDialog = false, lastTurnResult = null) }
+    /**
+     * Continue, step 1: swaps the next leg in while the Leg Won dialog stays up, so the ended leg is never seen
+     * without the dialog. The UI calls [closeLegWonDialog] once a frame of the new leg is drawn. A repeated tap
+     * does nothing.
+     */
+    fun continueToNextLeg() {
+        _state.update {
+            if (!it.showLegWonDialog) return@update it
+            val next = it.pendingWinEngine ?: return@update it
+            it.copy(
+                engine = next,
+                session = next.toGameSession(),
+                lastThrowResult = null,
+                pendingWinEngine = null,
+            )
+        }
     }
 
-    fun dismissGameCompleteDialog() {
-        _state.update { it.copy(showGameCompleteDialog = false, lastTurnResult = null) }
+    /** Continue, step 2: closes the Leg Won dialog over the next leg; nothing while the win is still pending. */
+    fun closeLegWonDialog() {
+        _state.update {
+            if (!it.isLegWonDialogClosing) return@update it
+            it.copy(showLegWonDialog = false, lastTurnResult = null)
+        }
     }
+
+    // Finish has no ScreenModel call: the screen pops with the Game Over dialog still up, so the ended game is
+    // never seen without it
 
     fun dismissKnockoutDialog() {
         _state.update { it.copy(showKnockoutDialog = false, knockedOutPlayerIds = emptyList()) }
