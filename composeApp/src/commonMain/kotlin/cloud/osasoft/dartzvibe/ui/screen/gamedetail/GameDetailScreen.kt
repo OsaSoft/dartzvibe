@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,14 +46,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
+import cloud.osasoft.dartzvibe.data.model.CheckoutRoundResult
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
@@ -63,6 +69,14 @@ import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.domain.history.CricketTurnEffect
+import cloud.osasoft.dartzvibe.domain.history.DartOutcome
+import cloud.osasoft.dartzvibe.domain.history.ParcheesiKnockout
+import cloud.osasoft.dartzvibe.domain.history.cricketTurnEffects
+import cloud.osasoft.dartzvibe.domain.history.historyDartDescription
+import cloud.osasoft.dartzvibe.domain.history.historyDartLabel
+import cloud.osasoft.dartzvibe.domain.history.parcheesiLegHistory
+import cloud.osasoft.dartzvibe.domain.history.rouletteTurnContexts
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import cloud.osasoft.dartzvibe.util.formatDate
 import kotlin.uuid.ExperimentalUuidApi
@@ -434,14 +448,15 @@ private fun LegSection(
 
                         GameMode.ROULETTE -> RouletteLegContent(leg, session, players)
 
-                        GameMode.CLASSIC, GameMode.PARCHEESI ->
+                        GameMode.CLASSIC ->
                             leg.playerTurns.forEach { turn ->
                                 TurnRow(
                                     turn = turn,
                                     playerName = players[turn.playerId]?.name ?: "Unknown",
-                                    showCheckout = session.config.gameMode == GameMode.CLASSIC,
                                 )
                             }
+
+                        GameMode.PARCHEESI -> ParcheesiLegContent(leg, players)
                     }
                 }
             }
@@ -456,8 +471,10 @@ private fun TurnRow(
     turn: Turn,
     playerName: String,
     showCheckout: Boolean = true,
+    showBounce: Boolean = false,
+    knockouts: List<KnockoutDisplay> = emptyList(),
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
@@ -469,49 +486,37 @@ private fun TurnRow(
                 shape = RoundedCornerShape(8.dp),
             )
             .padding(12.dp),
+    ) {
+        TurnRowMain(
+            turn = turn,
+            playerName = playerName,
+            showCheckout = showCheckout,
+            showBounce = showBounce,
+        )
+        if (knockouts.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            KnockoutLine(knockouts = knockouts)
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun TurnRowMain(
+    turn: Turn,
+    playerName: String,
+    showCheckout: Boolean,
+    showBounce: Boolean,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Player avatar and name
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = playerName.take(1).uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = playerName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
+        PlayerNameCell(playerName = playerName, modifier = Modifier.weight(1f))
 
-        // Throws
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.weight(1.5f),
-        ) {
-            turn.throws.forEach { dart ->
-                ThrowBadge(dart)
-            }
-            // Fill empty slots if less than 3 throws
-            repeat(3 - turn.throws.size) {
-                ThrowBadge(null)
-            }
-        }
+        ThrowBadges(darts = turn.throws, outcomes = null, modifier = Modifier.weight(1.5f))
 
         // Score column
         Column(
@@ -524,6 +529,13 @@ private fun TurnRow(
                         text = "BUST",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                    )
+                } else if (showBounce && turn.isBounce) {
+                    Text(
+                        text = "BOUNCE",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
                         fontWeight = FontWeight.Bold,
                     )
                 } else if (showCheckout && turn.scoreAfterTurn == 0) {
@@ -557,35 +569,170 @@ private fun TurnRow(
     }
 }
 
+/**
+ * One dart in a history row.
+ *
+ * Without an [outcome] the badge is colored by multiplier (Classic, Checkout Practice). With one,
+ * it is emphasized by what the dart achieved instead: [DartOutcome.HIT] gets a solid green fill,
+ * anything else an outlined, faded look. The multiplier then lives in the label ("T7", "D7", "7").
+ */
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun ThrowBadge(dart: Throw?) {
+private fun ThrowBadge(dart: Throw?, outcome: DartOutcome? = null) {
+    val colorScheme = MaterialTheme.colorScheme
     val multiplierColors = MaterialTheme.multiplierColors
-    val backgroundColor = when (dart?.multiplier) {
-        null, Multiplier.SINGLE -> MaterialTheme.colorScheme.surfaceVariant
-        Multiplier.DOUBLE -> multiplierColors.double
-        Multiplier.TRIPLE -> multiplierColors.triple
-    }
+    val shape = RoundedCornerShape(4.dp)
 
-    val textColor = when (dart?.multiplier) {
-        null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        Multiplier.SINGLE -> MaterialTheme.colorScheme.onSurfaceVariant
-        Multiplier.DOUBLE -> multiplierColors.onDouble
-        Multiplier.TRIPLE -> multiplierColors.onTriple
+    val style = when {
+        dart == null -> BadgeStyle(
+            background = colorScheme.surfaceVariant,
+            text = colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+        )
+
+        outcome != null -> when (outcome) {
+            DartOutcome.HIT -> BadgeStyle(background = colorScheme.secondary, text = colorScheme.onSecondary)
+
+            DartOutcome.NO_EFFECT, DartOutcome.MISS -> BadgeStyle(
+                background = Color.Transparent,
+                text = colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                // ~3.4:1 against the row in light and ~3.5:1 in dark, so the chip edge stays visible
+                border = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
+
+        else -> when (dart.multiplier) {
+            Multiplier.SINGLE -> BadgeStyle(
+                background = colorScheme.surfaceVariant,
+                text = colorScheme.onSurfaceVariant,
+            )
+
+            Multiplier.DOUBLE -> BadgeStyle(background = multiplierColors.double, text = multiplierColors.onDouble)
+
+            Multiplier.TRIPLE -> BadgeStyle(background = multiplierColors.triple, text = multiplierColors.onTriple)
+        }
     }
 
     Box(
         modifier = Modifier
             .size(36.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(backgroundColor),
+            .clip(shape)
+            .background(style.background)
+            .then(
+                if (style.border != null) Modifier.border(1.dp, style.border, shape) else Modifier,
+            )
+            .then(
+                if (dart != null && outcome != null) {
+                    Modifier.clearAndSetSemantics { contentDescription = historyDartDescription(dart, outcome) }
+                } else {
+                    Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = formatThrow(dart),
+            text = if (dart != null && outcome != null) historyDartLabel(dart) else formatThrow(dart),
             style = MaterialTheme.typography.labelMedium,
-            color = textColor,
+            color = style.text,
+            fontWeight = if (outcome == DartOutcome.HIT || outcome == null) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+}
+
+private data class BadgeStyle(
+    val background: Color,
+    val text: Color,
+    val border: Color? = null,
+)
+
+/** Three dart slots, padded with empty badges for turns with fewer than 3 darts. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun ThrowBadges(
+    darts: List<Throw>,
+    outcomes: List<DartOutcome>?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier,
+    ) {
+        darts.forEachIndexed { index, dart -> ThrowBadge(dart, outcomes?.getOrNull(index)) }
+        repeat(3 - darts.size) { ThrowBadge(null) }
+    }
+}
+
+/** A player's initial in a filled circle, as used by every turn row. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun PlayerNameCell(playerName: String, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = playerName.take(1).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = playerName,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** Names of the players a knockout reset, plus the score each one lost. */
+private data class KnockoutDisplay(
+    val playerName: String,
+    val scoreBefore: Int,
+)
+
+@OptIn(ExperimentalUuidApi::class)
+private fun ParcheesiKnockout.toDisplay(players: Map<Uuid, Player>): KnockoutDisplay = KnockoutDisplay(
+    playerName = players[playerId]?.name ?: "Unknown",
+    scoreBefore = scoreBefore,
+)
+
+/** "KO Bob" chip followed by each reset, e.g. "Bob 60 -> 0". */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun KnockoutLine(knockouts: List<KnockoutDisplay>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "KO ${knockouts.joinToString(", ") { it.playerName }}",
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.errorContainer)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = knockouts.joinToString(" · ") { "${it.playerName} ${it.scoreBefore} -> 0" },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -612,12 +759,24 @@ private fun marksSymbol(marks: Int): String = when (marks) {
     else -> "✓"
 }
 
-// ---- Cricket: per-leg mark grid (segments x players) ----
+// ---- Cricket: per-leg mark grid (segments x players) + turn-by-turn list ----
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
 private fun CricketLegContent(
+    leg: Leg,
+    session: GameSession,
+    players: Map<Uuid, Player>,
+) {
+    CricketMarksGrid(leg, session, players)
+    CricketTurnList(leg, session, players)
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun CricketMarksGrid(
     leg: Leg,
     session: GameSession,
     players: Map<Uuid, Player>,
@@ -692,6 +851,90 @@ private fun CricketLegContent(
     }
 }
 
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun CricketTurnList(
+    leg: Leg,
+    session: GameSession,
+    players: Map<Uuid, Player>,
+) {
+    val effects = remember(leg, session.config) { cricketTurnEffects(leg, session.config) }
+    if (effects.isEmpty()) return
+
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "Turns",
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    effects.forEach { effect ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                )
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlayerNameCell(
+                playerName = players[effect.turn.playerId]?.name ?: "Unknown",
+                modifier = Modifier.weight(1f),
+            )
+            ThrowBadges(
+                darts = effect.darts.map { it.dart },
+                outcomes = effect.darts.map { it.outcome },
+                modifier = Modifier.weight(1.5f),
+            )
+            CricketTurnEffectCell(effect = effect, modifier = Modifier.weight(0.8f))
+        }
+    }
+}
+
+/** Right-hand summary of a Cricket turn: "+40 pts", "+3 marks" and any numbers it closed. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun CricketTurnEffectCell(effect: CricketTurnEffect, modifier: Modifier = Modifier) {
+    Column(horizontalAlignment = Alignment.End, modifier = modifier) {
+        if (effect.marksAdded == 0 && effect.pointsScored == 0) {
+            Text(
+                text = "no effect",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
+        if (effect.pointsScored > 0) {
+            Text(
+                text = "+${effect.pointsScored} pts",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (effect.marksAdded > 0) {
+            Text(
+                text = if (effect.marksAdded == 1) "+1 mark" else "+${effect.marksAdded} marks",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (effect.closedSegments.isNotEmpty()) {
+            Text(
+                text = "closed ${effect.closedSegments.joinToString(", ") { segmentLabel(it) }}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+            )
+        }
+    }
+}
+
 // ---- Checkout practice: per-round pass/fail list ----
 
 @Suppress("ktlint:standard:function-naming")
@@ -707,7 +950,7 @@ private fun CheckoutPracticeLegContent(leg: Leg) {
         return
     }
     results.forEach { result ->
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
@@ -715,37 +958,51 @@ private fun CheckoutPracticeLegContent(leg: Leg) {
                     shape = RoundedCornerShape(8.dp),
                 )
                 .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Target ${result.target}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (result.success) "PASS" else "FAIL",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (result.success) {
-                        MaterialTheme.colorScheme.tertiary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "${result.dartsUsed} darts",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            CheckoutRoundSummary(result)
+            if (result.throws.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                ThrowBadges(darts = result.throws, outcomes = null)
             }
         }
     }
 }
 
-// ---- Roulette: round-by-round target + hit ----
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun CheckoutRoundSummary(result: CheckoutRoundResult) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Target ${result.target}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = if (result.success) "PASS" else "FAIL",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (result.success) {
+                    MaterialTheme.colorScheme.tertiary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "${result.dartsUsed} darts",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// ---- Roulette: round-by-round target + hit/miss per dart ----
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
@@ -755,14 +1012,9 @@ private fun RouletteLegContent(
     session: GameSession,
     players: Map<Uuid, Player>,
 ) {
-    val targets = session.config.rouletteTargetSegments.orEmpty()
-    val playerCount = session.config.playerIds.size.coerceAtLeast(1)
+    val contexts = remember(leg, session.config) { rouletteTurnContexts(leg, session.config) }
 
-    leg.playerTurns.forEachIndexed { index, turn ->
-        val round = index / playerCount
-        val target = if (targets.isEmpty()) 1 else targets[round % targets.size]
-        val points = turn.scoreAfterTurn - turn.scoreBeforeTurn
-
+    contexts.forEach { context ->
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -776,30 +1028,26 @@ private fun RouletteLegContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = players[turn.playerId]?.name ?: "Unknown",
+                    text = players[context.turn.playerId]?.name ?: "Unknown",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "R${round + 1} • target ${segmentLabel(target)}",
+                    text = "R${context.round} • target ${segmentLabel(context.target)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ThrowBadges(
+                darts = context.turn.throws,
+                outcomes = context.dartOutcomes,
                 modifier = Modifier.weight(1.5f),
-            ) {
-                turn.throws.forEach { dart -> ThrowBadge(dart) }
-                repeat(3 - turn.throws.size) { ThrowBadge(null) }
-            }
+            )
             Text(
-                text = "+$points",
+                text = "+${context.points}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (points >
-                    0
-                ) {
+                color = if (context.points > 0) {
                     MaterialTheme.colorScheme.tertiary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
@@ -807,6 +1055,48 @@ private fun RouletteLegContent(
                 modifier = Modifier.weight(0.6f),
                 textAlign = TextAlign.End,
             )
+        }
+    }
+}
+
+// ---- Parcheesi: turns with bounces and knockouts ----
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun ParcheesiLegContent(
+    leg: Leg,
+    players: Map<Uuid, Player>,
+) {
+    val history = remember(leg) { parcheesiLegHistory(leg) }
+
+    history.turns.forEach { context ->
+        TurnRow(
+            turn = context.turn,
+            playerName = players[context.turn.playerId]?.name ?: "Unknown",
+            showCheckout = false,
+            showBounce = true,
+            knockouts = context.knockouts.map { it.toDisplay(players) },
+        )
+    }
+
+    if (history.unfinishedTurnKnockouts.isNotEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                )
+                .padding(12.dp),
+        ) {
+            Text(
+                text = "Unfinished turn",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            KnockoutLine(knockouts = history.unfinishedTurnKnockouts.map { it.toDisplay(players) })
         }
     }
 }
