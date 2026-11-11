@@ -10,7 +10,9 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
+import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
+import cloud.osasoft.dartzvibe.domain.game.TurnRewind
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.shouldBe
@@ -356,9 +358,9 @@ class ActiveGameScreenModelTest : FreeSpec({
                 screenModel.endTurn()
                 advanceUntilIdle()
 
-                // THEN the Leg Won dialog shows again
+                // THEN the Leg Won dialog shows again, with the leg counted once Continue is pressed
                 screenModel.state.value.showLegWonDialog shouldBe true
-                screenModel.state.value.getLegsWon(undoPlayer1Id) shouldBe 1
+                screenModel.state.value.resultState.getLegsWon(undoPlayer1Id) shouldBe 1
             }
         }
 
@@ -551,7 +553,8 @@ class ActiveGameScreenModelTest : FreeSpec({
                 screenModel.onScoreSelect(1, Multiplier.SINGLE)
                 advanceUntilIdle()
                 screenModel.state.value.showLegWonDialog shouldBe true
-                screenModel.dismissLegWonDialog()
+                screenModel.continueToNextLeg()
+                screenModel.closeLegWonDialog()
 
                 // THEN Undo is disabled on the new leg's first turn
                 screenModel.state.value.canUndo shouldBe false
@@ -679,7 +682,7 @@ class ActiveGameScreenModelTest : FreeSpec({
                 screenModel.onScoreSelect(1, Multiplier.SINGLE)
                 advanceUntilIdle()
                 screenModel.state.value.showLegWonDialog shouldBe true
-                screenModel.state.value.getLegsWon(undoPlayer1Id) shouldBe 1
+                repository.saved().legs.first().winnerId shouldBe undoPlayer1Id
 
                 // WHEN the dialog's Undo is pressed
                 screenModel.undoWin()
@@ -701,6 +704,458 @@ class ActiveGameScreenModelTest : FreeSpec({
                 // THEN the winning dart is removed and darts can be thrown again
                 screenModel.state.value.currentTurnThrows shouldBe emptyList()
                 screenModel.state.value.canThrow shouldBe true
+            }
+        }
+    }
+
+    data class WinCase(
+        val name: String,
+        val config: GameConfig,
+        // Plays up to the final darts of the last turn
+        val setup: ActiveGameScreenModel.() -> Unit,
+        val lastDarts: List<Pair<Int, Multiplier>>,
+        // True when End Turn (Next Target) ends the game after the darts, false for a win that ends the turn itself
+        val endsByButton: Boolean = false,
+        val isLegWon: Boolean = false,
+        val winnerId: Uuid = undoPlayer1Id,
+        // Knockout phantoms the winning turn's earlier darts added, on screen behind the dialog
+        val phantomsInWinningTurn: Int = 0,
+    )
+
+    fun twoPlayerConfig(mode: GameMode, legsToWin: Int = 1) = GameConfig(
+        gameType = if (mode == GameMode.CRICKET) GameType.CRICKET_REGULAR else GameType.CLASSIC_301,
+        gameMode = mode,
+        doubleIn = false,
+        doubleOut = false,
+        playerIds = listOf(undoPlayer1Id, undoPlayer2Id),
+        legsToWin = legsToWin,
+    )
+
+    // Parcheesi 301: P1 S1, P2 T20 x3 (180), P1 T20 x3 (181); Player 2 to throw
+    val playParcheesiToKnockAndWin: ActiveGameScreenModel.() -> Unit = {
+        onScoreSelect(1, Multiplier.SINGLE)
+        endTurn()
+        repeat(3) { onScoreSelect(20, Multiplier.TRIPLE) }
+        endTurn()
+        repeat(3) { onScoreSelect(20, Multiplier.TRIPLE) }
+        endTurn()
+    }
+
+    // Cricket: Player 1 closes 20 to 15 over two turns; the bull is left
+    val playCricketToBull: ActiveGameScreenModel.() -> Unit = {
+        listOf(20, 19, 18).forEach { onScoreSelect(it, Multiplier.TRIPLE) }
+        endTurn()
+        onMiss()
+        endTurn()
+        listOf(17, 16, 15).forEach { onScoreSelect(it, Multiplier.TRIPLE) }
+        endTurn()
+        onMiss()
+        endTurn()
+    }
+
+    // Roulette on target 7: Player 1 hits a single and ends the turn; Player 2's turn is the last
+    val playRouletteFirstPlayer: ActiveGameScreenModel.() -> Unit = {
+        onScoreSelect(7, Multiplier.SINGLE)
+        endTurn()
+    }
+
+    fun practiceConfig() = GameConfig(
+        gameType = GameType.CHECKOUT_EASY,
+        gameMode = GameMode.CHECKOUT_PRACTICE,
+        doubleOut = true,
+        playerIds = listOf(undoPlayer1Id),
+        checkoutPracticeTargets = listOf(40, 2),
+    )
+
+    // Checkout Practice: round 1 (40) missed, round 2 (2) is the last
+    val playPracticeFirstRound: ActiveGameScreenModel.() -> Unit = {
+        repeat(3) { onMiss() }
+        endTurn()
+    }
+
+    val winCases = listOf(
+        WinCase(
+            name = "Classic Leg Won",
+            config = twoPlayerConfig(GameMode.CLASSIC, legsToWin = 2),
+            setup = { playClassicToOneLeft() },
+            lastDarts = listOf(1 to Multiplier.SINGLE),
+            isLegWon = true,
+        ),
+        WinCase(
+            name = "Classic Game Over",
+            config = twoPlayerConfig(GameMode.CLASSIC),
+            setup = { playClassicToOneLeft() },
+            lastDarts = listOf(1 to Multiplier.SINGLE),
+        ),
+        WinCase(
+            name = "Parcheesi Leg Won",
+            config = twoPlayerConfig(GameMode.PARCHEESI, legsToWin = 2),
+            setup = { playClassicToOneLeft() },
+            lastDarts = listOf(1 to Multiplier.SINGLE),
+            isLegWon = true,
+        ),
+        WinCase(
+            // S1 lands on Player 1's 181 and knocks them out, then T20 T20 reaches 301
+            name = "Parcheesi Leg Won after a knockout in the winning turn",
+            config = twoPlayerConfig(GameMode.PARCHEESI, legsToWin = 2),
+            setup = playParcheesiToKnockAndWin,
+            lastDarts = listOf(1 to Multiplier.SINGLE, 20 to Multiplier.TRIPLE, 20 to Multiplier.TRIPLE),
+            isLegWon = true,
+            winnerId = undoPlayer2Id,
+            phantomsInWinningTurn = 1,
+        ),
+        WinCase(
+            name = "Parcheesi Game Over",
+            config = twoPlayerConfig(GameMode.PARCHEESI),
+            setup = { playClassicToOneLeft() },
+            lastDarts = listOf(1 to Multiplier.SINGLE),
+        ),
+        WinCase(
+            name = "Cricket Leg Won",
+            config = twoPlayerConfig(GameMode.CRICKET, legsToWin = 2),
+            setup = playCricketToBull,
+            lastDarts = List(3) { 25 to Multiplier.SINGLE },
+            isLegWon = true,
+        ),
+        WinCase(
+            name = "Cricket Game Over",
+            config = twoPlayerConfig(GameMode.CRICKET),
+            setup = playCricketToBull,
+            lastDarts = List(3) { 25 to Multiplier.SINGLE },
+        ),
+        WinCase(
+            name = "Roulette Rounds Complete",
+            config = GameConfig(
+                gameType = GameType.ROULETTE_ROUNDS,
+                gameMode = GameMode.ROULETTE,
+                doubleOut = false,
+                playerIds = listOf(undoPlayer1Id, undoPlayer2Id),
+                rouletteTargetSegments = listOf(7),
+                rouletteRounds = 1,
+            ),
+            setup = playRouletteFirstPlayer,
+            lastDarts = listOf(7 to Multiplier.DOUBLE, 0 to Multiplier.SINGLE, 0 to Multiplier.SINGLE),
+            endsByButton = true,
+            winnerId = undoPlayer2Id,
+        ),
+        WinCase(
+            name = "Roulette Score Complete",
+            config = GameConfig(
+                gameType = GameType.ROULETTE_SCORE,
+                gameMode = GameMode.ROULETTE,
+                doubleOut = false,
+                playerIds = listOf(undoPlayer1Id, undoPlayer2Id),
+                rouletteTargetSegments = listOf(7),
+                rouletteTargetScore = 1,
+            ),
+            setup = playRouletteFirstPlayer,
+            lastDarts = List(3) { 0 to Multiplier.SINGLE },
+            endsByButton = true,
+        ),
+        WinCase(
+            name = "Practice Complete after a checkout",
+            config = practiceConfig(),
+            setup = playPracticeFirstRound,
+            lastDarts = listOf(1 to Multiplier.DOUBLE),
+        ),
+        WinCase(
+            name = "Practice Complete after a miss",
+            config = practiceConfig(),
+            setup = playPracticeFirstRound,
+            lastDarts = List(3) { 0 to Multiplier.SINGLE },
+            endsByButton = true,
+        ),
+    )
+
+    // What the screen draws from an engine
+    fun GameEngine.view() = listOf(
+        toGameSession(),
+        getCurrentTurnThrows(),
+        getCurrentPlayerId(),
+        getCurrentPlayerScore(),
+    )
+
+    // Throws the case's final darts (and presses End Turn when it needs one). Returns the engine expected behind
+    // the dialog, the one before the final End Turn, and the result of its last dart.
+    fun ActiveGameScreenModel.finish(case: WinCase): Pair<GameEngine, ThrowResult?> {
+        val start: Pair<GameEngine, ThrowResult?> = state.value.engine!! to null
+        val expected = case.lastDarts.fold(start) { (engine, _), (segment, multiplier) ->
+            engine.addThrow(segment, multiplier)
+        }
+        case.lastDarts.forEach { (segment, multiplier) ->
+            if (segment == 0) onMiss() else onScoreSelect(segment, multiplier)
+        }
+        if (case.endsByButton) endTurn()
+        return expected
+    }
+
+    "Win dialog backdrop" - {
+        "Should show the game as it ended behind the dialog and save the win" - {
+            withData(nameFn = { it.name }, winCases) { case ->
+                runTest {
+                    // GIVEN a game one turn from its end
+                    val (screenModel, repository) = configScreenModel(case.config)
+                    case.setup(screenModel)
+                    advanceUntilIdle()
+
+                    // WHEN the last turn ends it
+                    val (expectedEngine, expectedResult) = screenModel.finish(case)
+                    advanceUntilIdle()
+
+                    // THEN the dialog shows over the engine from before the final End Turn
+                    val state = screenModel.state.value
+                    state.showLegWonDialog shouldBe case.isLegWon
+                    state.showGameCompleteDialog shouldBe !case.isLegWon
+                    state.engine!!.view() shouldBe expectedEngine.view()
+                    state.session shouldBe expectedEngine.toGameSession()
+                    // AND the last turn's darts and the last dart's result (OUT!, turn total) stay
+                    state.currentTurnThrows.size shouldBe case.lastDarts.size
+                    state.lastThrowResult shouldBe expectedResult
+                    state.canThrow shouldBe false
+                    // AND the leg isn't counted on screen yet, and a knockout from the winning turn still shows
+                    state.getLegsWon(case.winnerId) shouldBe 0
+                    state.session!!.currentLeg.turns.count { it.isPhantom } shouldBe case.phantomsInWinningTurn
+                    state.isGameComplete shouldBe false
+                    // AND the repository already holds the session after the win
+                    val pending = state.pendingWinEngine!!
+                    repository.saved() shouldBe pending.toGameSession()
+                    if (case.isLegWon) {
+                        repository.saved().legs.size shouldBe 2
+                        state.resultState.getLegsWon(case.winnerId) shouldBe 1
+                    } else {
+                        repository.saved().status shouldBe GameStatus.COMPLETED
+                        state.resultState.isGameComplete shouldBe true
+                    }
+                }
+            }
+        }
+
+        "Should keep the last round and its target behind Roulette and Practice Complete" - {
+            withData(nameFn = {
+                it.name
+            }, winCases.filter { it.config.isRoulette || it.config.isCheckoutPractice }) { case ->
+                runTest {
+                    // GIVEN a Roulette or Checkout Practice game played to its last round
+                    val (screenModel, _) = configScreenModel(case.config)
+                    case.setup(screenModel)
+
+                    // WHEN the last round ends the game
+                    screenModel.finish(case)
+                    advanceUntilIdle()
+
+                    // THEN the header still shows the last round and its target
+                    val state = screenModel.state.value
+                    if (state.isRoulette) {
+                        state.rouletteRoundNumber shouldBe 1
+                        state.currentRouletteTarget shouldBe 7
+                        // AND the results dialog has the winner and the final scores, last turn included
+                        val winnerScore = if (case.config.gameType == GameType.ROULETTE_ROUNDS) 2 else 1
+                        state.resultState.session?.winnerId shouldBe case.winnerId
+                        state.resultState.getPlayerScore(case.winnerId) shouldBe winnerScore
+                    } else {
+                        state.checkoutRoundNumber shouldBe 2
+                        state.checkoutTotalRounds shouldBe 2
+                        state.currentCheckoutTarget shouldBe 2
+                        // AND the results dialog lists both rounds
+                        state.resultState.checkoutPracticeState?.roundResults?.size shouldBe 2
+                    }
+                }
+            }
+        }
+
+        "Should start the next leg on Continue" - {
+            withData(nameFn = { it.name }, winCases.filter { it.isLegWon }) { case ->
+                runTest {
+                    // GIVEN the Leg Won dialog
+                    val (screenModel, _) = configScreenModel(case.config)
+                    case.setup(screenModel)
+                    screenModel.finish(case)
+                    advanceUntilIdle()
+                    val behindDialog = screenModel.state.value
+                    val next = behindDialog.pendingWinEngine!!
+
+                    // WHEN Continue is pressed (twice, as a double tap)
+                    screenModel.continueToNextLeg()
+                    screenModel.continueToNextLeg()
+
+                    // THEN the next leg is swapped in under the still-open dialog, which no longer offers Undo
+                    val swapped = screenModel.state.value
+                    swapped.showLegWonDialog shouldBe true
+                    swapped.isLegWonDialogClosing shouldBe true
+                    swapped.lastTurnResult shouldBe behindDialog.lastTurnResult
+                    swapped.pendingWinEngine shouldBe null
+                    swapped.engine shouldBe next
+                    swapped.session shouldBe next.toGameSession()
+                    swapped.lastThrowResult shouldBe null
+                    swapped.canUndoWin shouldBe false
+
+                    // WHEN the UI closes the dialog after drawing the next leg
+                    screenModel.closeLegWonDialog()
+
+                    // THEN the next leg is on screen, with the leg counted and nothing to undo
+                    val state = screenModel.state.value
+                    state.showLegWonDialog shouldBe false
+                    state.lastTurnResult shouldBe null
+                    state.isLegWonDialogClosing shouldBe false
+                    state.pendingWinEngine shouldBe null
+                    state.engine shouldBe next
+                    state.session shouldBe next.toGameSession()
+                    state.getLegsWon(case.winnerId) shouldBe 1
+                    state.currentTurnThrows shouldBe emptyList()
+                    state.lastThrowResult shouldBe null
+                    state.canUndo shouldBe false
+                    state.canThrow shouldBe true
+                }
+            }
+        }
+
+        "Should leave the screen as it was behind the dialog on Undo and save the turn start" - {
+            withData(nameFn = { it.name }, winCases) { case ->
+                runTest {
+                    // GIVEN a win dialog over the ended game
+                    val (screenModel, repository) = configScreenModel(case.config)
+                    case.setup(screenModel)
+                    screenModel.finish(case)
+                    advanceUntilIdle()
+                    val behindDialog = screenModel.state.value
+                    val pending = behindDialog.pendingWinEngine!!
+                    behindDialog.canUndoWin shouldBe true
+
+                    // WHEN the dialog's Undo is pressed
+                    screenModel.undoWin()
+                    advanceUntilIdle()
+
+                    // THEN only the dialog is gone
+                    screenModel.state.value shouldBe behindDialog.copy(
+                        lastTurnResult = null,
+                        showLegWonDialog = false,
+                        showGameCompleteDialog = false,
+                        pendingWinEngine = null,
+                    )
+                    // AND that is what rewinding the win produces
+                    val rewind = TurnRewind.rewindTurn(pending.toGameSession(), crossLegBoundary = true)!!
+                    rewind.engine.view() shouldBe behindDialog.engine!!.view()
+                    rewind.lastThrowResult shouldBe behindDialog.lastThrowResult
+                    // AND the saved game is the reopened turn's start, in progress, without its knockout
+                    repository.saved() shouldBe TurnRewind.turnStartSession(behindDialog.session!!)
+                    repository.saved().status shouldBe GameStatus.IN_PROGRESS
+                    repository.saved().currentLeg.turns.none { it.isPhantom } shouldBe true
+                }
+            }
+        }
+
+        "Should ignore darts, End Turn and Undo while a win dialog shows" {
+            runTest {
+                // GIVEN Roulette Complete after a one-dart last turn, so the frozen turn still has darts left
+                val case = winCases.first { it.name == "Roulette Rounds Complete" }
+                    .copy(lastDarts = listOf(0 to Multiplier.SINGLE), winnerId = undoPlayer1Id)
+                val (screenModel, repository) = configScreenModel(case.config)
+                case.setup(screenModel)
+                screenModel.finish(case)
+                advanceUntilIdle()
+                val behindDialog = screenModel.state.value
+                behindDialog.showGameCompleteDialog shouldBe true
+                behindDialog.canThrow shouldBe true
+                val updates = repository.updateCount
+
+                // WHEN a dart, End Turn and Undo arrive anyway
+                screenModel.onScoreSelect(7, Multiplier.SINGLE)
+                screenModel.endTurn()
+                screenModel.undo()
+                advanceUntilIdle()
+
+                // THEN nothing changes and nothing more is saved
+                screenModel.state.value shouldBe behindDialog
+                repository.updateCount shouldBe updates
+            }
+        }
+        "Should keep the Game Over dialog up and the game completed until the screen leaves" {
+            runTest {
+                // GIVEN Roulette Complete after a one-dart last turn, so the frozen turn still has darts left
+                val case = winCases.first { it.name == "Roulette Rounds Complete" }
+                    .copy(lastDarts = listOf(0 to Multiplier.SINGLE), winnerId = undoPlayer1Id)
+                val (screenModel, repository) = configScreenModel(case.config)
+                case.setup(screenModel)
+                screenModel.finish(case)
+                advanceUntilIdle()
+                val behindDialog = screenModel.state.value
+                val updates = repository.updateCount
+
+                // THEN the repository already holds the completed game for Finish, which only pops the screen
+                repository.saved().status shouldBe GameStatus.COMPLETED
+                repository.saved().winnerId shouldBe undoPlayer1Id
+
+                // WHEN the Leg Won steps, a dart, End Turn and Undo arrive while the screen is leaving
+                screenModel.continueToNextLeg()
+                screenModel.closeLegWonDialog()
+                screenModel.onScoreSelect(7, Multiplier.SINGLE)
+                screenModel.endTurn()
+                screenModel.undo()
+                advanceUntilIdle()
+
+                // THEN the dialog stays over the ended game and nothing more is saved
+                screenModel.state.value shouldBe behindDialog
+                repository.updateCount shouldBe updates
+            }
+        }
+
+        "Should ignore the dialog Undo after Continue" {
+            runTest {
+                // GIVEN Continue was pressed on Leg Won and the next leg is swapped in under the dialog
+                val case = winCases.first { it.name == "Classic Leg Won" }
+                val (screenModel, repository) = configScreenModel(case.config)
+                case.setup(screenModel)
+                screenModel.finish(case)
+                advanceUntilIdle()
+                screenModel.continueToNextLeg()
+                advanceUntilIdle()
+                val swapped = screenModel.state.value
+                swapped.showLegWonDialog shouldBe true
+                val updates = repository.updateCount
+
+                // WHEN the dialog's Undo arrives before the dialog closes
+                screenModel.undoWin()
+                advanceUntilIdle()
+
+                // THEN it is ignored: the next leg stays and nothing is saved
+                screenModel.state.value shouldBe swapped
+                repository.updateCount shouldBe updates
+
+                // WHEN the dialog closes and another late Undo arrives
+                screenModel.closeLegWonDialog()
+                val nextLeg = screenModel.state.value
+                screenModel.undoWin()
+                advanceUntilIdle()
+
+                // THEN it is ignored too
+                screenModel.state.value shouldBe nextLeg
+                repository.updateCount shouldBe updates
+                repository.saved().legs.size shouldBe 2
+            }
+        }
+
+        "Should not swap in the next leg on a Continue after the dialog Undo" {
+            runTest {
+                // GIVEN the dialog Undo was pressed on Leg Won
+                val case = winCases.first { it.name == "Classic Leg Won" }
+                val (screenModel, repository) = configScreenModel(case.config)
+                case.setup(screenModel)
+                screenModel.finish(case)
+                advanceUntilIdle()
+                screenModel.undoWin()
+                advanceUntilIdle()
+                val reopened = screenModel.state.value
+
+                // WHEN a late Continue arrives
+                screenModel.continueToNextLeg()
+                screenModel.closeLegWonDialog()
+                advanceUntilIdle()
+
+                // THEN the reopened winning turn stays, in leg 1, with the leg not counted
+                screenModel.state.value shouldBe reopened
+                screenModel.state.value.session?.legs?.size shouldBe 1
+                screenModel.state.value.getLegsWon(undoPlayer1Id) shouldBe 0
+                repository.saved().legs.size shouldBe 1
             }
         }
     }
