@@ -15,6 +15,8 @@ import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnRewind
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
@@ -311,6 +313,84 @@ class ActiveGameScreenModelTest : FreeSpec({
         endTurn()
         onMiss()
         endTurn()
+    }
+
+    "Checkout slot" - {
+        "Should show no checkout once a Classic turn has busted" {
+            runTest {
+                // GIVEN Classic 301 (no double-out) with Player 1 on 50: T20 x3 (121), then T20 S11
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                repeat(3) { screenModel.onScoreSelect(20, Multiplier.TRIPLE) }
+                screenModel.endTurn()
+                screenModel.onMiss()
+                screenModel.endTurn()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(11, Multiplier.SINGLE)
+                screenModel.endTurn()
+                screenModel.onMiss()
+                screenModel.endTurn()
+                advanceUntilIdle()
+                val before = screenModel.state.first()
+                before.currentPlayerScore shouldBe 50
+                before.checkoutOptions.shouldNotBeNull()
+
+                // WHEN Player 1 busts with T20 on the first dart
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN the score is back at 50 with darts left, but the turn is over: no route next to End Turn
+                state.isBusted shouldBe true
+                state.currentPlayerScore shouldBe 50
+                state.checkoutOptions.shouldBeNull()
+                // AND the slot is still reserved
+                state.hasCheckoutSlot shouldBe true
+            }
+        }
+
+        "Should show no checkout once a Parcheesi turn has bounced" {
+            runTest {
+                // GIVEN Parcheesi 301 (no double-out) with Player 1 on 300: five rounds of T20 against misses
+                val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI)
+                repeat(5) {
+                    screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                    screenModel.endTurn()
+                    screenModel.onMiss()
+                    screenModel.endTurn()
+                }
+                advanceUntilIdle()
+                screenModel.state.first().currentPlayerScore shouldBe 300
+
+                // WHEN Player 1 overshoots with S20 and bounces back to 282
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN 19 to go with darts left would be checkable, but the turn is over: no route
+                state.isBounced shouldBe true
+                state.currentPlayerScore shouldBe 282
+                state.checkoutOptions.shouldBeNull()
+                state.hasCheckoutSlot shouldBe true
+            }
+        }
+
+        withData(
+            nameFn = { (mode, expected) -> "Should ${if (expected) "" else "not "}reserve the slot in $mode" },
+            GameMode.CLASSIC to true,
+            GameMode.PARCHEESI to true,
+            GameMode.CRICKET to false,
+        ) { (mode, expected) ->
+            runTest {
+                // GIVEN a game in the mode
+                val (screenModel, _) = undoScreenModel(mode)
+
+                // WHEN reading the state
+                val state = screenModel.state.first()
+
+                // THEN only modes with a checkout reserve the slot
+                state.hasCheckoutSlot shouldBe expected
+            }
+        }
     }
 
     "Undo" - {
