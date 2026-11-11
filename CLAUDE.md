@@ -37,6 +37,7 @@ composeApp/src/
 │   ├── data/local/         # expect DatabaseDriverFactory / SettingsFactory
 │   ├── domain/game/        # GameEngine facade, one ModeEngine per GameMode, GameEngineHelper, CheckoutCalculator
 │   ├── domain/statistics/  # StatisticsCalculator
+│   ├── domain/history/     # pure per-mode context for the Game Details turn history
 │   ├── ui/screen/<feature>/            # Voyager Screen + ScreenModel pairs
 │   ├── ui/screen/game/components/      # keypad, radial dartboard, Roulette quick-input pad, MultiplierButton, scoreboards, checkout hint
 │   ├── ui/theme/           # Theme.kt, MultiplierColors, AvatarColors
@@ -58,7 +59,8 @@ composeApp/src/
   - `GameEngine.fromSession(session)` picks the `ModeEngine` from `GameConfig.gameMode`, and `toGameSession()` exports the state for saving.
   - `GameEngineHelper` holds the shared logic: current player, scores, leg handling, and `getRoundNumber` (rounds restart each leg).
 - **In-progress throws are not saved.** The current turn's throws live only in the engine until `endTurn()`, and `toGameSession()` doesn't include them. Rotation survives only because `AndroidManifest.xml` declares `configChanges` on the activity. Removing that brings the bug back, and process death still loses the throws.
-- **Phantom turns:** Parcheesi knockouts add `Turn(isPhantom = true)`. For turn order, round number and display, use `Leg.playerTurns`, which leaves them out.
+- **Phantom turns:** Parcheesi knockouts add `Turn(isPhantom = true)`. For turn order, round number and display, use `Leg.playerTurns`, which leaves them out. The phantom is appended mid-turn, when the knocking dart lands, so it sits **before** the turn that caused it in `Leg.turns` (`parcheesiLegHistory` in `domain/history/` links them).
+- **Cricket rules** live in `domain/game/CricketRules.kt`, shared by `CricketModeEngine` and the Game Details replay (`cricketTurnEffects`). Change scoring there so history and live play can't drift apart. Likewise, the Roulette round → target mapping is `domain/game/RouletteRules.kt`, used by the engine, `ActiveGameScreenModel`, statistics and history.
 - **Multiplier colors:** anything color-coded by multiplier uses `MaterialTheme.multiplierColors` (`ui/theme/MultiplierColors.kt`): triple is amber, double is brand red. S/D/T selectors reuse `components/MultiplierButton`. Don't use Material `tertiary` or `primary` for multipliers; `tertiary` is still fine for other things.
 - **Statistics are per mode:**
   - `PlayerStatistics` holds the fields every mode shares; rates such as `winRate` are **percentages**. It also holds `modeStats: ModeStatistics?`, which is sealed with one subtype per mode. Each subtype's `primaryMetric` is the leaderboard sort axis.
@@ -86,7 +88,7 @@ composeApp/src/
   - the mode selection and config in `NewGameScreen`/`NewGameScreenModel` (the compiler won't flag a missing one);
   - mode handling in `ActiveGameScreen`;
   - a `ModeStatistics` subtype and its `StatisticsCalculator` branch;
-  - the leg content in `GameDetailScreen`;
+  - the leg content in `GameDetailScreen` (derive per-dart context in `domain/history/`);
   - any config columns, with a migration (see Persistence);
   - engine tests.
 - **New app setting:** a field on `AppSettingsData`, a key plus getter/setter in the `AppSettingsRepository` interface and impl, a control in `SettingsScreen`, and support in `FakeAppSettingsRepository`. The typed `combine` overloads stop at 5 flows, so `getSettings()` combines the first five into `baseSettings()` and layers later settings on with a second `combine` + `copy`; add new ones there. Enum settings are stored by a stable string `value` with a `fromValue` fallback (`ThemeMode`, `SwipeMultiplierMode`), not by name.
@@ -163,3 +165,4 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
 - `migrations/1.sqm` runs `CREATE TABLE` on tables a v1 database already has, so an install that never moved past schema v1 crashes on upgrade. New installs aren't affected.
 - Suspected, not verified: ScreenModels use `screenModelScope` but are created with plain `remember { }` rather than Voyager's `rememberScreenModel`. Their collecting coroutines may outlive popped screens.
 - `CONTRIBUTING.md` mentions CI, but there's no CI workflow in the repo yet.
+- Parcheesi undo doesn't undo knockouts. `ParcheesiModeEngine.undoLastThrow` drops the dart but leaves the phantom turn the knocking dart added to the session, so the victim stays at 0 (and the history credits the knockout to that turn). Fix idea: keep a snapshot of the leg at turn start and replay the remaining throws of the turn from it on undo.
