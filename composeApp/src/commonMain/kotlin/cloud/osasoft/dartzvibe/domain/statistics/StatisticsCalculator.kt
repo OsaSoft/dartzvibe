@@ -15,6 +15,8 @@ import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.model.StatAchievement
 import cloud.osasoft.dartzvibe.data.model.StatisticsFilter
 import cloud.osasoft.dartzvibe.data.model.Turn
+import cloud.osasoft.dartzvibe.domain.game.RouletteRules
+import cloud.osasoft.dartzvibe.domain.history.parcheesiLegHistory
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -446,11 +448,7 @@ class StatisticsCalculator {
             game.legs.forEach { leg ->
                 leg.playerTurns.forEachIndexed { index, turn ->
                     if (turn.playerId != playerId) return@forEachIndexed
-                    val target = if (targets.isEmpty()) {
-                        1
-                    } else {
-                        targets[(index / playerCount) % targets.size]
-                    }
+                    val target = rouletteTargetFor(targets, playerCount, index)
                     turnCount++
                     val turnPoints = turn.scoreAfterTurn - turn.scoreBeforeTurn
                     totalPoints += turnPoints
@@ -480,9 +478,8 @@ class StatisticsCalculator {
      * roulette legs contain no phantom turns, so integer division is exact for any prefix.
      */
     fun rouletteTargetFor(targets: List<Int>, playerCount: Int, turnIndex: Int): Int {
-        if (targets.isEmpty()) return 1
-        val pc = playerCount.coerceAtLeast(1)
-        return targets[(turnIndex / pc) % targets.size]
+        val roundIndex = turnIndex / playerCount.coerceAtLeast(1)
+        return RouletteRules.targetFor(targets, roundIndex)
     }
 
     /**
@@ -545,28 +542,27 @@ class StatisticsCalculator {
     /**
      * Calculate knockout statistics for a player from Parcheesi games.
      *
-     * Knockouts are tracked as phantom turns with scoreAfterTurn = 0. To find who caused a
-     * knockout, we look at the non-phantom turn immediately before the phantom turn — if its
-     * scoreAfterTurn matches the phantom's scoreBeforeTurn, that player dealt the knockout.
+     * Knockouts are stored as phantom turns that sit *before* the turn that caused them (see
+     * [parcheesiLegHistory]), so the causing turn's player dealt the knockout and the phantom's
+     * player suffered it. Knockouts from a turn that was never finished have no stored causing
+     * turn, so they only count as [KnockoutStats.timesKnockedOut].
      */
     private fun calculateKnockoutStats(
         games: List<GameSession>,
         playerId: Uuid,
     ): KnockoutStats {
-        var knockoutsDealt = 0
-        var timesKnockedOut = 0
+        val histories = games
+            .filter { it.config.gameMode == GameMode.PARCHEESI }
+            .flatMap { game -> game.legs.map { leg -> parcheesiLegHistory(leg) } }
 
-        games.filter { it.config.gameMode == GameMode.PARCHEESI }.forEach { game ->
-            game.legs.forEach { leg ->
-                leg.turns.forEachIndexed { index, turn ->
-                    if (!turn.isPhantom) return@forEachIndexed
-                    val causingTurn = leg.turns.take(index).lastOrNull { !it.isPhantom }
-                    if (causingTurn != null && causingTurn.scoreAfterTurn == turn.scoreBeforeTurn) {
-                        if (causingTurn.playerId == playerId) knockoutsDealt++
-                        if (turn.playerId == playerId) timesKnockedOut++
-                    }
-                }
-            }
+        val knockoutsDealt = histories.sumOf { history ->
+            history.turns
+                .filter { it.turn.playerId == playerId }
+                .sumOf { it.knockouts.size }
+        }
+        val timesKnockedOut = histories.sumOf { history ->
+            (history.turns.flatMap { it.knockouts } + history.unfinishedTurnKnockouts)
+                .count { it.playerId == playerId }
         }
         return KnockoutStats(knockoutsDealt, timesKnockedOut)
     }

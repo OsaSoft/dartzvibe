@@ -17,6 +17,7 @@ import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
+import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import co.touchlab.kermit.Logger
@@ -120,9 +121,8 @@ data class ActiveGameState(
     val currentRouletteTarget: Int?
         get() {
             if (!isRoulette) return null
-            val targets = session?.config?.rouletteTargetSegments.orEmpty()
             val roundIndex = rouletteState?.currentRoundIndex ?: 0
-            return if (targets.isEmpty()) 1 else targets[roundIndex % targets.size]
+            return RouletteRules.targetFor(session?.config?.rouletteTargetSegments, roundIndex)
         }
 
     /**
