@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +48,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -260,13 +264,17 @@ fun ActiveGameContent(
                         )
                     }
                 } else {
+                    // Tighter below than elsewhere: Classic and Parcheesi also lay out the checkout slot
                     PlayerScoresRow(
                         state = state,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 4.dp),
                     )
                 }
+
+                // Classic, Parcheesi and Checkout Practice reserve a checkout slot below the turn display
+                val hasCheckoutSlot = state.hasCheckoutSlot
 
                 // Current turn display
                 // Roulette and Checkout Practice headers already show their own round progress. Behind the
@@ -281,18 +289,20 @@ fun ActiveGameContent(
                     onUndo = onUndo,
                     isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
                     rouletteTurnPoints = state.rouletteTurnPoints,
+                    compact = hasCheckoutSlot,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp),
                 )
 
-                // Checkout suggestions
-                state.checkoutOptions?.let { options ->
+                // Checkout slot: always laid out at a fixed height in the modes that can have a checkout, so the
+                // input below never moves when a suggestion appears, changes or disappears
+                if (hasCheckoutSlot) {
                     CheckoutHint(
-                        checkoutOptions = options,
+                        checkoutOptions = state.checkoutOptions,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .padding(start = 8.dp, top = 4.dp, end = 8.dp),
                     )
                 }
 
@@ -512,6 +522,8 @@ fun CurrentTurnDisplay(
     onUndo: () -> Unit,
     isCricket: Boolean = false,
     rouletteTurnPoints: Int? = null,
+    // Tighter vertical spacing, used where the checkout slot also needs room above the input
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -523,7 +535,7 @@ fun CurrentTurnDisplay(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Current round (hidden when the mode header already shows round progress)
@@ -534,10 +546,18 @@ fun CurrentTurnDisplay(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(if (compact) 2.dp else 4.dp))
             }
 
+            // At least as tall as the turn total that appears with the first dart: above 1.0 font scale its line
+            // is taller than the 36 dp chips, and the input below would drop on the first dart of every turn
+            val turnTotalLineHeight = with(LocalDensity.current) {
+                MaterialTheme.typography.headlineMedium.lineHeight
+                    .takeIf { it.isSp }
+                    ?.toDp() ?: 36.dp
+            }
             Row(
+                modifier = Modifier.heightIn(min = turnTotalLineHeight),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -612,7 +632,7 @@ fun CurrentTurnDisplay(
             }
 
             // Undo button
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
             OutlinedButton(
                 onClick = onUndo,
                 enabled = canUndo,
@@ -702,7 +722,7 @@ fun CheckoutPracticeHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Round progress
@@ -726,14 +746,20 @@ fun CheckoutPracticeHeader(
 
             // Remaining score
             // Hidden at 0: a final checkout stays on screen behind Practice Complete, the darts row shows OUT!
+            // Hidden lines stay laid out (transparent), so the header keeps its height and the input below never moves
             val remaining = state.currentPlayerScore
-            if (remaining != state.currentCheckoutTarget && remaining != 0) {
-                Text(
-                    text = "Remaining: $remaining",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                )
-            }
+            val showRemaining = remaining != state.currentCheckoutTarget && remaining != 0
+            Text(
+                text = "Remaining: $remaining",
+                style = MaterialTheme.typography.titleMedium,
+                // Hidden: keep it out of TalkBack too
+                modifier = if (showRemaining) Modifier else Modifier.clearAndSetSemantics { },
+                color = if (showRemaining) {
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                } else {
+                    Color.Transparent
+                },
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
