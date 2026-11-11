@@ -19,6 +19,7 @@ import cloud.osasoft.dartzvibe.data.model.RouletteState
 import cloud.osasoft.dartzvibe.data.model.StatisticsFilter
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
+import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.util.currentTimeMillis
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -35,6 +36,7 @@ class StatisticsCalculatorTest : FreeSpec({
 
     val playerId1 = Uuid.parse("00000000-0000-0000-0000-000000000001")
     val playerId2 = Uuid.parse("00000000-0000-0000-0000-000000000002")
+    val playerId3 = Uuid.parse("00000000-0000-0000-0000-000000000003")
     val sessionId = Uuid.parse("00000000-0000-0000-0000-000000000100")
 
     val player1 = Player(id = playerId1, name = "Alice", createdAt = currentTimeMillis())
@@ -434,13 +436,30 @@ class StatisticsCalculatorTest : FreeSpec({
             winnerId = winnerId,
         )
 
-        fun phantom(playerId: Uuid, scoreBeforeTurn: Int): Turn = Turn(
-            playerId = playerId,
-            throws = emptyList(),
-            scoreBeforeTurn = scoreBeforeTurn,
-            scoreAfterTurn = 0,
-            isPhantom = true,
-        )
+        /** Plays [turns] through the engine; an unfinished last turn can be given in [midTurnThrows]. */
+        fun playedParcheesiGame(
+            playerIds: List<Uuid>,
+            turns: List<List<Throw>>,
+            midTurnThrows: List<Throw> = emptyList(),
+        ): GameSession {
+            val start = GameEngine.fromSession(
+                GameSession(
+                    id = sessionId,
+                    config = GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = false,
+                        playerIds = playerIds,
+                    ),
+                    startedAt = 0L,
+                ),
+            )
+            val afterTurns = turns.fold(start) { engine, darts ->
+                darts.fold(engine) { e, dart -> e.addThrow(dart.segment, dart.multiplier).first }.endTurn().first
+            }
+            val final = midTurnThrows.fold(afterTurns) { e, dart -> e.addThrow(dart.segment, dart.multiplier).first }
+            return final.toGameSession().copy(status = GameStatus.COMPLETED)
+        }
 
         fun parcheesi(playerId: Uuid, games: List<GameSession>): ModeStatistics.Parcheesi =
             calculator.calculatePlayerStatistics(
@@ -450,26 +469,68 @@ class StatisticsCalculatorTest : FreeSpec({
                 StatisticsFilter(gameMode = GameMode.PARCHEESI),
             ).modeStats as ModeStatistics.Parcheesi
 
-        "Should count knockouts dealt" {
-            val turns = listOf(
-                createTurn(playerId1, listOf(t(20, Multiplier.TRIPLE), t(20), t(20)), 0).copy(scoreAfterTurn = 100),
-                phantom(playerId2, scoreBeforeTurn = 100),
+        "Should credit a 2-player knockout to the thrower, not the victim" {
+            // GIVEN Alice reaches 20 and Bob matches it, knocking Alice out
+            val game = playedParcheesiGame(
+                playerIds = listOf(playerId1, playerId2),
+                turns = listOf(listOf(t(20), t(0), t(0)), listOf(t(20), t(1), t(1))),
             )
-            val game = parcheesiGame(legs = listOf(Leg(turns = turns, winnerId = playerId1)), winnerId = playerId1)
-            val stats = parcheesi(playerId1, listOf(game))
-            stats.knockoutsDealt shouldBe 1
-            stats.timesKnockedOut shouldBe 0
+
+            // WHEN computing both players' Parcheesi stats
+            val alice = parcheesi(playerId1, listOf(game))
+            val bob = parcheesi(playerId2, listOf(game))
+
+            // THEN Bob dealt the knockout
+            bob.knockoutsDealt shouldBe 1
+            bob.timesKnockedOut shouldBe 0
+            // AND Alice suffered it
+            alice.knockoutsDealt shouldBe 0
+            alice.timesKnockedOut shouldBe 1
         }
 
-        "Should count times knocked out" {
-            val turns = listOf(
-                createTurn(playerId2, listOf(t(20, Multiplier.TRIPLE), t(20), t(20)), 0).copy(scoreAfterTurn = 100),
-                phantom(playerId1, scoreBeforeTurn = 100),
+        "Should count a 3-player knockout whose victim is not the previous thrower" {
+            // GIVEN Alice at 10, Bob at 5, and Carol hitting 10
+            val game = playedParcheesiGame(
+                playerIds = listOf(playerId1, playerId2, playerId3),
+                turns = listOf(listOf(t(10), t(0), t(0)), listOf(t(5), t(0), t(0)), listOf(t(10), t(0), t(0))),
             )
-            val game = parcheesiGame(legs = listOf(Leg(turns = turns, winnerId = playerId2)), winnerId = playerId2)
-            val stats = parcheesi(playerId1, listOf(game))
-            stats.knockoutsDealt shouldBe 0
-            stats.timesKnockedOut shouldBe 1
+
+            // WHEN computing stats
+            // THEN Carol dealt it, Alice suffered it and Bob is untouched
+            parcheesi(playerId3, listOf(game)).knockoutsDealt shouldBe 1
+            parcheesi(playerId1, listOf(game)).timesKnockedOut shouldBe 1
+            parcheesi(playerId2, listOf(game)).timesKnockedOut shouldBe 0
+            parcheesi(playerId2, listOf(game)).knockoutsDealt shouldBe 0
+        }
+
+        "Should count two knockouts dealt in one turn" {
+            // GIVEN Alice at 10 and Bob at 20
+            // AND Carol hits 10 (knocking out Alice) and 10 again (knocking out Bob)
+            val game = playedParcheesiGame(
+                playerIds = listOf(playerId1, playerId2, playerId3),
+                turns = listOf(listOf(t(10), t(0), t(0)), listOf(t(20), t(0), t(0)), listOf(t(10), t(10), t(0))),
+            )
+
+            // WHEN computing stats
+            // THEN Carol dealt two knockouts and each victim suffered one
+            parcheesi(playerId3, listOf(game)).knockoutsDealt shouldBe 2
+            parcheesi(playerId1, listOf(game)).timesKnockedOut shouldBe 1
+            parcheesi(playerId2, listOf(game)).timesKnockedOut shouldBe 1
+        }
+
+        "Should count a knockout from an unfinished turn only for the victim" {
+            // GIVEN Bob knocks out Alice but the game was saved before Bob's turn ended
+            val game = playedParcheesiGame(
+                playerIds = listOf(playerId1, playerId2),
+                turns = listOf(listOf(t(20), t(0), t(0))),
+                midTurnThrows = listOf(t(20)),
+            )
+
+            // WHEN computing stats
+            // THEN Alice was knocked out
+            parcheesi(playerId1, listOf(game)).timesKnockedOut shouldBe 1
+            // AND nobody is credited, since there is no stored causing turn
+            parcheesi(playerId2, listOf(game)).knockoutsDealt shouldBe 0
         }
 
         "Should compute bounce-back rate" {
