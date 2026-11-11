@@ -97,7 +97,8 @@ class ActiveGameScreen(
             onMultiplierChange = screenModel::setMultiplier,
             onScoreSelect = screenModel::onScoreSelect,
             onMiss = screenModel::onMiss,
-            onUndo = screenModel::undoLastThrow,
+            onUndo = screenModel::undo,
+            onUndoWin = screenModel::undoWin,
             onEndTurn = screenModel::endTurn,
             onDismissLegWon = screenModel::dismissLegWonDialog,
             onDismissGameComplete = {
@@ -133,6 +134,7 @@ fun ActiveGameContent(
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onMiss: () -> Unit,
     onUndo: () -> Unit,
+    onUndoWin: () -> Unit,
     onEndTurn: () -> Unit,
     onDismissLegWon: () -> Unit,
     onDismissGameComplete: () -> Unit,
@@ -344,13 +346,17 @@ fun ActiveGameContent(
         }
     }
 
+    // Undo on the win dialogs, hidden when the stored leg can't be rewound
+    val undoWin = onUndoWin.takeIf { (state.showLegWonDialog || state.showGameCompleteDialog) && state.canUndoWin }
+
     // Leg won dialog
     if (state.showLegWonDialog) {
         val result = state.lastTurnResult as? TurnResult.LegWon
         val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
 
         AlertDialog(
-            onDismissRequest = onDismissLegWon,
+            // Only Continue or Undo close it
+            onDismissRequest = { },
             title = { Text("Leg Won!") },
             text = { Text("$winnerName wins the leg!") },
             confirmButton = {
@@ -358,6 +364,7 @@ fun ActiveGameContent(
                     Text("Continue")
                 }
             },
+            dismissButton = undoWin?.let { { UndoWinButton(onClick = it) } },
         )
     }
 
@@ -367,11 +374,13 @@ fun ActiveGameContent(
             RouletteResultsDialog(
                 state = state,
                 onDismiss = onDismissGameComplete,
+                onUndo = undoWin,
             )
         } else if (state.isCheckoutPractice) {
             CheckoutPracticeResultsDialog(
                 state = state,
                 onDismiss = onDismissGameComplete,
+                onUndo = undoWin,
             )
         } else {
             val result = state.lastTurnResult as? TurnResult.MatchWon
@@ -394,6 +403,7 @@ fun ActiveGameContent(
                         Text("Finish")
                     }
                 },
+                dismissButton = undoWin?.let { { UndoWinButton(onClick = it) } },
             )
         }
     }
@@ -730,6 +740,7 @@ fun CheckoutPracticeHeader(
 fun CheckoutPracticeResultsDialog(
     state: ActiveGameState,
     onDismiss: () -> Unit,
+    onUndo: (() -> Unit)?,
 ) {
     val practiceState = state.checkoutPracticeState ?: return
     val totalRounds = practiceState.totalRounds
@@ -813,6 +824,7 @@ fun CheckoutPracticeResultsDialog(
                 Text("Finish")
             }
         },
+        dismissButton = onUndo?.let { { UndoWinButton(onClick = it) } },
     )
 }
 
@@ -883,6 +895,7 @@ fun RouletteHeader(
 fun RouletteResultsDialog(
     state: ActiveGameState,
     onDismiss: () -> Unit,
+    onUndo: (() -> Unit)?,
 ) {
     val session = state.session ?: return
     val winnerName = session.winnerId?.let { state.getPlayer(it)?.name } ?: "Player"
@@ -947,5 +960,15 @@ fun RouletteResultsDialog(
                 Text("Finish")
             }
         },
+        dismissButton = onUndo?.let { { UndoWinButton(onClick = it) } },
     )
+}
+
+/** Undo action on the leg-won / game-over dialogs: reopens the winning turn with its last dart in place. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+fun UndoWinButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text("Undo")
+    }
 }

@@ -99,31 +99,6 @@ internal data class CricketModeEngine(
         return newEngine to TurnResult.NextPlayer(newEngine.currentPlayerId())
     }
 
-    override fun undoLastThrow(): ModeEngine? {
-        if (currentTurnThrows.isEmpty()) return null
-
-        val newThrows = currentTurnThrows.dropLast(1)
-
-        val baseCricketState = session.currentLeg.cricketState ?: CricketState(
-            segments = config.cricketSegments ?: CricketSegments.standard(),
-        )
-        val currentPlayerId = currentPlayerId()
-
-        val cricketState = newThrows.fold(baseCricketState) { state, throwObj ->
-            CricketRules.applyThrow(
-                state = state,
-                throwObj = throwObj,
-                playerId = currentPlayerId,
-                playerIds = config.playerIds,
-            ).state
-        }
-
-        return copy(
-            currentTurnThrows = newThrows,
-            pendingCricketState = cricketState,
-        )
-    }
-
     fun getCricketState(): CricketState = pendingCricketState
 
     override fun withNonScoringThrow(throwObj: Throw): ModeEngine =

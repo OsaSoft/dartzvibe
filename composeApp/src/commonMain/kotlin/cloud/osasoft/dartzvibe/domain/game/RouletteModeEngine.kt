@@ -175,22 +175,6 @@ internal data class RouletteModeEngine(
         ) to TurnResult.MatchWon(winnerId)
     }
 
-    override fun undoLastThrow(): ModeEngine? {
-        if (currentTurnThrows.isEmpty()) return null
-
-        val removedThrow = currentTurnThrows.last()
-        val removedPoints = if (removedThrow.segment == currentTargetSegment) {
-            removedThrow.multiplier.value
-        } else {
-            0
-        }
-
-        return copy(
-            currentTurnThrows = currentTurnThrows.dropLast(1),
-            pendingTurnPoints = pendingTurnPoints - removedPoints,
-        )
-    }
-
     override fun withNonScoringThrow(throwObj: Throw): ModeEngine =
         copy(currentTurnThrows = currentTurnThrows + throwObj)
 

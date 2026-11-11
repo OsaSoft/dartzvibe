@@ -86,24 +86,6 @@ internal data class ClassicModeEngine(
         return newEngine to TurnResult.NextPlayer(newEngine.currentPlayerId())
     }
 
-    override fun undoLastThrow(): ModeEngine? {
-        if (currentTurnThrows.isEmpty()) return null
-
-        val newThrows = currentTurnThrows.dropLast(1)
-        val newScore = if (newThrows.isEmpty()) {
-            null
-        } else {
-            val originalScore = playerScore(currentPlayerId())
-            originalScore - newThrows.sumOf { it.score }
-        }
-
-        return copy(
-            currentTurnThrows = newThrows,
-            pendingScore = newScore,
-            isBusted = false,
-        )
-    }
-
     override fun withNonScoringThrow(throwObj: Throw): ModeEngine =
         copy(currentTurnThrows = currentTurnThrows + throwObj)
 

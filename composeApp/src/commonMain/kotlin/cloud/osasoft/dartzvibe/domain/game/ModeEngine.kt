@@ -11,7 +11,6 @@ internal sealed interface ModeEngine {
 
     fun addThrow(throwObj: Throw): Pair<ModeEngine, ThrowResult>
     fun endTurn(): Pair<ModeEngine, TurnResult>
-    fun undoLastThrow(): ModeEngine?
     fun isTurnEnded(): Boolean
     fun getCurrentPlayerScore(): Int
     fun withNonScoringThrow(throwObj: Throw): ModeEngine
