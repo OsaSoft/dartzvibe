@@ -23,14 +23,7 @@ internal data class RouletteModeEngine(
     private fun currentPlayerId(): Uuid = GameEngineHelper.getCurrentPlayerId(config, session)
 
     private val currentTargetSegment: Int
-        get() {
-            val targets = config.rouletteTargetSegments ?: emptyList()
-            return if (targets.isEmpty()) {
-                1
-            } else {
-                targets[pendingRouletteState.currentRoundIndex % targets.size]
-            }
-        }
+        get() = RouletteRules.targetFor(config.rouletteTargetSegments, pendingRouletteState.currentRoundIndex)
 
     override fun getCurrentPlayerScore(): Int =
         GameEngineHelper.getPlayerScore(config, session, currentPlayerId()) + pendingTurnPoints

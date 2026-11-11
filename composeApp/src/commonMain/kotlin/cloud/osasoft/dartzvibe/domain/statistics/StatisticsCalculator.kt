@@ -15,6 +15,7 @@ import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.model.StatAchievement
 import cloud.osasoft.dartzvibe.data.model.StatisticsFilter
 import cloud.osasoft.dartzvibe.data.model.Turn
+import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -446,11 +447,7 @@ class StatisticsCalculator {
             game.legs.forEach { leg ->
                 leg.playerTurns.forEachIndexed { index, turn ->
                     if (turn.playerId != playerId) return@forEachIndexed
-                    val target = if (targets.isEmpty()) {
-                        1
-                    } else {
-                        targets[(index / playerCount) % targets.size]
-                    }
+                    val target = rouletteTargetFor(targets, playerCount, index)
                     turnCount++
                     val turnPoints = turn.scoreAfterTurn - turn.scoreBeforeTurn
                     totalPoints += turnPoints
@@ -480,9 +477,8 @@ class StatisticsCalculator {
      * roulette legs contain no phantom turns, so integer division is exact for any prefix.
      */
     fun rouletteTargetFor(targets: List<Int>, playerCount: Int, turnIndex: Int): Int {
-        if (targets.isEmpty()) return 1
-        val pc = playerCount.coerceAtLeast(1)
-        return targets[(turnIndex / pc) % targets.size]
+        val roundIndex = turnIndex / playerCount.coerceAtLeast(1)
+        return RouletteRules.targetFor(targets, roundIndex)
     }
 
     /**
