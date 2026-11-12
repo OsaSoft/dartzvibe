@@ -38,24 +38,66 @@ fun swipeMultiplier(
 ): Multiplier? {
     val drag = current - start
     return when (mode) {
-        SwipeMultiplierMode.VERTICAL -> verticalSwipeMultiplier(drag, thresholdPx, isBull)
+        SwipeMultiplierMode.VERTICAL -> verticalSwipeMultiplier(
+            deltaY = drag.y,
+            thresholdPx = thresholdPx,
+            isBull = isBull,
+        )
+
         SwipeMultiplierMode.RADIAL -> radialSwipeMultiplier(drag, start - center, thresholdPx, isBull)
     }
 }
 
-private fun verticalSwipeMultiplier(
-    drag: Offset,
+/**
+ * The vertical swipe rule, shared by the radial board's [SwipeMultiplierMode.VERTICAL] and the grid keypad, for both
+ * the live preview and the recorded throw.
+ *
+ * @param deltaY vertical movement from the touch-down point, in px (screen y grows downward: negative = up)
+ * @param thresholdPx minimum movement (strictly greater) that counts as a swipe
+ * @param isBull true for the bull, which has no triple: any swipe beyond the threshold is DOUBLE
+ * @return [Multiplier.DOUBLE] (up) or [Multiplier.TRIPLE] (down), or null when the gesture is not a swipe (a tap or a
+ *   small wobble = single)
+ */
+fun verticalSwipeMultiplier(
+    deltaY: Float,
     thresholdPx: Float,
     isBull: Boolean,
 ): Multiplier? = when {
-    abs(drag.y) <= thresholdPx -> null
-
+    abs(deltaY) <= thresholdPx -> null
     isBull -> Multiplier.DOUBLE
-
-    // Screen y grows downward: negative = up
-    drag.y < 0f -> Multiplier.DOUBLE
-
+    deltaY < 0f -> Multiplier.DOUBLE
     else -> Multiplier.TRIPLE
+}
+
+/**
+ * What a grid keypad key enters for a gesture that lifted [deltaY] px below where it touched down (negative = above):
+ * [verticalSwipeMultiplier], or SINGLE for a tap or a wobble within [thresholdPx]. The key's live label uses it too.
+ */
+internal fun classifyKeySwipe(
+    deltaY: Float,
+    thresholdPx: Float,
+    isBull: Boolean,
+): Multiplier =
+    verticalSwipeMultiplier(deltaY = deltaY, thresholdPx = thresholdPx, isBull = isBull) ?: Multiplier.SINGLE
+
+/** The grid keypad's swipe pill: the [multiplier] previewed by the key ([key]: its number, 25 for Bull) that set it. */
+internal data class SwipePill(
+    val key: Int,
+    val multiplier: Multiplier,
+)
+
+/**
+ * The pill after [key] reports its preview ([multiplier]; null = none). A key takes the pill over when it shows a
+ * multiplier, but clears it only if it set it, so a tap on another key (a second finger) can't hide a swipe in progress.
+ */
+internal fun updateSwipePill(
+    current: SwipePill?,
+    key: Int,
+    multiplier: Multiplier?,
+): SwipePill? = when {
+    multiplier != null -> SwipePill(key = key, multiplier = multiplier)
+    current?.key == key -> null
+    else -> current
 }
 
 private fun radialSwipeMultiplier(
