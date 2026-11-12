@@ -46,7 +46,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
@@ -67,6 +70,9 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 class StatisticsScreen : Screen {
 
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
+
     @Composable
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
@@ -86,10 +92,10 @@ class StatisticsScreen : Screen {
 }
 
 @Composable
-fun rememberStatisticsScreenModel(
+fun Screen.rememberStatisticsScreenModel(
     playerRepository: PlayerRepository,
     gameRepository: GameRepository,
-): StatisticsScreenModel = remember { StatisticsScreenModel(playerRepository, gameRepository) }
+): StatisticsScreenModel = rememberScreenModel { StatisticsScreenModel(playerRepository, gameRepository) }
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class, ExperimentalLayoutApi::class)

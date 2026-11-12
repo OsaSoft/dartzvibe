@@ -55,7 +55,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
@@ -65,12 +68,16 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.replaceFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 class NewGameScreen : Screen {
+
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
 
     @Composable
     override fun Content() {
@@ -83,7 +90,7 @@ class NewGameScreen : Screen {
         // Navigate to active game when session is created
         LaunchedEffect(state.createdSession) {
             state.createdSession?.let { session ->
-                navigator.replace(ActiveGameScreen(session.id))
+                navigator.replaceFrom(this@NewGameScreen, ActiveGameScreen(session.id))
             }
         }
 
@@ -109,10 +116,10 @@ class NewGameScreen : Screen {
 
 @OptIn(ExperimentalUuidApi::class)
 @Composable
-fun rememberNewGameScreenModel(
+fun Screen.rememberNewGameScreenModel(
     playerRepository: PlayerRepository,
     gameRepository: GameRepository,
-): NewGameScreenModel = remember { NewGameScreenModel(playerRepository, gameRepository) }
+): NewGameScreenModel = rememberScreenModel { NewGameScreenModel(playerRepository, gameRepository) }
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)

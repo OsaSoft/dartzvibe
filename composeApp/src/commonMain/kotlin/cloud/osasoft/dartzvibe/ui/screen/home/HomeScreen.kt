@@ -32,13 +32,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
@@ -49,6 +51,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.leaderboard.LeaderboardScreen
 import cloud.osasoft.dartzvibe.ui.screen.players.PlayerListScreen
+import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.HeadToHeadScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
@@ -56,6 +59,9 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 class HomeScreen : Screen {
+
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
 
     @Composable
     override fun Content() {
@@ -69,42 +75,42 @@ class HomeScreen : Screen {
             state = state,
             onNewGame = {
                 if (state.playerCount >= 1) {
-                    navigator.push(NewGameScreen())
+                    navigator.pushFrom(this@HomeScreen, NewGameScreen())
                 } else {
                     // No players yet — route through player setup first instead of dead-ending.
-                    navigator.push(PlayerListScreen(fromNewGame = true))
+                    navigator.pushFrom(this@HomeScreen, PlayerListScreen(fromNewGame = true))
                 }
             },
             onResumeGame = { sessionId ->
-                navigator.push(ActiveGameScreen(sessionId))
+                navigator.pushFrom(this@HomeScreen, ActiveGameScreen(sessionId))
             },
             onViewGames = {
-                navigator.push(GamesListScreen())
+                navigator.pushFrom(this@HomeScreen, GamesListScreen())
             },
             onViewStatistics = {
-                navigator.push(StatisticsScreen())
+                navigator.pushFrom(this@HomeScreen, StatisticsScreen())
             },
             onViewHeadToHead = {
-                navigator.push(HeadToHeadScreen())
+                navigator.pushFrom(this@HomeScreen, HeadToHeadScreen())
             },
             onViewLeaderboard = {
-                navigator.push(LeaderboardScreen())
+                navigator.pushFrom(this@HomeScreen, LeaderboardScreen())
             },
             onManagePlayers = {
-                navigator.push(PlayerListScreen())
+                navigator.pushFrom(this@HomeScreen, PlayerListScreen())
             },
             onSettings = {
-                navigator.push(SettingsScreen())
+                navigator.pushFrom(this@HomeScreen, SettingsScreen())
             },
         )
     }
 }
 
 @Composable
-fun rememberHomeScreenModel(
+fun Screen.rememberHomeScreenModel(
     playerRepository: PlayerRepository,
     gameRepository: GameRepository,
-): HomeScreenModel = remember { HomeScreenModel(playerRepository, gameRepository) }
+): HomeScreenModel = rememberScreenModel { HomeScreenModel(playerRepository, gameRepository) }
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)

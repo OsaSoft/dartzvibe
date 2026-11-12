@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +13,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 
 data class PlayerListState(
@@ -58,7 +58,7 @@ class PlayerListScreenModel(
 
     fun confirmDeletePlayer() {
         val player = _state.value.playerToDelete ?: return
-        screenModelScope.launch {
+        launchToCompletion {
             try {
                 log.d { "Deleting player: ${player.name}" }
                 playerRepository.deletePlayer(player.id)

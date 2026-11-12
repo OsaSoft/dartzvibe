@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.players
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,7 +98,7 @@ class AddEditPlayerScreenModel(
         }
 
         _state.update { it.copy(isSaving = true, error = null) }
-        screenModelScope.launch {
+        launchToCompletion {
             try {
                 if (currentState.isEditMode && currentState.playerId != null) {
                     // Update existing player

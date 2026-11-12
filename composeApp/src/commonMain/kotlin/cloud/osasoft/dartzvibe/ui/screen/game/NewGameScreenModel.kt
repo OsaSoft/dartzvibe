@@ -11,6 +11,7 @@ import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
+import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlin.random.Random
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -200,7 +200,7 @@ class NewGameScreenModel(
         }
 
         _state.update { it.copy(isSaving = true, error = null) }
-        screenModelScope.launch {
+        launchToCompletion {
             try {
                 val isCheckout = currentState.gameMode == GameMode.CHECKOUT_PRACTICE
                 val isCricket = currentState.gameMode == GameMode.CRICKET

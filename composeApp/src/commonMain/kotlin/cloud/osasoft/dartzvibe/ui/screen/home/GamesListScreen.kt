@@ -37,7 +37,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,8 +44,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.ScreenModel
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
@@ -59,6 +61,8 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.gamedetail.GameDetailScreen
+import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
+import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.util.formatDateTime
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,7 +73,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -131,7 +134,7 @@ class GamesListScreenModel(
 
     fun confirmDelete() {
         val session = _state.value.gameToDelete ?: return
-        screenModelScope.launch {
+        launchToCompletion {
             try {
                 gameRepository.deleteGameSession(session.id)
                 _state.update { it.copy(gameToDelete = null) }
@@ -146,11 +149,14 @@ class GamesListScreenModel(
 @OptIn(ExperimentalUuidApi::class)
 class GamesListScreen : Screen {
 
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
+
     @Composable
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
         val gameRepository = LocalGameRepository.current
-        val screenModel = remember { GamesListScreenModel(playerRepository, gameRepository) }
+        val screenModel = rememberScreenModel { GamesListScreenModel(playerRepository, gameRepository) }
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.currentOrThrow
 
@@ -159,13 +165,13 @@ class GamesListScreen : Screen {
             onGameClick = { session ->
                 when (session.status) {
                     GameStatus.IN_PROGRESS -> {
-                        navigator.push(ActiveGameScreen(session.id))
+                        navigator.pushFrom(this@GamesListScreen, ActiveGameScreen(session.id))
                     }
 
                     GameStatus.COMPLETED,
                     GameStatus.ABANDONED,
                     -> {
-                        navigator.push(GameDetailScreen(session.id))
+                        navigator.pushFrom(this@GamesListScreen, GameDetailScreen(session.id))
                     }
                 }
             },
