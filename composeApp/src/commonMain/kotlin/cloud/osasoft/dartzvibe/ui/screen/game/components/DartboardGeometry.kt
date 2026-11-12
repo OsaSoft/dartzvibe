@@ -108,3 +108,20 @@ fun getSegmentAngles(segmentIndex: Int): Pair<Float, Float> {
  * Canvas uses 0 at 3 o'clock (right), increasing clockwise.
  */
 fun toCanvasAngle(topCenteredAngle: Float): Float = topCenteredAngle - 90f
+
+/** Largest wedge number, as a fraction of the wheel radius: on a small board the numbers mustn't touch. */
+const val WEDGE_LABEL_MAX_TO_RADIUS: Float = 0.18f
+
+/** Largest "BULL" label, as a fraction of the wheel radius: it must stay inside the bull. */
+const val BULL_LABEL_MAX_TO_RADIUS: Float = 0.10f
+
+/**
+ * Font size in pixels for a board label: the [desiredPx] size (its sp size at the user's font scale), capped at
+ * [maxToRadius] of the wheel [radiusPx]. A full-size board keeps the desired size; a board shrunk to fit a short
+ * screen, or a large font scale, gets smaller labels instead of overlapping ones.
+ */
+fun boardLabelSizePx(
+    desiredPx: Float,
+    radiusPx: Float,
+    maxToRadius: Float,
+): Float = minOf(desiredPx, radiusPx * maxToRadius)
