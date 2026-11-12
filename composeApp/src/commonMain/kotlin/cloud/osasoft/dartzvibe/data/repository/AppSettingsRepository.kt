@@ -7,6 +7,9 @@ import com.russhwolf.settings.ExperimentalSettingsApi
 import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.coroutines.FlowSettings
 import com.russhwolf.settings.coroutines.toFlowSettings
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import me.tatarka.inject.annotations.Inject
@@ -21,12 +24,18 @@ interface AppSettingsRepository {
     suspend fun setSwipeMultiplierMode(mode: SwipeMultiplierMode)
 }
 
+/**
+ * Every settings flow registers a listener on [settings] from [dispatcher]. `getSettings()` combines six of them, so
+ * on a multi-threaded dispatcher those registrations run in parallel: fine for SharedPreferences and NSUserDefaults,
+ * but not for a store with a plain listener list such as `MapSettings`. Tests pass a single-threaded test dispatcher.
+ */
 @OptIn(ExperimentalSettingsApi::class)
 @Inject
 class AppSettingsRepositoryImpl(
     settings: ObservableSettings,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : AppSettingsRepository {
-    private val flowSettings: FlowSettings = settings.toFlowSettings()
+    private val flowSettings: FlowSettings = settings.toFlowSettings(dispatcher)
 
     // The typed combine overloads stop at 5 flows, so later settings are layered onto the first five
     override fun getSettings(): Flow<AppSettingsData> = combine(
