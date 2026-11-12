@@ -1,7 +1,7 @@
 package cloud.osasoft.dartzvibe.ui.screen.game.components
 
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,15 +18,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -34,9 +46,17 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
-import kotlin.math.abs
 
 private const val SWIPE_THRESHOLD_DP = 30f
+
+/** Key the Bull button reports to [updateSwipePill] (the 1–20 keys report their number). */
+private const val BULL_KEY = 25
+
+/**
+ * Opacity of the pressed tint on a key held without buttons, like the state layer an enabled Button shows when
+ * pressed, a little stronger because there is no ripple to go with it.
+ */
+private const val PRESSED_TINT_ALPHA = 0.16f
 
 /** Padding around the whole keypad. */
 private val KeypadPadding = 8.dp
@@ -121,7 +141,14 @@ fun ScoreInputKeypad(
     // Height available to the whole keypad; the 1–20 keys shrink to fit it (down to minKeyHeight). Null: default.
     maxHeight: Dp? = null,
 ) {
-    var activeSwipeMultiplier by remember { mutableStateOf<Multiplier?>(null) }
+    var swipePill by remember { mutableStateOf<SwipePill?>(null) }
+    // Only the key that set the pill clears it, so a second finger on another key can't hide it
+    val swipeChangeFor = { key: Int ->
+        { multiplier: Multiplier? ->
+            swipePill =
+                updateSwipePill(current = swipePill, key = key, multiplier = multiplier)
+        }
+    }
     // A shrunk key must still fit its one-line label at the user's font scale
     val labelLineHeight = MaterialTheme.typography.titleSmall.lineHeight
     val minKeyHeight = with(LocalDensity.current) {
@@ -158,7 +185,7 @@ fun ScoreInputKeypad(
                                 enabled = canThrow,
                                 oneLineLabel = oneLineLabels,
                                 onScoreSelect = { segment, multiplier -> onScoreSelect(segment, multiplier) },
-                                onSwipeChange = { activeSwipeMultiplier = it },
+                                onSwipeChange = swipeChangeFor(score),
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -172,7 +199,7 @@ fun ScoreInputKeypad(
                     selectedMultiplier = selectedMultiplier,
                     enabled = canThrow,
                     onScoreSelect = onScoreSelect,
-                    onSwipeChange = { activeSwipeMultiplier = it },
+                    onSwipeChange = swipeChangeFor(BULL_KEY),
                 )
 
                 // Miss button
@@ -199,7 +226,7 @@ fun ScoreInputKeypad(
 
         // Floating multiplier indicator overlay
         MultiplierIndicator(
-            multiplier = activeSwipeMultiplier,
+            multiplier = swipePill?.multiplier,
             modifier = Modifier.align(Alignment.Center),
         )
     }
@@ -226,6 +253,125 @@ private fun MultiplierButtonsRow(
     }
 }
 
+/** Live state of a key's swipe, written by [keySwipeInput] and read to draw the key. */
+private class KeySwipeState {
+    var isPressed by mutableStateOf(false)
+
+    /** Multiplier the key would enter if lifted now ([classifyKeySwipe]); SINGLE until the swipe passes the threshold. */
+    var preview by mutableStateOf(Multiplier.SINGLE)
+}
+
+/** Pill callback value for a key's preview: null (no pill) for a single. */
+private fun Multiplier.asPill(): Multiplier? = takeIf { it != Multiplier.SINGLE }
+
+/**
+ * Tap and swipe input for a grid key while the S/D/T buttons are hidden ([active]): one gesture per touch, classified
+ * on lift by [classifyKeySwipe] from the vertical movement since touch-down. The live [swipe] preview uses the same
+ * function and pixel threshold, so the label flips exactly where the throw would change. A cancelled gesture enters
+ * nothing.
+ *
+ * Runs in the Initial pass: the key is a disabled Button, and its clickable still consumes the down and the up in the
+ * Main pass before this outer modifier would see them (that made a plain tap never register).
+ *
+ * The handler is long-lived (restarting it would cancel a swipe in progress), so it reads the callbacks through
+ * updated state ([onSwipeChange], [onRelease]); [active] is a key, so toggling it takes effect at once.
+ */
+private fun Modifier.keySwipeInput(
+    active: Boolean,
+    isBull: Boolean,
+    swipe: KeySwipeState,
+    onSwipeChange: State<(Multiplier?) -> Unit>,
+    onRelease: State<(Multiplier) -> Unit>,
+): Modifier = pointerInput(active, isBull) {
+    // Inactive (buttons shown, or no throw allowed): leave every event to the Button
+    if (!active) return@pointerInput
+
+    val thresholdPx = SWIPE_THRESHOLD_DP * density
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        down.consume()
+        val multiplierAt = { y: Float ->
+            classifyKeySwipe(deltaY = y - down.position.y, thresholdPx = thresholdPx, isBull = isBull)
+        }
+        swipe.isPressed = true
+        swipe.preview = Multiplier.SINGLE
+
+        // finally: clear the preview even if the handler is cancelled mid-swipe (e.g. the gate key changes)
+        try {
+            var lastY = down.position.y
+            var lifted = false
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                // The pointer vanished: cancelled
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                lastY = change.position.y
+                if (!change.pressed) {
+                    // A real lift reaches this pass unconsumed; a system cancel arrives as an already consumed up
+                    lifted = !change.isConsumed
+                    change.consume()
+                    break
+                }
+                change.consume()
+                val preview = multiplierAt(lastY)
+                if (preview != swipe.preview) {
+                    swipe.preview = preview
+                    onSwipeChange.value(preview.asPill())
+                }
+            }
+            if (lifted) {
+                onRelease.value(multiplierAt(lastY))
+            }
+        } finally {
+            swipe.isPressed = false
+            swipe.preview = Multiplier.SINGLE
+            onSwipeChange.value(null)
+        }
+    }
+}
+
+/**
+ * Accessibility for a grid key while the S/D/T buttons are hidden ([active]). The key is a disabled Button then, so
+ * TalkBack would read it as disabled and offer nothing; instead it is a Button whose click enters a single, with
+ * custom actions for the double and (not on the [isBull] key) the triple. Inactive: the Button's own semantics.
+ */
+private fun Modifier.keyAccessibility(
+    active: Boolean,
+    label: String,
+    isBull: Boolean,
+    onEnter: (Multiplier) -> Unit,
+): Modifier = if (active) {
+    clearAndSetSemantics {
+        contentDescription = label
+        role = Role.Button
+        onClick(label = "Single") {
+            onEnter(Multiplier.SINGLE)
+            true
+        }
+        customActions = listOfNotNull(
+            CustomAccessibilityAction(label = "Double") {
+                onEnter(Multiplier.DOUBLE)
+                true
+            },
+            if (isBull) {
+                null
+            } else {
+                CustomAccessibilityAction(label = "Triple") {
+                    onEnter(Multiplier.TRIPLE)
+                    true
+                }
+            },
+        )
+    }
+} else {
+    this
+}
+
+/** Container of a key held down for a single without buttons: the key's colour with a pressed tint over it. */
+@Composable
+private fun pressedKeyContainer(): Color = MaterialTheme.colorScheme.onSecondaryContainer
+    .copy(alpha = PRESSED_TINT_ALPHA)
+    .compositeOver(MaterialTheme.colorScheme.secondaryContainer)
+
 @Suppress("ktlint:standard:function-naming")
 @Composable
 private fun ScoreButton(
@@ -239,21 +385,11 @@ private fun ScoreButton(
     onSwipeChange: (Multiplier?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var dragStartY by remember { mutableStateOf<Float?>(null) }
-    var currentDragY by remember { mutableStateOf<Float?>(null) }
-    var isPressed by remember { mutableStateOf(false) }
+    val swipe = remember { KeySwipeState() }
+    val isPressed = swipe.isPressed
 
-    // Determine the current multiplier based on drag state (for display)
-    val displayMultiplier = if (showMultiplierButtons || dragStartY == null || currentDragY == null) {
-        if (showMultiplierButtons) selectedMultiplier else Multiplier.SINGLE
-    } else {
-        val deltaY = currentDragY!! - dragStartY!!
-        when {
-            deltaY < -SWIPE_THRESHOLD_DP -> Multiplier.DOUBLE
-            deltaY > SWIPE_THRESHOLD_DP -> Multiplier.TRIPLE
-            else -> Multiplier.SINGLE
-        }
-    }
+    // The multiplier to display: the selected one with buttons, else the one the current swipe would record
+    val displayMultiplier = if (showMultiplierButtons) selectedMultiplier else swipe.preview
 
     val displayScore = score * displayMultiplier.value
     val prefix = when (displayMultiplier) {
@@ -266,9 +402,13 @@ private fun ScoreButton(
     val multiplierColors = MaterialTheme.multiplierColors
     val containerColor = when {
         !isPressed -> MaterialTheme.colorScheme.secondaryContainer
+
         displayMultiplier == Multiplier.DOUBLE -> multiplierColors.double
+
         displayMultiplier == Multiplier.TRIPLE -> multiplierColors.triple
-        else -> MaterialTheme.colorScheme.secondaryContainer
+
+        // Held for a single (only without buttons): pressed tint, so a tap shows it registered
+        else -> pressedKeyContainer()
     }
     val contentColor = when {
         !isPressed -> MaterialTheme.colorScheme.onSecondaryContainer
@@ -277,62 +417,23 @@ private fun ScoreButton(
         else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
-    val gestureModifier = if (!showMultiplierButtons && enabled) {
-        modifier
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    onScoreSelect(score, Multiplier.SINGLE)
-                }
-            }
-            .pointerInput(Unit) {
-                val swipeThresholdPx = SWIPE_THRESHOLD_DP * density
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        dragStartY = offset.y
-                        currentDragY = offset.y
-                        isPressed = true
-                        onSwipeChange(null)
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        currentDragY = change.position.y
-                        val startY = dragStartY ?: return@detectDragGestures
-                        val deltaY = change.position.y - startY
-                        val multiplier = when {
-                            deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
-                            deltaY > swipeThresholdPx -> Multiplier.TRIPLE
-                            else -> null
-                        }
-                        onSwipeChange(multiplier)
-                    },
-                    onDragEnd = {
-                        val startY = dragStartY
-                        val endY = currentDragY
-                        if (startY != null && endY != null) {
-                            val deltaY = endY - startY
-                            val multiplier = when {
-                                deltaY < -swipeThresholdPx -> Multiplier.DOUBLE
-                                deltaY > swipeThresholdPx -> Multiplier.TRIPLE
-                                else -> Multiplier.SINGLE
-                            }
-                            onScoreSelect(score, multiplier)
-                        }
-                        dragStartY = null
-                        currentDragY = null
-                        isPressed = false
-                        onSwipeChange(null)
-                    },
-                    onDragCancel = {
-                        dragStartY = null
-                        currentDragY = null
-                        isPressed = false
-                        onSwipeChange(null)
-                    },
-                )
-            }
-    } else {
-        modifier
-    }
+    val swipeInputActive = !showMultiplierButtons && enabled
+    val currentOnSwipeChange = rememberUpdatedState(onSwipeChange)
+    val currentOnRelease = rememberUpdatedState { multiplier: Multiplier -> onScoreSelect(score, multiplier) }
+    val gestureModifier = modifier
+        .keyAccessibility(
+            active = swipeInputActive,
+            label = "$score",
+            isBull = false,
+            onEnter = { multiplier -> onScoreSelect(score, multiplier) },
+        )
+        .keySwipeInput(
+            active = swipeInputActive,
+            isBull = false,
+            swipe = swipe,
+            onSwipeChange = currentOnSwipeChange,
+            onRelease = currentOnRelease,
+        )
 
     FilledTonalButton(
         onClick = { onScoreSelect(score, selectedMultiplier) },
@@ -398,27 +499,15 @@ private fun BullButton(
     onSwipeChange: (Multiplier?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var dragStartY by remember { mutableStateOf<Float?>(null) }
-    var currentDragY by remember { mutableStateOf<Float?>(null) }
-    var isPressed by remember { mutableStateOf(false) }
+    val swipe = remember { KeySwipeState() }
+    val isPressed = swipe.isPressed
 
-    // Bull only has single (25) and double (50), no triple
-    // Determine the current multiplier based on drag state (for display)
-    val displayMultiplier = if (showMultiplierButtons || dragStartY == null || currentDragY == null) {
-        if (showMultiplierButtons) {
-            // Clamp to SINGLE or DOUBLE only for bull
-            if (selectedMultiplier == Multiplier.TRIPLE) Multiplier.DOUBLE else selectedMultiplier
-        } else {
-            Multiplier.SINGLE
-        }
+    // Bull only has single (25) and double (50), no triple: buttons clamp Triple to Double, and a swipe either way
+    // is Double (see classifyKeySwipe)
+    val displayMultiplier = if (showMultiplierButtons) {
+        if (selectedMultiplier == Multiplier.TRIPLE) Multiplier.DOUBLE else selectedMultiplier
     } else {
-        val deltaY = currentDragY!! - dragStartY!!
-        // Both up and down swipe result in DOUBLE for bull
-        if (abs(deltaY) > SWIPE_THRESHOLD_DP) {
-            Multiplier.DOUBLE
-        } else {
-            Multiplier.SINGLE
-        }
+        swipe.preview
     }
 
     val displayScore = 25 * displayMultiplier.value
@@ -429,8 +518,11 @@ private fun BullButton(
     val multiplierColors = MaterialTheme.multiplierColors
     val containerColor = when {
         !isPressed -> MaterialTheme.colorScheme.secondaryContainer
+
         displayMultiplier == Multiplier.DOUBLE -> multiplierColors.double
-        else -> MaterialTheme.colorScheme.secondaryContainer
+
+        // Held for a single (only without buttons): pressed tint, so a tap shows it registered
+        else -> pressedKeyContainer()
     }
     val contentColor = when {
         !isPressed -> MaterialTheme.colorScheme.onSecondaryContainer
@@ -438,64 +530,23 @@ private fun BullButton(
         else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
-    val gestureModifier = if (!showMultiplierButtons && enabled) {
-        modifier
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    onScoreSelect(25, Multiplier.SINGLE)
-                }
-            }
-            .pointerInput(Unit) {
-                val swipeThresholdPx = SWIPE_THRESHOLD_DP * density
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        dragStartY = offset.y
-                        currentDragY = offset.y
-                        isPressed = true
-                        onSwipeChange(null)
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        currentDragY = change.position.y
-                        val startY = dragStartY ?: return@detectDragGestures
-                        val deltaY = change.position.y - startY
-                        // Both up and down show DOUBLE indicator for bull
-                        val multiplier = if (abs(deltaY) > swipeThresholdPx) {
-                            Multiplier.DOUBLE
-                        } else {
-                            null
-                        }
-                        onSwipeChange(multiplier)
-                    },
-                    onDragEnd = {
-                        val startY = dragStartY
-                        val endY = currentDragY
-                        if (startY != null && endY != null) {
-                            val deltaY = endY - startY
-                            // Both up and down result in DOUBLE for bull
-                            val multiplier = if (abs(deltaY) > swipeThresholdPx) {
-                                Multiplier.DOUBLE
-                            } else {
-                                Multiplier.SINGLE
-                            }
-                            onScoreSelect(25, multiplier)
-                        }
-                        dragStartY = null
-                        currentDragY = null
-                        isPressed = false
-                        onSwipeChange(null)
-                    },
-                    onDragCancel = {
-                        dragStartY = null
-                        currentDragY = null
-                        isPressed = false
-                        onSwipeChange(null)
-                    },
-                )
-            }
-    } else {
-        modifier
-    }
+    val swipeInputActive = !showMultiplierButtons && enabled
+    val currentOnSwipeChange = rememberUpdatedState(onSwipeChange)
+    val currentOnRelease = rememberUpdatedState { multiplier: Multiplier -> onScoreSelect(25, multiplier) }
+    val gestureModifier = modifier
+        .keyAccessibility(
+            active = swipeInputActive,
+            label = "25, Outer bull",
+            isBull = true,
+            onEnter = { multiplier -> onScoreSelect(25, multiplier) },
+        )
+        .keySwipeInput(
+            active = swipeInputActive,
+            isBull = true,
+            swipe = swipe,
+            onSwipeChange = currentOnSwipeChange,
+            onRelease = currentOnRelease,
+        )
 
     FilledTonalButton(
         onClick = {
