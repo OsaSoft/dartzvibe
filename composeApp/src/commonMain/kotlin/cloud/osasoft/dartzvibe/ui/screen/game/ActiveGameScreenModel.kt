@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.CheckoutPracticeState
 import cloud.osasoft.dartzvibe.data.model.CricketState
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.GameType
@@ -175,10 +176,18 @@ data class ActiveGameState(
     val rouletteTargetScore: Int?
         get() = session?.config?.rouletteTargetScore
 
+    /** Whether the mode can have a checkout, so the screen reserves the checkout slot (Classic, Parcheesi, Practice). */
+    val hasCheckoutSlot: Boolean
+        get() = when (session?.config?.gameMode) {
+            GameMode.CLASSIC, GameMode.PARCHEESI, GameMode.CHECKOUT_PRACTICE -> true
+            GameMode.CRICKET, GameMode.ROULETTE, null -> false
+        }
+
     val checkoutOptions: List<CheckoutPath>?
         get() {
-            // No checkout hints for Cricket or Roulette
-            if (isCricket || isRoulette) return null
+            // No checkout hints for Cricket or Roulette, nor once the turn has ended: after a bust or bounce the
+            // score is back at the turn start (or the bounced score), which this turn can no longer finish
+            if (!hasCheckoutSlot || isTurnEnded) return null
 
             val doubleOut = session?.config?.doubleOut ?: true
             // For Parcheesi, calculate remaining to target

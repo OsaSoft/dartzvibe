@@ -4,12 +4,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,8 +49,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -217,133 +226,35 @@ fun ActiveGameContent(
                 )
             }
         } else {
-            Column(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState()),
+                    .padding(padding),
             ) {
-                // Player score cards, Cricket scoreboard, Checkout Practice header, or Roulette header
-                if (state.isRoulette) {
-                    RouletteHeader(
-                        state = state,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
-                    PlayerScoresRow(
-                        state = state,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                    )
-                } else if (state.isCheckoutPractice) {
-                    CheckoutPracticeHeader(
-                        state = state,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
-                } else if (state.isCricket) {
-                    val session = state.session
-                    val cricketState = state.cricketState
-                    if (session != null && cricketState != null) {
-                        CricketScoreboard(
-                            segments = cricketState.segments,
-                            playerIds = session.config.playerIds,
-                            players = state.players,
-                            cricketState = cricketState,
-                            currentPlayerId = state.currentPlayerId,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                        )
-                    }
-                } else {
-                    PlayerScoresRow(
-                        state = state,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
-                }
-
-                // Current turn display
-                // Roulette and Checkout Practice headers already show their own round progress. Behind the
-                // win dialogs the engine is the one before the winning End Turn, so this is the leg's last round
-                val hideRoundNumber = state.isRoulette || state.isCheckoutPractice
-                CurrentTurnDisplay(
-                    roundNumber = if (hideRoundNumber) null else state.currentRoundNumber,
-                    currentThrows = state.currentTurnThrows,
-                    selectedMultiplier = state.selectedMultiplier,
-                    lastThrowResult = state.lastThrowResult,
-                    canUndo = state.canUndo,
-                    onUndo = onUndo,
-                    isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
-                    rouletteTurnPoints = state.rouletteTurnPoints,
+                // The screen's height without the bars: stable for the whole game
+                val viewportHeight = maxHeight
+                HeaderThenInput(
+                    viewportHeight = viewportHeight,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    header = {
+                        GameHeader(state = state, onUndo = onUndo)
+                    },
+                    input = { heightLeft ->
+                        GameInput(
+                            state = state,
+                            settings = settings,
+                            // Classic, Parcheesi and Checkout Practice fit the input to the height their fixed rows
+                            // leave, so short phones don't scroll; Cricket and Roulette keep main's layout
+                            maxHeight = heightLeft.takeIf { state.hasCheckoutSlot },
+                            onMultiplierChange = onMultiplierChange,
+                            onScoreSelect = onScoreSelect,
+                            onMiss = onMiss,
+                            onEndTurn = onEndTurn,
+                        )
+                    },
                 )
-
-                // Checkout suggestions
-                state.checkoutOptions?.let { options ->
-                    CheckoutHint(
-                        checkoutOptions = options,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
-                }
-
-                // Score input keypad (hidden when turn is complete)
-                if (state.canThrow) {
-                    if (state.isRoulette) {
-                        // Only the current target scores in Roulette: quick Miss/Hit/Double/Triple pad,
-                        // regardless of the keypad settings
-                        state.currentRouletteTarget?.let { target ->
-                            RouletteInputPad(
-                                target = target,
-                                onScoreSelect = onScoreSelect,
-                                onMiss = onMiss,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    } else if (settings.useRadialKeypad) {
-                        RadialDartboard(
-                            selectedMultiplier = state.selectedMultiplier,
-                            canThrow = state.canThrow,
-                            showMultiplierButtons = settings.showMultiplierButtons,
-                            swipeMultiplierMode = settings.swipeMultiplierMode,
-                            onMultiplierChange = onMultiplierChange,
-                            onScoreSelect = onScoreSelect,
-                            onMiss = onMiss,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        ScoreInputKeypad(
-                            selectedMultiplier = state.selectedMultiplier,
-                            canThrow = state.canThrow,
-                            showMultiplierButtons = settings.showMultiplierButtons,
-                            onMultiplierChange = onMultiplierChange,
-                            onScoreSelect = onScoreSelect,
-                            onMiss = onMiss,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                } else {
-                    // End Turn button (shown when turn is complete - 3 throws or bust)
-                    FilledTonalButton(
-                        onClick = onEndTurn,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Text(if (state.isCheckoutPractice) "Next Target" else "End Turn")
-                    }
-                }
             }
         }
     }
@@ -466,6 +377,192 @@ fun ActiveGameContent(
     }
 }
 
+/** Everything above the input: scores or mode header, the current turn and (in checkout modes) the checkout slot. */
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun GameHeader(
+    state: ActiveGameState,
+    onUndo: () -> Unit,
+) {
+    // Player score cards, Cricket scoreboard, Checkout Practice header, or Roulette header
+    if (state.isRoulette) {
+        RouletteHeader(
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+        PlayerScoresRow(
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+        )
+    } else if (state.isCheckoutPractice) {
+        CheckoutPracticeHeader(
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        )
+    } else if (state.isCricket) {
+        val session = state.session
+        val cricketState = state.cricketState
+        if (session != null && cricketState != null) {
+            CricketScoreboard(
+                segments = cricketState.segments,
+                playerIds = session.config.playerIds,
+                players = state.players,
+                cricketState = cricketState,
+                currentPlayerId = state.currentPlayerId,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+            )
+        }
+    } else {
+        // Tighter below than elsewhere: Classic and Parcheesi also lay out the checkout slot
+        PlayerScoresRow(
+            state = state,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 4.dp),
+        )
+    }
+
+    // Classic, Parcheesi and Checkout Practice reserve a checkout slot below the turn display
+    val hasCheckoutSlot = state.hasCheckoutSlot
+
+    // Current turn display
+    // Roulette and Checkout Practice headers already show their own round progress. Behind the
+    // win dialogs the engine is the one before the winning End Turn, so this is the leg's last round
+    val hideRoundNumber = state.isRoulette || state.isCheckoutPractice
+    CurrentTurnDisplay(
+        roundNumber = if (hideRoundNumber) null else state.currentRoundNumber,
+        currentThrows = state.currentTurnThrows,
+        selectedMultiplier = state.selectedMultiplier,
+        lastThrowResult = state.lastThrowResult,
+        canUndo = state.canUndo,
+        onUndo = onUndo,
+        isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
+        rouletteTurnPoints = state.rouletteTurnPoints,
+        compact = hasCheckoutSlot,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+    )
+
+    // Checkout slot: always laid out at a fixed height in the modes that can have a checkout, so the
+    // input below never moves when a suggestion appears, changes or disappears
+    if (hasCheckoutSlot) {
+        CheckoutHint(
+            checkoutOptions = state.checkoutOptions,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, top = 4.dp, end = 8.dp),
+        )
+    }
+}
+
+/** The score input for the mode and settings, or End Turn once the turn is complete. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun GameInput(
+    state: ActiveGameState,
+    settings: AppSettingsData,
+    maxHeight: Dp?,
+    onMultiplierChange: (Multiplier) -> Unit,
+    onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
+    onMiss: () -> Unit,
+    onEndTurn: () -> Unit,
+) {
+    // Score input keypad (hidden when turn is complete)
+    if (state.canThrow) {
+        if (state.isRoulette) {
+            // Only the current target scores in Roulette: quick Miss/Hit/Double/Triple pad,
+            // regardless of the keypad settings
+            state.currentRouletteTarget?.let { target ->
+                RouletteInputPad(
+                    target = target,
+                    onScoreSelect = onScoreSelect,
+                    onMiss = onMiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        } else if (settings.useRadialKeypad) {
+            RadialDartboard(
+                selectedMultiplier = state.selectedMultiplier,
+                canThrow = state.canThrow,
+                showMultiplierButtons = settings.showMultiplierButtons,
+                swipeMultiplierMode = settings.swipeMultiplierMode,
+                onMultiplierChange = onMultiplierChange,
+                onScoreSelect = onScoreSelect,
+                onMiss = onMiss,
+                modifier = Modifier.fillMaxWidth(),
+                maxHeight = maxHeight,
+            )
+        } else {
+            ScoreInputKeypad(
+                selectedMultiplier = state.selectedMultiplier,
+                canThrow = state.canThrow,
+                showMultiplierButtons = settings.showMultiplierButtons,
+                onMultiplierChange = onMultiplierChange,
+                onScoreSelect = onScoreSelect,
+                onMiss = onMiss,
+                modifier = Modifier.fillMaxWidth(),
+                maxHeight = maxHeight,
+            )
+        }
+    } else {
+        // End Turn button (shown when turn is complete - 3 throws or bust)
+        FilledTonalButton(
+            onClick = onEndTurn,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .height(48.dp),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Text(if (state.isCheckoutPractice) "Next Target" else "End Turn")
+        }
+    }
+}
+
+/**
+ * Stacks [header] and [input] like a Column (inside the screen's vertical scroll) and passes [input] the height the
+ * header leaves of [viewportHeight]. The header is measured first and on its own, so that height depends only on
+ * the viewport and the header's fixed rows, never on what the input shows (board, keypad or End Turn).
+ */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun HeaderThenInput(
+    viewportHeight: Dp,
+    header: @Composable () -> Unit,
+    input: @Composable (heightLeft: Dp) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SubcomposeLayout(modifier = modifier) { constraints ->
+        val childConstraints = constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity)
+        val headerPlaceables = subcompose(HeaderSlot.HEADER, header).map { it.measure(childConstraints) }
+        val headerHeight = headerPlaceables.sumOf { it.height }
+        val heightLeft = (viewportHeight.roundToPx() - headerHeight).coerceAtLeast(0).toDp()
+        val inputPlaceables = subcompose(HeaderSlot.INPUT) { input(heightLeft) }.map { it.measure(childConstraints) }
+        val placeables = headerPlaceables + inputPlaceables
+        val height = constraints.constrainHeight(placeables.sumOf { it.height })
+
+        layout(constraints.maxWidth, height) {
+            var y = 0
+            placeables.forEach { placeable ->
+                placeable.place(x = 0, y = y)
+                y += placeable.height
+            }
+        }
+    }
+}
+
+private enum class HeaderSlot { HEADER, INPUT }
+
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
@@ -512,6 +609,8 @@ fun CurrentTurnDisplay(
     onUndo: () -> Unit,
     isCricket: Boolean = false,
     rouletteTurnPoints: Int? = null,
+    // Tighter vertical spacing, used where the checkout slot also needs room above the input
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -523,7 +622,7 @@ fun CurrentTurnDisplay(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Current round (hidden when the mode header already shows round progress)
@@ -534,10 +633,18 @@ fun CurrentTurnDisplay(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(if (compact) 2.dp else 4.dp))
             }
 
+            // At least as tall as the turn total that appears with the first dart: above 1.0 font scale its line
+            // is taller than the 36 dp chips, and the input below would drop on the first dart of every turn
+            val turnTotalLineHeight = with(LocalDensity.current) {
+                MaterialTheme.typography.headlineMedium.lineHeight
+                    .takeIf { it.isSp }
+                    ?.toDp() ?: 36.dp
+            }
             Row(
+                modifier = Modifier.heightIn(min = turnTotalLineHeight),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -612,7 +719,7 @@ fun CurrentTurnDisplay(
             }
 
             // Undo button
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
             OutlinedButton(
                 onClick = onUndo,
                 enabled = canUndo,
@@ -702,7 +809,7 @@ fun CheckoutPracticeHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Round progress
@@ -726,14 +833,20 @@ fun CheckoutPracticeHeader(
 
             // Remaining score
             // Hidden at 0: a final checkout stays on screen behind Practice Complete, the darts row shows OUT!
+            // Hidden lines stay laid out (transparent), so the header keeps its height and the input below never moves
             val remaining = state.currentPlayerScore
-            if (remaining != state.currentCheckoutTarget && remaining != 0) {
-                Text(
-                    text = "Remaining: $remaining",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                )
-            }
+            val showRemaining = remaining != state.currentCheckoutTarget && remaining != 0
+            Text(
+                text = "Remaining: $remaining",
+                style = MaterialTheme.typography.titleMedium,
+                // Hidden: keep it out of TalkBack too
+                modifier = if (showRemaining) Modifier else Modifier.clearAndSetSemantics { },
+                color = if (showRemaining) {
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                } else {
+                    Color.Transparent
+                },
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
