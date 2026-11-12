@@ -255,6 +255,56 @@ class HomeScreenModelTest : FreeSpec({
         }
     }
 
+    "Coming back to Home" - {
+        "Should hide Resume Game once the game is abandoned while Home stays in the stack" {
+            runTest {
+                // GIVEN Home loaded with a game in progress (its model survives while the game screen is on top)
+                val playerRepo = FakePlayerRepository()
+                val gameRepo = FakeGameRepository()
+                val alice = makePlayer("Alice")
+                playerRepo.insertPlayer(alice)
+                val session = makeInProgressSession(listOf(alice.id))
+                gameRepo.insertSession(session)
+                val screenModel = HomeScreenModel(playerRepo, gameRepo)
+                advanceUntilIdle()
+                screenModel.state.value.inProgressGame?.id shouldBe session.id
+
+                // WHEN the game screen saves the game as abandoned
+                gameRepo.updateGameSession(session.copy(status = GameStatus.ABANDONED))
+                advanceUntilIdle()
+
+                // THEN Home no longer offers Resume Game
+                screenModel.state.value.inProgressGame shouldBe null
+                screenModel.state.value.inProgressGamePlayers shouldBe emptyList()
+            }
+        }
+
+        "Should count a game finished and a player added while Home stays in the stack" {
+            runTest {
+                // GIVEN Home loaded with one player and a game in progress
+                val playerRepo = FakePlayerRepository()
+                val gameRepo = FakeGameRepository()
+                val alice = makePlayer("Alice")
+                playerRepo.insertPlayer(alice)
+                val session = makeInProgressSession(listOf(alice.id))
+                gameRepo.insertSession(session)
+                val screenModel = HomeScreenModel(playerRepo, gameRepo)
+                advanceUntilIdle()
+
+                // WHEN the game is finished and another player is added from the screens above
+                gameRepo.updateGameSession(session.copy(status = GameStatus.COMPLETED, winnerId = alice.id))
+                playerRepo.insertPlayer(makePlayer("Bob"))
+                advanceUntilIdle()
+
+                // THEN the counts and Resume Game are up to date
+                val state = screenModel.state.value
+                state.inProgressGame shouldBe null
+                state.completedGameCount shouldBe 1
+                state.playerCount shouldBe 2
+            }
+        }
+    }
+
     "New Game routing condition" - {
         "Should have playerCount < 1 when no players exist (route to PlayerListScreen)" {
             runTest {
