@@ -117,10 +117,10 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
 
 ## Feature workflow
 
-1. **Acceptance criteria first.** Write down what a person should *see* when the feature works, per mode and in both themes if it touches UI. Number them: the scorer judges against them and the PR description lists them.
+1. **Acceptance criteria first.** Write down what a person should *see* when the feature works, per mode, and in both themes if it changes colours or adds or restyles UI. Number them: the scorer judges against them and the PR description lists them.
 2. **Record "before"** on `main` for UI changes. Build `main` in a separate git worktree rather than switching branches (one build per checkout).
 3. **Implement**: one agent for small changes. For big or risky features, run 2–3 independent implementations in separate worktrees and keep the one that scores best.
-4. **Verify by evidence:** spotless, tests and the build pass, then record "after" in light **and** dark. An agent that never saw the code scores the recording against the acceptance criteria. Iterate until it scores ≥ 9/10.
+4. **Verify by evidence:** spotless, tests and the build pass, then record "after". Record light **and** dark only when the change affects colours or appearance (a new colour, new UI, a restyle); for behaviour, logic or layout-position fixes one theme is enough. An agent that never saw the code scores the recording against the acceptance criteria. Iterate until it scores ≥ 9/10.
 5. **Independent review** by a fresh agent that gets the diff, not the implementer's conclusions. Fix the real findings. When findings sit on the PR, answer each one with "Fixed in `<sha>`: what changed, which test covers it", or with a reason for declining.
 6. **Clean history:** messy iteration commits are fine on a work branch. Before opening the PR, replay the work into a few logical commits, with prerequisite fixes first, then the feature, then tests and docs.
 
@@ -135,13 +135,13 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
   - **Verification**: the exact commands and their results, and test counts.
   - **Not checked**: platforms, modes or interactions you didn't verify.
   - **Already broken on `main`**: problems found along the way but left out of scope.
-  - **Videos**: one heading per feature. Mark each clip **Before**/**After** and **Dark**/**Light**.
+  - **Videos**: one heading per feature. Mark each clip **Before**/**After**, and **Dark**/**Light** when both themes were recorded.
 - **Media files:**
   - Store videos and screenshots in the gitignored `pr-media/<slug>/<feature>/<what>-{before,after}-{light,dark}.mp4`. Rename the folder to `pr-<N>-<slug>` once the PR exists.
   - Attach them with `gh` 2.99 or later (`--attach`; you need push access).
     - In the PR body (`--body-file`), put each video on its own line as `![](pr-media/…/clip.mp4)`, with a blank line before and after. A video inside a sentence becomes a plain link.
     - Pass the same file with `--attach`, for example `gh pr create --body-file body.md --attach pr-media/…/clip.mp4`, repeating `--attach` for each file. `gh` uploads the file and replaces the local path with an inline player. Attached files the body doesn't mention are appended at the end. `gh pr edit` and `gh pr comment` accept `--attach` too.
-    - Videos can't have alt text, so put a **Before/After · Dark/Light** label line above each one.
+    - Videos can't have alt text, so put a **Before/After** (and **Dark/Light**) label line above each one.
     - Afterwards, check the body with `gh pr view <N> --json body` and make sure no local `pr-media/` path is left.
 
 ## Recording demos (Android emulator, Windows)
