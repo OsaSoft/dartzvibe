@@ -42,20 +42,23 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
+import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -63,6 +66,9 @@ import kotlin.uuid.ExperimentalUuidApi
 class PlayerListScreen(
     private val fromNewGame: Boolean = false,
 ) : Screen {
+
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
 
     @Composable
     override fun Content() {
@@ -75,22 +81,22 @@ class PlayerListScreen(
             state = state,
             showNewGameHint = fromNewGame,
             onBack = { navigator.pop() },
-            onAddPlayer = { navigator.push(AddEditPlayerScreen()) },
+            onAddPlayer = { navigator.pushFrom(this@PlayerListScreen, AddEditPlayerScreen()) },
             onEditPlayer = { player ->
-                navigator.push(AddEditPlayerScreen(playerId = player.id))
+                navigator.pushFrom(this@PlayerListScreen, AddEditPlayerScreen(playerId = player.id))
             },
             onDeletePlayer = { screenModel.showDeleteConfirmation(it) },
             onConfirmDelete = { screenModel.confirmDeletePlayer() },
             onDismissDelete = { screenModel.dismissDeleteConfirmation() },
-            onNewGame = { navigator.push(NewGameScreen()) },
+            onNewGame = { navigator.pushFrom(this@PlayerListScreen, NewGameScreen()) },
         )
     }
 }
 
 @Composable
-fun rememberPlayerListScreenModel(
+fun Screen.rememberPlayerListScreenModel(
     playerRepository: PlayerRepository,
-): PlayerListScreenModel = remember { PlayerListScreenModel(playerRepository) }
+): PlayerListScreenModel = rememberScreenModel { PlayerListScreenModel(playerRepository) }
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)

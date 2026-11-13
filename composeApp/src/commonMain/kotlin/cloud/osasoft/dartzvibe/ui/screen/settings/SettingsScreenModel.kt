@@ -6,6 +6,7 @@ import cloud.osasoft.dartzvibe.data.model.AppSettingsData
 import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
+import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +14,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 data class SettingsState(
     val settings: AppSettingsData = AppSettingsData(),
@@ -43,38 +43,41 @@ class SettingsScreenModel(
             .launchIn(screenModelScope)
     }
 
+    // The setters write with launchToCompletion: Back right after a toggle disposes this model, and the write must
+    // still land
+
     fun setThemeMode(mode: ThemeMode) {
-        screenModelScope.launch {
+        launchToCompletion {
             appSettingsRepository.setThemeMode(mode)
         }
     }
 
     fun setKeepScreenOn(value: Boolean) {
-        screenModelScope.launch {
+        launchToCompletion {
             appSettingsRepository.setKeepScreenOn(value)
         }
     }
 
     fun setShowCheckoutHints(value: Boolean) {
-        screenModelScope.launch {
+        launchToCompletion {
             appSettingsRepository.setShowCheckoutHints(value)
         }
     }
 
     fun setUseRadialKeypad(value: Boolean) {
-        screenModelScope.launch {
+        launchToCompletion {
             appSettingsRepository.setUseRadialKeypad(value)
         }
     }
 
     fun setShowMultiplierButtons(value: Boolean) {
-        screenModelScope.launch {
+        launchToCompletion {
             appSettingsRepository.setShowMultiplierButtons(value)
         }
     }
 
     fun setSwipeMultiplierMode(mode: SwipeMultiplierMode) {
-        screenModelScope.launch {
+        launchToCompletion {
             appSettingsRepository.setSwipeMultiplierMode(mode)
         }
     }

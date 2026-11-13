@@ -23,6 +23,7 @@ import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import cloud.osasoft.dartzvibe.domain.game.TurnRewind
+import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -242,7 +243,12 @@ class ActiveGameScreenModel(
     private var lastSaveRequested: GameSession? = null
 
     init {
+        log.d { "Created for session $sessionId" }
         loadGame()
+    }
+
+    override fun onDispose() {
+        log.d { "Disposed for session $sessionId" }
     }
 
     private fun loadGame() {
@@ -434,7 +440,8 @@ class ActiveGameScreenModel(
     private fun saveGame(session: GameSession) {
         pendingSave = session
         lastSaveRequested = session
-        screenModelScope.launch {
+        // Abandon, Finish and Back pop right after a save is requested, which disposes this model
+        launchToCompletion {
             saveMutex.withLock {
                 val toSave = pendingSave ?: return@withLock
                 pendingSave = null

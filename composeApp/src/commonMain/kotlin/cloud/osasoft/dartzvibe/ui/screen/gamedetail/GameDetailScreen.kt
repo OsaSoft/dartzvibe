@@ -53,7 +53,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
@@ -87,6 +90,9 @@ class GameDetailScreen(
     private val gameId: Uuid,
 ) : Screen {
 
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
+
     @Composable
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
@@ -105,11 +111,11 @@ class GameDetailScreen(
 
 @OptIn(ExperimentalUuidApi::class)
 @Composable
-fun rememberGameDetailScreenModel(
+fun Screen.rememberGameDetailScreenModel(
     playerRepository: PlayerRepository,
     gameRepository: GameRepository,
     gameId: Uuid,
-): GameDetailScreenModel = remember {
+): GameDetailScreenModel = rememberScreenModel {
     GameDetailScreenModel(playerRepository, gameRepository, gameId)
 }
 

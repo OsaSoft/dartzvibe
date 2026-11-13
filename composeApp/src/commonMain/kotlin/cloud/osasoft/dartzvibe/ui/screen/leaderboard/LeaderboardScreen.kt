@@ -36,14 +36,16 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
@@ -56,6 +58,9 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 class LeaderboardScreen : Screen {
+
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
 
     @Composable
     override fun Content() {
@@ -75,10 +80,10 @@ class LeaderboardScreen : Screen {
 }
 
 @Composable
-fun rememberLeaderboardScreenModel(
+fun Screen.rememberLeaderboardScreenModel(
     playerRepository: PlayerRepository,
     gameRepository: GameRepository,
-): LeaderboardScreenModel = remember {
+): LeaderboardScreenModel = rememberScreenModel {
     LeaderboardScreenModel(playerRepository, gameRepository)
 }
 

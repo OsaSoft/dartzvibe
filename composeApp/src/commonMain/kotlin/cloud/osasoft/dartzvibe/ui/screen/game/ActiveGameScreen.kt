@@ -59,10 +59,13 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
+import cloud.osasoft.dartzvibe.LocalAppSettings
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
@@ -71,6 +74,7 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
+import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
@@ -79,6 +83,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import dartzvibe.composeapp.generated.resources.Res
@@ -92,14 +97,16 @@ class ActiveGameScreen(
     private val sessionId: Uuid,
 ) : Screen {
 
+    // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
+    override val key: ScreenKey = uniqueScreenKey
+
     @Composable
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
         val gameRepository = LocalGameRepository.current
-        val appSettingsRepository = LocalAppSettingsRepository.current
         val screenModel = rememberActiveGameScreenModel(gameRepository, playerRepository, sessionId)
         val state by screenModel.state.collectAsState()
-        val settings by appSettingsRepository.getSettings().collectAsState(initial = AppSettingsData())
+        val settings = LocalAppSettings.current
         val navigator = LocalNavigator.currentOrThrow
 
         ActiveGameContent(
@@ -120,7 +127,7 @@ class ActiveGameScreen(
                 screenModel.abandonGame()
                 navigator.pop()
             },
-            onSettings = { navigator.push(SettingsScreen()) },
+            onSettings = { navigator.pushFrom(this@ActiveGameScreen, SettingsScreen()) },
             onBack = { navigator.pop() },
         )
     }
@@ -128,11 +135,11 @@ class ActiveGameScreen(
 
 @OptIn(ExperimentalUuidApi::class)
 @Composable
-fun rememberActiveGameScreenModel(
+fun Screen.rememberActiveGameScreenModel(
     gameRepository: GameRepository,
-    playerRepository: cloud.osasoft.dartzvibe.data.repository.PlayerRepository,
+    playerRepository: PlayerRepository,
     sessionId: Uuid,
-): ActiveGameScreenModel = remember { ActiveGameScreenModel(gameRepository, playerRepository, sessionId) }
+): ActiveGameScreenModel = rememberScreenModel { ActiveGameScreenModel(gameRepository, playerRepository, sessionId) }
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
