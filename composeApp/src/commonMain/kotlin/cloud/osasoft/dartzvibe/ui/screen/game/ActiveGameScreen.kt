@@ -87,6 +87,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
+import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
@@ -602,7 +603,11 @@ fun PlayerScoresRow(
                     isCurrentPlayer = isCurrentPlayer,
                     lastTurn = state.getLastTurn(playerId),
                     isCountUp = state.isCountUp,
-                    targetScore = if (state.isCountUp) state.targetScore else null,
+                    targetSuffix = scoreCardTargetSuffix(
+                        gameMode = session.config.gameMode,
+                        gameType = session.config.gameType,
+                        rouletteTargetScore = state.rouletteTargetScore,
+                    ),
                     modifier = Modifier.weight(1f),
                 )
             }
