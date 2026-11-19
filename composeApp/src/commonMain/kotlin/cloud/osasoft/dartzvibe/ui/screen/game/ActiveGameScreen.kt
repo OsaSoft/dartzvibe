@@ -81,11 +81,19 @@ import cloud.osasoft.dartzvibe.domain.game.CricketTurnSummary
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
+import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketInputPad
+import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketMinRowHeight
+import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketRowHeight
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketScoreboard
+import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketTargetKeyHeight
+import cloud.osasoft.dartzvibe.ui.screen.game.components.KeypadPadding
+import cloud.osasoft.dartzvibe.ui.screen.game.components.KeypadRowGap
 import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.game.components.cricketPadHeightPx
+import cloud.osasoft.dartzvibe.ui.screen.game.components.fitScoreboardRowHeight
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
 import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
@@ -250,16 +258,23 @@ fun ActiveGameContent(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState()),
-                    header = {
-                        GameHeader(state = state, showCheckoutHints = settings.showCheckoutHints, onUndo = onUndo)
+                    // Cricket: on short phones the scoreboard rows shrink so the pad fits below them
+                    shrink = cricketHeaderShrink(state = state, showMultiplierButtons = settings.showMultiplierButtons),
+                    header = { cricketRowHeight ->
+                        GameHeader(
+                            state = state,
+                            showCheckoutHints = settings.showCheckoutHints,
+                            cricketRowHeight = cricketRowHeight,
+                            onUndo = onUndo,
+                        )
                     },
                     input = { heightLeft ->
                         GameInput(
                             state = state,
                             settings = settings,
-                            // Classic, Parcheesi and Checkout Practice fit the input to the height their fixed rows
-                            // leave, so short phones don't scroll; Cricket and Roulette keep main's layout
-                            maxHeight = heightLeft.takeIf { state.hasCheckoutSlot },
+                            // Classic, Parcheesi, Checkout Practice and Cricket fit the input to the height their fixed
+                            // rows leave, so short phones don't scroll; Roulette keeps main's layout
+                            maxHeight = heightLeft.takeIf { state.hasCheckoutSlot || state.isCricket },
                             onMultiplierChange = onMultiplierChange,
                             onScoreSelect = onScoreSelect,
                             onMiss = onMiss,
@@ -389,13 +404,18 @@ fun ActiveGameContent(
     }
 }
 
-/** Everything above the input: scores or mode header, the current turn and (in checkout modes) the checkout slot. */
+/**
+ * Everything above the input: scores or mode header, the current turn and (in checkout modes) the checkout slot.
+ * [cricketRowHeight] set (Cricket on a short phone): the compact scoreboard with rows that tall, and the compact turn
+ * card.
+ */
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
 private fun GameHeader(
     state: ActiveGameState,
     showCheckoutHints: Boolean,
+    cricketRowHeight: Dp?,
     onUndo: () -> Unit,
 ) {
     // Player score cards, Cricket scoreboard, Checkout Practice header, or Roulette header
@@ -429,9 +449,10 @@ private fun GameHeader(
                 players = state.players,
                 cricketState = cricketState,
                 currentPlayerId = state.currentPlayerId,
+                rowHeight = cricketRowHeight,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = if (cricketRowHeight != null) 4.dp else 8.dp),
             )
         }
     } else {
@@ -461,7 +482,7 @@ private fun GameHeader(
         isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
         cricketTurnSummary = state.cricketTurnSummary,
         rouletteTurnPoints = state.rouletteTurnPoints,
-        compact = hasCheckoutSlot,
+        compact = hasCheckoutSlot || cricketRowHeight != null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp),
@@ -504,6 +525,21 @@ private fun GameInput(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        } else if (state.isCricket) {
+            // Only the Cricket numbers, Bull and Miss score in Cricket: its own pad, regardless of the radial setting
+            state.cricketState?.let { cricketState ->
+                CricketInputPad(
+                    segments = cricketState.segments.segments,
+                    selectedMultiplier = state.selectedMultiplier,
+                    canThrow = state.canThrow,
+                    showMultiplierButtons = settings.showMultiplierButtons,
+                    onMultiplierChange = onMultiplierChange,
+                    onScoreSelect = onScoreSelect,
+                    onMiss = onMiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    maxHeight = maxHeight,
+                )
+            }
         } else if (settings.useRadialKeypad) {
             RadialDartboard(
                 selectedMultiplier = state.selectedMultiplier,
@@ -544,23 +580,99 @@ private fun GameInput(
 }
 
 /**
+ * How the header may shrink on a short screen: its [rows] flexible rows (the Cricket scoreboard's) shrink, down to
+ * [minRowHeight], so the input gets [inputHeight].
+ */
+private data class HeaderShrink(
+    val rows: Int,
+    val inputHeight: Dp,
+    val minRowHeight: Dp,
+)
+
+/**
+ * Cricket's [HeaderShrink]: the scoreboard's rows give way so the Cricket pad gets keys [CricketTargetKeyHeight]
+ * tall. Null in the other modes, whose header never shrinks.
+ */
+@Composable
+private fun cricketHeaderShrink(
+    state: ActiveGameState,
+    showMultiplierButtons: Boolean,
+): HeaderShrink? {
+    val cricketState = state.cricketState?.takeIf { state.isCricket } ?: return null
+    val hintLine = MaterialTheme.typography.labelSmall.lineHeight
+    val inputHeight = with(LocalDensity.current) {
+        // The S/D/T row (MultiplierButton is 40 dp), or the swipe hint (one label line under 4 dp of padding)
+        val hintHeight = (if (hintLine.isSp) hintLine.toDp() else 0.dp) + 4.dp
+        cricketPadHeightPx(
+            keyHeightPx = CricketTargetKeyHeight.roundToPx(),
+            paddingPx = KeypadPadding.roundToPx(),
+            gapPx = KeypadRowGap.roundToPx(),
+            topRowPx = if (showMultiplierButtons) 40.dp.roundToPx() else 0,
+            bottomRowPx = if (showMultiplierButtons) 0 else hintHeight.roundToPx(),
+        ).toDp()
+    }
+    // Never below the rows' own text (the marks' titleSmall in a box 2 dp under the row, the labelLarge label), so a
+    // larger font scale can't clip them
+    val minRowHeight = with(LocalDensity.current) {
+        val marksLine = MaterialTheme.typography.titleSmall.lineHeight
+        val labelLine = MaterialTheme.typography.labelLarge.lineHeight
+        maxOf(
+            CricketMinRowHeight,
+            (if (marksLine.isSp) marksLine.toDp() else 0.dp) + 2.dp,
+            if (labelLine.isSp) labelLine.toDp() else 0.dp,
+        )
+    }
+    return HeaderShrink(
+        rows = cricketState.segments.segments.size,
+        inputHeight = inputHeight,
+        minRowHeight = minRowHeight,
+    )
+}
+
+/**
  * Stacks [header] and [input] like a Column (inside the screen's vertical scroll) and passes [input] the height the
  * header leaves of [viewportHeight]. The header is measured first and on its own, so that height depends only on
  * the viewport and the header's fixed rows, never on what the input shows (board, keypad or End Turn).
+ *
+ * [header] gets null for its normal layout. With [shrink], if that leaves the input less than its height, the header
+ * gets a row height instead: the compact layout, with its flexible rows as tall as lets the input fit (see
+ * [fitScoreboardRowHeight]), between [CricketMinRowHeight] and [CricketRowHeight].
  */
 @Suppress("ktlint:standard:function-naming")
 @Composable
 private fun HeaderThenInput(
     viewportHeight: Dp,
-    header: @Composable () -> Unit,
+    header: @Composable (rowHeight: Dp?) -> Unit,
     input: @Composable (heightLeft: Dp) -> Unit,
     modifier: Modifier = Modifier,
+    shrink: HeaderShrink? = null,
 ) {
     SubcomposeLayout(modifier = modifier) { constraints ->
         val childConstraints = constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity)
-        val headerPlaceables = subcompose(HeaderSlot.HEADER, header).map { it.measure(childConstraints) }
+        val viewportPx = viewportHeight.roundToPx()
+        val measureHeader = { slot: HeaderSlot, rowHeight: Dp? ->
+            subcompose(slot) { header(rowHeight) }.map { it.measure(childConstraints) }
+        }
+        val fullHeader = measureHeader(HeaderSlot.HEADER, null)
+        val inputPx = shrink?.inputHeight?.roundToPx()
+        val headerPlaceables = if (inputPx == null || viewportPx - fullHeader.sumOf { it.height } >= inputPx) {
+            fullHeader
+        } else {
+            // Measure the compact header at the smallest rows, then size the rows to what the input leaves
+            val minRowPx = shrink.minRowHeight.roundToPx()
+            val atMinRows = measureHeader(HeaderSlot.HEADER_AT_MIN_ROWS, minRowPx.toDp())
+            val rowPx = fitScoreboardRowHeight(
+                availablePx = viewportPx,
+                fixedPx = atMinRows.sumOf { it.height } - shrink.rows * minRowPx,
+                padPx = inputPx,
+                rows = shrink.rows,
+                minPx = minRowPx,
+                nominalPx = CricketRowHeight.roundToPx(),
+            )
+            if (rowPx == minRowPx) atMinRows else measureHeader(HeaderSlot.HEADER_FITTED, rowPx.toDp())
+        }
         val headerHeight = headerPlaceables.sumOf { it.height }
-        val heightLeft = (viewportHeight.roundToPx() - headerHeight).coerceAtLeast(0).toDp()
+        val heightLeft = (viewportPx - headerHeight).coerceAtLeast(0).toDp()
         val inputPlaceables = subcompose(HeaderSlot.INPUT) { input(heightLeft) }.map { it.measure(childConstraints) }
         val placeables = headerPlaceables + inputPlaceables
         val height = constraints.constrainHeight(placeables.sumOf { it.height })
@@ -575,7 +687,7 @@ private fun HeaderThenInput(
     }
 }
 
-private enum class HeaderSlot { HEADER, INPUT }
+private enum class HeaderSlot { HEADER, HEADER_AT_MIN_ROWS, HEADER_FITTED, INPUT }
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
