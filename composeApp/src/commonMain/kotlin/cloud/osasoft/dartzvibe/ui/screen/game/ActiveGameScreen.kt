@@ -54,11 +54,13 @@ import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
@@ -75,6 +77,7 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.domain.game.CricketTurnSummary
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
@@ -83,6 +86,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
@@ -453,6 +457,7 @@ private fun GameHeader(
         canUndo = state.canUndo,
         onUndo = onUndo,
         isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
+        cricketTurnSummary = state.cricketTurnSummary,
         rouletteTurnPoints = state.rouletteTurnPoints,
         compact = hasCheckoutSlot,
         modifier = Modifier
@@ -615,6 +620,7 @@ fun CurrentTurnDisplay(
     canUndo: Boolean,
     onUndo: () -> Unit,
     isCricket: Boolean = false,
+    cricketTurnSummary: CricketTurnSummary? = null,
     rouletteTurnPoints: Int? = null,
     // Tighter vertical spacing, used where the checkout slot also needs room above the input
     compact: Boolean = false,
@@ -651,10 +657,16 @@ fun CurrentTurnDisplay(
                     ?.toDp() ?: 36.dp
             }
             Row(
-                modifier = Modifier.heightIn(min = turnTotalLineHeight),
+                // Cricket: two equal halves either side of the dart boxes keep them centred and still, with the
+                // summary in the right half, however long it gets
+                modifier = (if (isCricket) Modifier.fillMaxWidth() else Modifier).heightIn(min = turnTotalLineHeight),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (isCricket) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+
                 // Throw boxes
                 currentThrows.forEach { throwObj ->
                     ThrowDisplay(throwObj)
@@ -665,14 +677,16 @@ fun CurrentTurnDisplay(
                     ThrowPlaceholder()
                 }
 
-                // Turn total or status (BUST/BOUNCE/OUT!/WIN!)
-                if (currentThrows.isNotEmpty()) {
-                    Spacer(modifier = Modifier.width(8.dp))
+                // Turn total or status (BUST/BOUNCE/OUT!/WIN!). Cricket keeps its half even before the first dart, so
+                // the dart boxes don't slide sideways as the summary appears and grows
+                if (isCricket || currentThrows.isNotEmpty()) {
+                    if (!isCricket) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     val isBust = lastThrowResult is ThrowResult.Bust
                     val isBounce = lastThrowResult is ThrowResult.BounceBack
                     val isCheckout = lastThrowResult is ThrowResult.Checkout
                     val isCricketWin = lastThrowResult is ThrowResult.CricketWin
-                    val isCricketMarks = lastThrowResult is ThrowResult.CricketMarks
                     val displayText = when {
                         isBust -> "BUST"
 
@@ -682,21 +696,13 @@ fun CurrentTurnDisplay(
 
                         isCricketWin -> "WIN!"
 
-                        isCricketMarks -> {
-                            val cricketResult = lastThrowResult
-                            if (cricketResult.pointsScored > 0) {
-                                "+${cricketResult.pointsScored}"
-                            } else if (cricketResult.marksAdded > 0) {
-                                "${cricketResult.totalMarks}/3"
-                            } else {
-                                "-"
-                            }
-                        }
+                        // The whole turn's marks and points, not just the last dart's
+                        cricketTurnSummary != null -> cricketTurnSummaryText(cricketTurnSummary)
 
                         // Roulette shows the whole turn's points, not just the last dart's
                         rouletteTurnPoints != null -> "+$rouletteTurnPoints"
 
-                        else -> if (isCricket) "-" else "${currentThrows.sumOf { it.score }}"
+                        else -> "${currentThrows.sumOf { it.score }}"
                     }
                     val displayColor = when {
                         isBust -> MaterialTheme.colorScheme.error
@@ -707,7 +713,7 @@ fun CurrentTurnDisplay(
 
                         isCricketWin -> MaterialTheme.colorScheme.primary
 
-                        isCricketMarks && lastThrowResult.pointsScored > 0 ->
+                        cricketTurnSummary != null && cricketTurnSummary.points > 0 ->
                             MaterialTheme.colorScheme.primary
 
                         rouletteTurnPoints != null && rouletteTurnPoints > 0 -> MaterialTheme.colorScheme.primary
@@ -716,12 +722,38 @@ fun CurrentTurnDisplay(
 
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
-                    Text(
-                        text = displayText,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = displayColor,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    BoxWithConstraints(
+                        modifier = if (isCricket) Modifier.weight(1f).padding(start = 8.dp) else Modifier,
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        val baseStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                        // Cricket: one size for every state, shrunk once so the widest summary fits its half; the
+                        // text then never changes size from dart to dart
+                        val textStyle = if (isCricket) {
+                            val textMeasurer = rememberTextMeasurer()
+                            val maxWidthPx = constraints.maxWidth
+                            remember(maxWidthPx, baseStyle) {
+                                val widest = textMeasurer.measure(
+                                    text = CRICKET_WIDEST_SUMMARY,
+                                    style = baseStyle,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                ).size.width
+                                baseStyle.copy(fontSize = baseStyle.fontSize * fitTextScale(widest, maxWidthPx))
+                            }
+                        } else {
+                            baseStyle
+                        }
+                        if (currentThrows.isNotEmpty()) {
+                            Text(
+                                text = displayText,
+                                style = textStyle,
+                                color = displayColor,
+                                maxLines = 1,
+                                softWrap = false,
+                            )
+                        }
+                    }
                 }
             }
 
@@ -743,6 +775,16 @@ fun CurrentTurnDisplay(
             }
         }
     }
+}
+
+/** The widest Cricket turn summary (three scoring triples), which sets the summary's one font size. */
+private const val CRICKET_WIDEST_SUMMARY = "9 marks · +180"
+
+/** The Cricket turn slot text: "-", "1 mark", "4 marks" or "6 marks · +60". */
+internal fun cricketTurnSummaryText(summary: CricketTurnSummary): String {
+    if (summary.marks == 0) return "-"
+    val marks = if (summary.marks == 1) "1 mark" else "${summary.marks} marks"
+    return if (summary.points > 0) "$marks · +${summary.points}" else marks
 }
 
 @Suppress("ktlint:standard:function-naming")
