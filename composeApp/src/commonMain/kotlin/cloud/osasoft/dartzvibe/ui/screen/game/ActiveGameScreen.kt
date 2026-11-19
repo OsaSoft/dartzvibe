@@ -595,7 +595,7 @@ fun PlayerScoresRow(
                     legsWon = state.getLegsWon(playerId),
                     legsToWin = legsToWin,
                     isCurrentPlayer = isCurrentPlayer,
-                    lastTurnScore = state.getLastTurnScore(playerId),
+                    lastTurn = state.getLastTurn(playerId),
                     isCountUp = state.isCountUp,
                     targetScore = if (state.isCountUp) state.targetScore else null,
                     modifier = Modifier.weight(1f),

@@ -18,6 +18,7 @@ import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
+import cloud.osasoft.dartzvibe.domain.game.LastTurn
 import cloud.osasoft.dartzvibe.domain.game.RewindResult
 import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
@@ -210,19 +211,9 @@ data class ActiveGameState(
 
     fun getPlayer(playerId: Uuid): Player? = players[playerId]
 
-    fun getLastTurnScore(playerId: Uuid): Int? {
-        val currentLeg = session?.currentLeg ?: return null
-        val lastTurn = currentLeg.turns.lastOrNull { it.playerId == playerId }
-        return if (lastTurn != null && !lastTurn.isBust) {
-            if (isRoulette) {
-                lastTurn.scoreAfterTurn - lastTurn.scoreBeforeTurn
-            } else {
-                lastTurn.totalScore
-            }
-        } else {
-            null
-        }
-    }
+    fun getLastTurn(playerId: Uuid): LastTurn = session?.currentLeg
+        ?.let { LastTurn.of(leg = it, playerId = playerId, isRoulette = isRoulette) }
+        ?: LastTurn.None
 }
 
 @OptIn(ExperimentalUuidApi::class)
