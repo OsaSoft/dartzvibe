@@ -30,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.domain.game.LastTurn
+import cloud.osasoft.dartzvibe.domain.game.label
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 
 @Suppress("ktlint:standard:function-naming")
@@ -40,7 +42,7 @@ fun PlayerScoreCard(
     legsWon: Int,
     legsToWin: Int,
     isCurrentPlayer: Boolean,
-    lastTurnScore: Int? = null,
+    lastTurn: LastTurn = LastTurn.None,
     isCountUp: Boolean = false,
     targetScore: Int? = null,
     modifier: Modifier = Modifier,
@@ -87,8 +89,7 @@ fun PlayerScoreCard(
             val legsStyle = MaterialTheme.typography.labelMedium.scaled(
                 oneLineScale(maxWidthPx, legsText to MaterialTheme.typography.labelMedium),
             )
-            val lastTurnPrefix = if (isCountUp) "+" else "-"
-            val lastText = lastTurnScore?.let { "Last: $lastTurnPrefix$it" } ?: "Last: -"
+            val lastText = lastTurn.label(isCountUp)
             val lastStyle = MaterialTheme.typography.labelSmall.scaled(
                 oneLineScale(maxWidthPx, lastText to MaterialTheme.typography.labelSmall),
             )
@@ -191,11 +192,7 @@ fun PlayerScoreCard(
                     style = lastStyle,
                     maxLines = 1,
                     softWrap = false,
-                    color = if (lastTurnScore != null) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        Color.Transparent
-                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
