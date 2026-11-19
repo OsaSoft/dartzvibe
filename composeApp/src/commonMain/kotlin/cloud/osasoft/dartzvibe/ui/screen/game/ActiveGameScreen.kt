@@ -251,7 +251,7 @@ fun ActiveGameContent(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState()),
                     header = {
-                        GameHeader(state = state, onUndo = onUndo)
+                        GameHeader(state = state, showCheckoutHints = settings.showCheckoutHints, onUndo = onUndo)
                     },
                     input = { heightLeft ->
                         GameInput(
@@ -395,6 +395,7 @@ fun ActiveGameContent(
 @Composable
 private fun GameHeader(
     state: ActiveGameState,
+    showCheckoutHints: Boolean,
     onUndo: () -> Unit,
 ) {
     // Player score cards, Cricket scoreboard, Checkout Practice header, or Roulette header
@@ -470,7 +471,7 @@ private fun GameHeader(
     // input below never moves when a suggestion appears, changes or disappears
     if (hasCheckoutSlot) {
         CheckoutHint(
-            checkoutOptions = state.checkoutOptions,
+            checkoutOptions = state.visibleCheckoutOptions(showCheckoutHints),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 8.dp, top = 4.dp, end = 8.dp),
