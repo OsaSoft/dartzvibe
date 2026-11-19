@@ -3,6 +3,7 @@ package cloud.osasoft.dartzvibe.ui.screen.game
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import cloud.osasoft.dartzvibe.data.model.CheckoutPracticeState
+import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
@@ -16,6 +17,8 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
+import cloud.osasoft.dartzvibe.domain.game.CricketRules
+import cloud.osasoft.dartzvibe.domain.game.CricketTurnSummary
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
 import cloud.osasoft.dartzvibe.domain.game.LastTurn
@@ -123,6 +126,23 @@ data class ActiveGameState(
 
     val cricketState: CricketState?
         get() = engine?.getCricketState()
+
+    /**
+     * Marks and points of the current Cricket turn's darts so far, or null outside Cricket. Replayed from the
+     * leg's committed state (the turn start), so it follows undo and never depends on the last dart alone.
+     */
+    val cricketTurnSummary: CricketTurnSummary? by lazy {
+        val engine = engine ?: return@lazy null
+        val config = engine.config
+        if (!config.isCricket) return@lazy null
+        CricketRules.turnSummary(
+            turnStartState = engine.toGameSession().currentLeg.cricketState
+                ?: CricketState(segments = config.cricketSegments ?: CricketSegments.standard()),
+            throws = engine.getCurrentTurnThrows(),
+            playerId = engine.getCurrentPlayerId(),
+            playerIds = config.playerIds,
+        )
+    }
 
     val isCheckoutPractice: Boolean
         get() = session?.config?.isCheckoutPractice == true

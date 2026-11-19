@@ -21,6 +21,17 @@ internal data class CricketThrowOutcome(
 )
 
 /**
+ * What the darts of one Cricket turn did so far, for the turn slot next to the dart boxes.
+ *
+ * @property marks Every hit that counted: marks added plus the overflow marks that scored.
+ * @property points Overflow points scored by the turn.
+ */
+data class CricketTurnSummary(
+    val marks: Int,
+    val points: Int,
+)
+
+/**
  * The Cricket marking rules, shared by [CricketModeEngine] (live play) and the game history replay,
  * so both always agree on what a dart did.
  */
@@ -72,6 +83,26 @@ internal object CricketRules {
             pointsScored = pointsScored,
         )
     }
+
+    /**
+     * Sums what [throws] by [playerId] did when applied in order to [turnStartState], the Cricket state before
+     * the turn's first dart. A dart counts `marksAdded + pointsScored / segment` marks, so a dart on a non-Cricket
+     * number, a miss, or a number closed for everyone counts 0.
+     */
+    fun turnSummary(
+        turnStartState: CricketState,
+        throws: List<Throw>,
+        playerId: Uuid,
+        playerIds: List<Uuid>,
+    ): CricketTurnSummary = throws
+        .fold(turnStartState to CricketTurnSummary(marks = 0, points = 0)) { (state, summary), throwObj ->
+            val outcome = applyThrow(state = state, throwObj = throwObj, playerId = playerId, playerIds = playerIds)
+            val scoringMarks = if (outcome.pointsScored > 0) outcome.pointsScored / throwObj.segment else 0
+            outcome.state to CricketTurnSummary(
+                marks = summary.marks + outcome.marksAdded + scoringMarks,
+                points = summary.points + outcome.pointsScored,
+            )
+        }.second
 
     /** A player wins once every number is closed and no opponent has more points. */
     fun isWin(state: CricketState, playerId: Uuid, playerIds: List<Uuid>): Boolean {
