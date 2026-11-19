@@ -44,7 +44,7 @@ fun PlayerScoreCard(
     isCurrentPlayer: Boolean,
     lastTurn: LastTurn = LastTurn.None,
     isCountUp: Boolean = false,
-    targetScore: Int? = null,
+    targetSuffix: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -81,8 +81,8 @@ fun PlayerScoreCard(
             val maxWidthPx = constraints.maxWidth
             val scoreStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
             val targetStyle = MaterialTheme.typography.titleMedium
-            val targetText = " / $targetScore"
-            val showTarget = isCountUp && targetScore != null
+            val targetText = targetSuffix.orEmpty()
+            val showTarget = targetSuffix != null
             val scoreParts = listOfNotNull("$score" to scoreStyle, (targetText to targetStyle).takeIf { showTarget })
             val scoreScale = oneLineScale(maxWidthPx, *scoreParts.toTypedArray())
             val legsText = "Legs: $legsWon/$legsToWin"
@@ -130,7 +130,7 @@ fun PlayerScoreCard(
 
                 // Current score
                 if (showTarget) {
-                    // Parcheesi mode: show "125 / 301"
+                    // Parcheesi or Roulette Score: show "125 / 301"
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.Center,
