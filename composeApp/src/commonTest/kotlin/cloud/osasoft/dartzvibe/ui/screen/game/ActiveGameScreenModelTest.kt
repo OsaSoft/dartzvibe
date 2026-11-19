@@ -391,6 +391,99 @@ class ActiveGameScreenModelTest : FreeSpec({
                 state.hasCheckoutSlot shouldBe expected
             }
         }
+
+        "Show Checkout Hints" - {
+            withData(
+                nameFn = { "Should hide the route only when off in $it" },
+                GameMode.CLASSIC,
+                GameMode.PARCHEESI,
+                GameMode.CHECKOUT_PRACTICE,
+            ) { mode ->
+                runTest {
+                    // GIVEN a game in a checkout mode on a checkable score
+                    val screenModel = when (mode) {
+                        // P1 T20 x3 (121 left), P2 a miss; P1 to throw
+                        GameMode.CLASSIC -> undoScreenModel(GameMode.CLASSIC).first.apply {
+                            repeat(3) { onScoreSelect(20, Multiplier.TRIPLE) }
+                            endTurn()
+                            onMiss()
+                            endTurn()
+                        }
+
+                        // Four rounds of T20 against misses: P1 on 240 of 301, 61 to go
+                        GameMode.PARCHEESI -> undoScreenModel(GameMode.PARCHEESI).first.apply {
+                            repeat(4) {
+                                onScoreSelect(20, Multiplier.TRIPLE)
+                                endTurn()
+                                onMiss()
+                                endTurn()
+                            }
+                        }
+
+                        // Practice target 40
+                        GameMode.CHECKOUT_PRACTICE -> configScreenModel(
+                            GameConfig(
+                                gameType = GameType.CHECKOUT_EASY,
+                                gameMode = GameMode.CHECKOUT_PRACTICE,
+                                doubleOut = true,
+                                playerIds = listOf(undoPlayer1Id),
+                                checkoutPracticeTargets = listOf(40),
+                            ),
+                        ).first
+
+                        GameMode.CRICKET, GameMode.ROULETTE -> error("not a checkout mode")
+                    }
+                    advanceUntilIdle()
+
+                    // WHEN reading the state
+                    val state = screenModel.state.first()
+
+                    // THEN the route shows with hints on and is hidden with hints off
+                    state.checkoutOptions.shouldNotBeNull()
+                    state.visibleCheckoutOptions(showCheckoutHints = true) shouldBe state.checkoutOptions
+                    state.visibleCheckoutOptions(showCheckoutHints = false).shouldBeNull()
+                    // AND the slot stays reserved either way, so the input doesn't move
+                    state.hasCheckoutSlot shouldBe true
+                }
+            }
+
+            "Should hide the route of a turn with a dart thrown while keeping the dart" {
+                runTest {
+                    // GIVEN Classic with P1 on 121 and one dart (S20) thrown this turn
+                    val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                    repeat(3) { screenModel.onScoreSelect(20, Multiplier.TRIPLE) }
+                    screenModel.endTurn()
+                    screenModel.onMiss()
+                    screenModel.endTurn()
+                    screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                    advanceUntilIdle()
+
+                    // WHEN reading the state
+                    val state = screenModel.state.first()
+
+                    // THEN the dart stays in the turn and the route for 101 follows the setting
+                    state.currentTurnThrows.size shouldBe 1
+                    state.currentPlayerScore shouldBe 101
+                    state.visibleCheckoutOptions(showCheckoutHints = false).shouldBeNull()
+                    state.visibleCheckoutOptions(showCheckoutHints = true).shouldNotBeNull()
+                }
+            }
+
+            "Should show no route in Cricket whatever the setting" {
+                runTest {
+                    // GIVEN a Cricket game
+                    val (screenModel, _) = undoScreenModel(GameMode.CRICKET)
+
+                    // WHEN reading the state
+                    val state = screenModel.state.first()
+
+                    // THEN there is no route and no slot, hints on or off
+                    state.visibleCheckoutOptions(showCheckoutHints = true).shouldBeNull()
+                    state.visibleCheckoutOptions(showCheckoutHints = false).shouldBeNull()
+                    state.hasCheckoutSlot shouldBe false
+                }
+            }
+        }
     }
 
     "Undo" - {

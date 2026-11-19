@@ -225,6 +225,13 @@ data class ActiveGameState(
             }
         }
 
+    /**
+     * The route the checkout slot shows: [checkoutOptions], or null when "Show Checkout Hints" is off. The slot
+     * itself stays reserved either way ([hasCheckoutSlot]), so turning hints off never moves the input.
+     */
+    fun visibleCheckoutOptions(showCheckoutHints: Boolean): List<CheckoutPath>? =
+        checkoutOptions.takeIf { showCheckoutHints }
+
     fun getPlayerScore(playerId: Uuid): Int = engine?.getPlayerScore(playerId) ?: session?.config?.startingScore ?: 0
 
     fun getLegsWon(playerId: Uuid): Int = engine?.getLegsWon(playerId) ?: 0

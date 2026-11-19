@@ -174,4 +174,3 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
 
 - `migrations/1.sqm` runs `CREATE TABLE` on tables a v1 database already has, so an install that never moved past schema v1 crashes on upgrade. New installs aren't affected.
 - `CONTRIBUTING.md` mentions CI, but there's no CI workflow in the repo yet.
-- The "Show Checkout Hints" setting is never read: `ActiveGameScreen` and `checkoutOptions` ignore it.
