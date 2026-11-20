@@ -19,6 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.Layout
@@ -41,6 +44,7 @@ import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.KnockoutRoute
 import cloud.osasoft.dartzvibe.domain.game.toDisplayString
+import kotlin.math.ceil
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -54,8 +58,21 @@ private const val ROUTE_SEPARATOR = " → "
 
 private const val KNOCKOUT_PREFIX = "KO"
 
-/** Smallest shrink of a knockout line that still keeps its alternative; below it the alternative is dropped. */
-private const val MIN_KNOCKOUT_PAIR_SCALE = 0.8f
+/**
+ * Smallest shrink of a knockout line's alternative, which fits into the width the main suggestion leaves; below it
+ * the alternative is dropped.
+ */
+private const val MIN_KNOCKOUT_SECONDARY_SCALE = 0.75f
+
+/** Opacity of the slot's text colour for the "or …" alternative: clearly dimmer than the route, still ≥ 4.5:1. */
+private const val SECONDARY_TEXT_ALPHA = 0.75f
+
+/** The same on a dark slot, a little brighter (~8:1): grey on dark grey reads fainter than its ratio suggests. */
+private const val DARK_SECONDARY_TEXT_ALPHA = 0.84f
+
+/** Room before the "or" and between it and the alternative. */
+private val OrGapBefore = 14.dp
+private val OrGapAfter = 6.dp
 
 /**
  * Top suggestion and, if any, the alternative, formatted for the slot (e.g. "T20 → T19 → D12"). For a knockout
@@ -118,11 +135,70 @@ fun fitTextScale(
 ): Float = if (textWidth <= maxWidth || maxWidth <= 0) 1f else maxWidth.toFloat() / textWidth * 0.97f
 
 /**
+ * How a knockout line fits its width: the font scale of the main suggestion ([primaryScale], 1 = full size) and of
+ * the alternative ([secondaryScale], null when it is dropped).
+ */
+data class SlotLineFit(
+    val primaryScale: Float,
+    val secondaryScale: Float?,
+)
+
+/**
+ * Fits a knockout line into [maxWidth]. Each part is its text, measured at full size ([primaryTextWidth],
+ * [secondaryTextWidth], null for no alternative), plus room that doesn't shrink with the font ([primaryFixedWidth],
+ * [secondaryFixedWidth]: the badge's padding, the gaps around "or"). The main suggestion always comes first: it keeps
+ * its full size unless it alone is wider than the strip. The alternative takes the width that's left, shrinking down
+ * to [minSecondaryScale], and is dropped if it still doesn't fit. Never wraps or clips.
+ */
+fun fitSlotLine(
+    primaryTextWidth: Int,
+    secondaryTextWidth: Int?,
+    maxWidth: Int,
+    primaryFixedWidth: Int = 0,
+    secondaryFixedWidth: Int = 0,
+    minSecondaryScale: Float = MIN_KNOCKOUT_SECONDARY_SCALE,
+): SlotLineFit {
+    val primaryScale = scaleToFit(textWidth = primaryTextWidth, fixedWidth = primaryFixedWidth, maxWidth = maxWidth)
+    val secondaryScale = secondaryTextWidth?.let { textWidth ->
+        val primaryWidth = ceil(primaryTextWidth * primaryScale).toInt() + primaryFixedWidth
+        val leftWidth = maxWidth - primaryWidth
+        val scale = scaleToFit(textWidth = textWidth, fixedWidth = secondaryFixedWidth, maxWidth = leftWidth)
+        scale.takeIf { leftWidth > 0 && it >= minSecondaryScale }
+    }
+    return SlotLineFit(primaryScale = primaryScale, secondaryScale = secondaryScale)
+}
+
+/** Like [fitTextScale], but only [textWidth] shrinks; [fixedWidth] stays as it is. */
+private fun scaleToFit(
+    textWidth: Int,
+    fixedWidth: Int,
+    maxWidth: Int,
+): Float = if (textWidth + fixedWidth <= maxWidth || maxWidth <= 0 || textWidth <= 0) {
+    1f
+} else {
+    (maxWidth - fixedWidth).coerceAtLeast(0).toFloat() / textWidth * 0.97f
+}
+
+/**
+ * Opaque colour for the "or …" alternative (arrows included) on the slot's [container]: its text colour
+ * [onContainer], dimmed, so it reads as secondary to the route but stays readable: ~6.5:1 in light theme, ~8:1 on a
+ * dark slot (`CheckoutSlotTextTest`).
+ */
+fun slotSecondaryColor(
+    onContainer: Color,
+    container: Color,
+): Color {
+    val alpha = if (container.luminance() < 0.5f) DARK_SECONDARY_TEXT_ALPHA else SECONDARY_TEXT_ALPHA
+    return onContainer.copy(alpha = alpha).compositeOver(container)
+}
+
+/**
  * Fixed-height checkout slot between the turn display and the input (Classic, Parcheesi, Checkout Practice).
  * Its height is derived from the route's line height, so it holds at any font scale and stays the same with no,
  * one or two suggestions: the keypad or dartboard below never moves when a checkout appears, changes or
  * disappears. The top suggestion is shown in full, shrunk if it is wider than the strip; the alternative follows
- * it on the same line, smaller, and is left out when both don't fit. Without a suggestion the slot is empty.
+ * it on the same line, dimmer and medium weight, and is left out when both don't fit (a knockout's alternative first shrinks
+ * a little). Without a suggestion the slot is empty.
  * [text] is a checkout route ([checkoutSlotText]) or, in Parcheesi, a knockout ([knockoutSlotText]).
  */
 @Suppress("ktlint:standard:function-naming")
@@ -170,6 +246,7 @@ fun CheckoutHint(
 @Composable
 private fun CheckoutSuggestions(text: CheckoutSlotText) {
     val onContainer = MaterialTheme.colorScheme.onTertiaryContainer
+    val secondaryColor = slotSecondaryColor(onContainer, MaterialTheme.colorScheme.tertiaryContainer)
     val baseStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
     val textMeasurer = rememberTextMeasurer()
 
@@ -197,78 +274,105 @@ private fun CheckoutSuggestions(text: CheckoutSlotText) {
             },
             secondary = text.secondary?.let { secondary ->
                 {
-                    Row {
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Text(
-                            text = "or",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = onContainer.copy(alpha = 0.6f),
-                            maxLines = 1,
-                            modifier = Modifier.alignByBaseline(),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = secondary,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = onContainer.copy(alpha = 0.8f),
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.alignByBaseline(),
-                        )
-                    }
+                    SecondarySuggestion(
+                        text = secondary,
+                        color = secondaryColor,
+                        orStyle = slotOrStyle(),
+                        style = slotSecondaryStyle(),
+                    )
                 }
             },
         )
     }
 }
 
+/** The "or" word before the alternative: smaller than the route but still a readable label size. */
+@Composable
+private fun slotOrStyle(): TextStyle = MaterialTheme.typography.labelLarge
+
+/** The alternative: the route's size, but medium weight (the route is bold) and dimmer, so it reads as secondary. */
+@Composable
+private fun slotSecondaryStyle(): TextStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
+
+/** "or" followed by the alternative [text], on the main suggestion's baseline. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun SecondarySuggestion(
+    text: String,
+    color: Color,
+    orStyle: TextStyle,
+    style: TextStyle,
+) {
+    Row {
+        Spacer(modifier = Modifier.width(OrGapBefore))
+        Text(
+            text = "or",
+            style = orStyle,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.alignByBaseline(),
+        )
+        Spacer(modifier = Modifier.width(OrGapAfter))
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.alignByBaseline(),
+        )
+    }
+}
+
 /**
  * A knockout line: a "KO" badge, then "name: darts", then optionally "or KO name: darts". Names make it wider
- * than a checkout route, so when both suggestions don't fit, the whole line shrinks a little
- * ([MIN_KNOCKOUT_PAIR_SCALE]) before the alternative is dropped; the main suggestion alone shrinks as far as needed.
+ * than a checkout route. The main suggestion keeps its full size (it shrinks only when it alone is too wide); the
+ * alternative shrinks a little into the width that's left, or is dropped ([fitSlotLine]).
  */
 @Suppress("ktlint:standard:function-naming")
 @Composable
 private fun KnockoutSuggestions(text: CheckoutSlotText) {
     val onContainer = MaterialTheme.colorScheme.onTertiaryContainer
+    val secondaryColor = slotSecondaryColor(onContainer, MaterialTheme.colorScheme.tertiaryContainer)
     val baseStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
     val badgeBaseStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold)
-    val orBaseStyle = MaterialTheme.typography.labelSmall
-    val secondaryBaseStyle = MaterialTheme.typography.titleSmall
+    val orBaseStyle = slotOrStyle()
+    val secondaryBaseStyle = slotSecondaryStyle()
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
 
     BoxWithConstraints(contentAlignment = Alignment.Center) {
         val maxWidthPx = constraints.maxWidth
-        val scale = remember(text, baseStyle, maxWidthPx, density) {
+        val fit = remember(text, baseStyle, maxWidthPx, density) {
             fun width(
                 value: String,
                 style: TextStyle,
             ) = textMeasurer.measure(text = value, style = style, maxLines = 1, softWrap = false).size.width
-            val badgePx = with(density) { (KnockoutBadgePadding * 2 + KnockoutBadgeGap).roundToPx() }
-            val primaryWidth = badgePx + width(KNOCKOUT_PREFIX, badgeBaseStyle) + width(text.primary, baseStyle)
-            val secondaryWidth = text.secondary?.let { secondary ->
-                with(density) { (14.dp + 6.dp).roundToPx() } + width("or", orBaseStyle) +
-                    width("$KNOCKOUT_PREFIX $secondary", secondaryBaseStyle)
-            } ?: 0
-            val pairScale = fitTextScale(textWidth = primaryWidth + secondaryWidth, maxWidth = maxWidthPx)
-            if (text.secondary != null && pairScale >= MIN_KNOCKOUT_PAIR_SCALE) {
-                pairScale
-            } else {
-                fitTextScale(textWidth = primaryWidth, maxWidth = maxWidthPx)
-            }
+            fitSlotLine(
+                primaryTextWidth = width(KNOCKOUT_PREFIX, badgeBaseStyle) + width(text.primary, baseStyle),
+                secondaryTextWidth = text.secondary?.let { secondary ->
+                    width("or", orBaseStyle) + width("$KNOCKOUT_PREFIX $secondary", secondaryBaseStyle)
+                },
+                maxWidth = maxWidthPx,
+                primaryFixedWidth = with(density) { (KnockoutBadgePadding * 2 + KnockoutBadgeGap).roundToPx() },
+                secondaryFixedWidth = with(density) { (OrGapBefore + OrGapAfter).roundToPx() },
+            )
         }
 
-        fun TextStyle.scaled(): TextStyle = if (scale < 1f) copy(fontSize = fontSize * scale) else this
+        fun TextStyle.scaled(scale: Float): TextStyle = if (scale < 1f) copy(fontSize = fontSize * scale) else this
 
         PrimaryThenOptional(
             primary = {
                 Row {
-                    KnockoutBadge(style = badgeBaseStyle.scaled(), modifier = Modifier.alignByBaseline())
+                    KnockoutBadge(
+                        style = badgeBaseStyle.scaled(fit.primaryScale),
+                        modifier = Modifier.alignByBaseline(),
+                    )
                     Spacer(modifier = Modifier.width(KnockoutBadgeGap))
                     Text(
                         text = text.primary,
-                        style = baseStyle.scaled(),
+                        style = baseStyle.scaled(fit.primaryScale),
                         color = onContainer,
                         maxLines = 1,
                         softWrap = false,
@@ -277,24 +381,13 @@ private fun KnockoutSuggestions(text: CheckoutSlotText) {
                 }
             },
             secondary = text.secondary?.let { secondary ->
-                {
-                    Row {
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Text(
-                            text = "or",
-                            style = orBaseStyle.scaled(),
-                            color = onContainer.copy(alpha = 0.6f),
-                            maxLines = 1,
-                            modifier = Modifier.alignByBaseline(),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
+                fit.secondaryScale?.let { scale ->
+                    {
+                        SecondarySuggestion(
                             text = "$KNOCKOUT_PREFIX $secondary",
-                            style = secondaryBaseStyle.scaled(),
-                            color = onContainer.copy(alpha = 0.8f),
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.alignByBaseline(),
+                            color = secondaryColor,
+                            orStyle = orBaseStyle.scaled(scale),
+                            style = secondaryBaseStyle.scaled(scale),
                         )
                     }
                 }

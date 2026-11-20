@@ -31,6 +31,7 @@ import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.CricketState
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
+import cloud.osasoft.dartzvibe.ui.theme.brandColors
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -168,7 +169,7 @@ fun CricketScoreboard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    .background(MaterialTheme.brandColors.highlight.copy(alpha = 0.1f))
                     .padding(vertical = if (compact) 4.dp else 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -181,7 +182,7 @@ fun CricketScoreboard(
                         text = "PTS",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.brandColors.textOnContainer,
                     )
                 }
 
@@ -201,7 +202,7 @@ fun CricketScoreboard(
                             },
                             fontWeight = FontWeight.Bold,
                             color = if (isCurrentPlayer) {
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.brandColors.textOnContainer
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -273,7 +274,7 @@ fun CricketMarksDisplay(
     size: Dp = MarksSize,
 ) {
     val textColor = when {
-        isClosed -> MaterialTheme.colorScheme.primary
+        isClosed -> MaterialTheme.brandColors.text
         isCurrentPlayer -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     }
@@ -294,7 +295,7 @@ fun CricketMarksDisplay(
                         .clip(CircleShape)
                         .border(
                             width = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.brandColors.text,
                             shape = CircleShape,
                         )
                 } else {

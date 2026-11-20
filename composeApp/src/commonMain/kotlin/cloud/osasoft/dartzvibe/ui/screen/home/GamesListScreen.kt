@@ -63,6 +63,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.gamedetail.GameDetailScreen
 import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
+import cloud.osasoft.dartzvibe.ui.theme.dialogTextButtonColors
 import cloud.osasoft.dartzvibe.util.formatDateTime
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -278,12 +279,12 @@ fun GamesListContent(
             title = { Text("Delete Game") },
             text = { Text("Are you sure you want to delete this game?") },
             confirmButton = {
-                TextButton(onClick = onConfirmDelete) {
+                TextButton(onClick = onConfirmDelete, colors = dialogTextButtonColors()) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismissDelete) {
+                TextButton(onClick = onDismissDelete, colors = dialogTextButtonColors()) {
                     Text("Cancel")
                 }
             },

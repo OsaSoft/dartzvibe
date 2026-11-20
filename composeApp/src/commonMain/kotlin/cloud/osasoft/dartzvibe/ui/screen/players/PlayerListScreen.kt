@@ -60,6 +60,7 @@ import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
+import cloud.osasoft.dartzvibe.ui.theme.dialogTextButtonColors
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -225,12 +226,12 @@ fun PlayerListContent(
             title = { Text("Delete Player") },
             text = { Text("Are you sure you want to delete ${player.name}? This will also delete their statistics.") },
             confirmButton = {
-                TextButton(onClick = onConfirmDelete) {
+                TextButton(onClick = onConfirmDelete, colors = dialogTextButtonColors()) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismissDelete) {
+                TextButton(onClick = onDismissDelete, colors = dialogTextButtonColors()) {
                     Text("Cancel")
                 }
             },

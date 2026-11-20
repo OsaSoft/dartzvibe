@@ -9,7 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 
-private val LightColorScheme = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     // Brand / primary (dartboard red)
     primary = Color(0xFFC62828),
     onPrimary = Color(0xFFFFFFFF),
@@ -52,7 +52,7 @@ private val LightColorScheme = lightColorScheme(
     inversePrimary = Color(0xFFFF6B6B),
 )
 
-private val DarkColorScheme = darkColorScheme(
+internal val DarkColorScheme = darkColorScheme(
     // Brand / primary (dartboard red)
     primary = Color(0xFFC62828),
     onPrimary = Color(0xFFFFFFFF),
@@ -109,6 +109,7 @@ fun DartzVibeTheme(
 
     CompositionLocalProvider(
         LocalMultiplierColors provides if (isDarkTheme) DarkMultiplierColors else LightMultiplierColors,
+        LocalBrandColors provides if (isDarkTheme) DarkBrandColors else LightBrandColors,
     ) {
         MaterialTheme(
             colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,
