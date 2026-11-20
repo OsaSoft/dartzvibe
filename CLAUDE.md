@@ -3,6 +3,7 @@
 DartzVibe is a darts scoring app for Android and iOS: Kotlin Multiplatform with Compose Multiplatform UI. Game modes: Classic (301/501), Parcheesi, Cricket, Roulette and Checkout Practice. Everything is stored locally; there is no backend.
 
 This file is for agents working in the repo. Keep it short and true. Only write down what the code doesn't make obvious, and fix any statement here that you find to be wrong.
+The same goes for the path-scoped rules in `.claude/rules/` (they load automatically when you work on matching files) and the process docs in `docs/` (see the index below).
 
 ## Commands
 
@@ -14,15 +15,13 @@ This file is for agents working in the repo. Keep it short and true. Only write 
 ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64   # iOS framework (macOS only)
 ```
 
-- Check that tests actually ran: count them in `composeApp/build/test-results/testDebugUnitTest/*.xml`.
-- To run one spec, pass its fully qualified name: `--tests 'cloud.osasoft.dartzvibe.data.repository.AppSettingsRepositoryImplTest'`. A wildcard such as `--tests '*AppSettingsRepositoryImplTest*'` fails with "Could not find spec TestDescriptor for …ComposeAppCommonTest". Add `--rerun` to repeat a passing run.
+- Running one spec and counting the tests that ran: see `.claude/rules/testing.md`.
 - There is no JVM/desktop target. iOS test execution hasn't been verified: the Kotest Gradle plugin isn't applied, so on Native it may find 0 specs.
 
 ## Build gotchas
 
 - **One Gradle build at a time per checkout.** On Windows, two parallel builds (for example two agents) corrupted the dex output. The APK built "successfully" but crashed with `ClassNotFoundException: AppKt`. Give parallel agents their own git worktree. To recover: `./gradlew --stop`, `rm -rf composeApp/build`, then rebuild with `--no-build-cache --no-configuration-cache`.
 - **After `clean`**, or any deletion of `build/`, a reused configuration cache makes `generateBuildInfo` produce nothing ("Unresolved reference 'BuildInfo'"). Build with `--no-configuration-cache`. Both caches are on in `gradle.properties`.
-- **SQLDelight `verifyMigrations` is disabled on Windows** (the `sqldelight {}` block in `composeApp/build.gradle.kts`), so a migration mistake won't fail the build here. Check `.sqm` files by hand.
 - "Unable to strip" warnings for native libs are expected.
 
 ## Architecture
@@ -50,126 +49,33 @@ composeApp/src/
 ```
 
 - **DI:** kotlin-inject `AppComponent` is only used on Android (`DartzVibeApplication`). iOS builds its repositories by hand in `MainViewController.kt` (`IosAppDependencies`). Both pass the repositories to `App(...)`, which exposes them as `LocalXRepository` CompositionLocals.
-- **Navigation:** Voyager. `HomeScreen` is the entry point. Push with `navigator.pushFrom(this@XScreen, next)` and replace with `replaceFrom` (`ui/screen/NavigateFromTop.kt`), never bare `push`/`replace`: they act only while the calling screen is on top, so a double tap during the slide can't stack two screens with their own ScreenModels (two game screens would save over each other). New Game uses `replaceFrom(…, ActiveGameScreen(id))`.
-- **Screens and ScreenModels:**
-  - A screen's `Content()` reads repositories from `LocalXRepository.current` and builds its ScreenModel with a `Screen.rememberXScreenModel(...)` factory, which calls Voyager's `rememberScreenModel { }` (not plain `remember`, not DI). The model lives while its screen is in the navigator stack, so it survives a push on top (e.g. Settings mid-turn), and is disposed once the screen is popped or replaced.
-  - Every screen overrides `key` with `uniqueScreenKey`: the ScreenModel store is keyed by it, and the default key is the class name, so a second `ActiveGameScreen` would otherwise share the first one's model.
-  - `App.kt` disposes screens after the slide ends (`disposeSteps = false` plus `SlideTransition(disposeScreenAfterTransitionEnd = true)`): disposing at the pop would let the still-sliding screen build a fresh model.
-  - Because models stay alive in the background, they must observe repository Flows rather than load once in `init` (only `ActiveGameScreenModel` and `AddEditPlayerScreenModel` load once, on purpose). A write requested right before the screen leaves (a save then pop, a settings toggle then Back) uses `launchToCompletion`, which a disposed scope can't cancel.
-  - Screens read settings from `LocalAppSettings` (collected once in `App.kt`), not by collecting `getSettings()` themselves, so a screen coming back from Settings has the new values from its first frame.
-  - ScreenModels take dependencies as constructor parameters and expose `StateFlow<XState>`.
-  - The UI lives in a separate stateless composable that takes state and callbacks. It's usually named `XContent`; a few are named `XScreenContent`.
-- **Game engine is immutable.**
-  - Every operation returns a new engine: `addThrow` → `(engine, ThrowResult)`, `endTurn` → `(engine, TurnResult)`, and `undoLastThrow()` returns null when the current turn has no throws. Modes have no undo of their own; see Undo below.
-  - `GameEngine.fromSession(session)` picks the `ModeEngine` from `GameConfig.gameMode`, and `toGameSession()` exports the state for saving.
-  - `GameEngineHelper` holds the shared logic: current player, scores, leg handling, and `getRoundNumber` (rounds restart each leg).
-- **In-progress throws are not saved.** The current turn's throws live only in the engine until `endTurn()`, and `toGameSession()` doesn't include them. Pushing another screen (Settings) keeps them, because the ScreenModel outlives the covered screen's composition. Rotation survives because `AndroidManifest.xml` declares `configChanges` on the activity; keep it. Without it the model might still survive (Voyager's store is process-wide and the screen keys are saved with the stack), but that's not verified. Process death still loses the throws. In Parcheesi, though, `toGameSession()` mid-turn *does* hold the phantom turns the current darts caused, so anything that saves mid-turn (undo, abandon) saves `TurnRewind.turnStartSession(...)` instead.
-- **Win dialogs freeze the screen:** on a leg or match win, `ActiveGameScreenModel.endTurn` keeps rendering the engine from *before* `endTurn` and holds the (already saved) result in `pendingWinEngine`. Continue swaps it in under the still-open dialog (`continueToNextLeg`), and the UI closes it a frame later (`closeLegWonDialog`); Finish only pops the screen with the dialog up. Either order the other way flashes the ended game without its dialog. The dialog's Undo just closes the dialog and is ignored once Continue swapped, and the Roulette/Practice results dialogs read `state.resultState`.
-- **Phantom turns:** Parcheesi knockouts add `Turn(isPhantom = true)`. For turn order, round number and display, use `Leg.playerTurns`, which leaves them out. The phantom is appended mid-turn, when the knocking dart lands, so it sits **before** the turn that caused it in `Leg.turns` (`parcheesiLegHistory` in `domain/history/` links them).
-- **Undo** is one session-based rewind in `domain/game/TurnRewind.kt`, for every mode. A single dart: rebuild from the turn-start session and replay the turn's darts minus the last (this is what drops a knockout phantom). The previous turn: rebuild the current leg from `Leg()` by replaying every kept turn with `addThrow`/`endTurn` (that recomputes `cricketState`, `rouletteState`, `checkoutPracticeState` and phantoms, which `fromSession` only reads from the leg), then replay the removed turn's darts without ending it. No snapshots, so it works after a resume. Normal Undo stays in the current leg. `rewindTurn(crossLegBoundary = true)` reverts a leg or match win; it decides whether the win dialogs offer Undo (`canUndoWin`), but the dialog Undo itself keeps the frozen pre-`endTurn` engine, which equals that rewind (see Win dialogs above). A leg that doesn't replay to its stored turns (old saves) refuses to rewind, and `canUndo`/`canUndoWin` then disable the button or hide the dialog Undo. A reopened winning turn takes no more darts (`ActiveGameState.isWinningDartThrown`); End Turn wins again. `ActiveGameScreenModel` saves are serialized and latest-wins, so an undo right after a win can't be overwritten by the COMPLETED save.
-- **Cricket rules** live in `domain/game/CricketRules.kt`, shared by `CricketModeEngine` and the Game Details replay (`cricketTurnEffects`). Change scoring there so history and live play can't drift apart. Likewise, the Roulette round → target mapping is `domain/game/RouletteRules.kt`, used by the engine, `ActiveGameScreenModel`, statistics and history.
-- **The input never moves mid-turn:** nothing above the keypad or dartboard may change height during a game. The checkout hint lives in a fixed-height slot (`components/CheckoutHint.kt`, reserved for modes where `ActiveGameState.hasCheckoutSlot` is true) that is blank when there's no route. In Parcheesi the same slot shows a knockout suggestion ("KO Bob: T7", from `domain/game/KnockoutCalculator.kt`) when no checkout route is shown; the choice is `ActiveGameState.checkoutSlotHint(showCheckoutHints, showKnockoutHints)`, checkout first. Reserve space for anything else that comes and goes (e.g. the Practice "Remaining" line) instead of adding or removing rows. Score-card lines stay on one line (the font shrinks instead of wrapping). The input gets the height that's left (`HeaderThenInput` in `ActiveGameScreen.kt`, math in `components/InputFit.kt`): the radial board is min(width, height left), with a 220 dp floor, and grid rows shrink to 28–40 dp, so short phones don't scroll. Tall phones keep the full-width board.
-- **Cricket pad:** Cricket uses `CricketInputPad` (layout in `CricketPadLayout.kt`) instead of the grid or the radial board, whatever the keypad settings (like Roulette's `RouletteInputPad`): only the game's `CricketSegments` in the scoreboard's order (Bull where it lists 25, else after the numbers), then Miss, in two rows. Darts on other numbers are entered as Miss. Its keys are the grid's `ScoreButton`/`BullButton`, so S/D/T, swipe, preview and TalkBack behave the same. On short phones `HeaderThenInput` shrinks the Cricket scoreboard rows (compact layout, 24–36 dp, from the viewport only, so it never changes mid-game) until the pad fits; tall phones keep the full scoreboard.
-- **Swipe input on keys:** with S/D/T buttons off, the grid keys (`ScoreInputKeypad`) are disabled Buttons, and a disabled Button's clickable still consumes the down and the up in the Main pass. Their single tap/swipe handler (`keySwipeInput`) therefore runs in `PointerEventPass.Initial`; a detector in the default pass never sees a plain tap. Tap and swipe are classified on lift by `classifyKeySwipe` (`components/SwipeMultiplier.kt`, on top of the `verticalSwipeMultiplier` the radial board's vertical mode uses), which the live D/T preview shares. For the same reason `keyAccessibility` replaces the disabled Button's semantics (click = single, custom actions Double/Triple), or TalkBack reads the keys as disabled.
-- **Multiplier colors:** anything color-coded by multiplier uses `MaterialTheme.multiplierColors` (`ui/theme/MultiplierColors.kt`): triple is amber, double is brand red. S/D/T selectors reuse `components/MultiplierButton`. Don't use Material `tertiary` or `primary` for multipliers; `tertiary` is still fine for other things.
-- **Statistics are per mode:**
-  - `PlayerStatistics` holds the fields every mode shares; rates such as `winRate` are **percentages**. It also holds `modeStats: ModeStatistics?`, which is sealed with one subtype per mode. Each subtype's `primaryMetric` is the leaderboard sort axis.
-  - `StatisticsCalculator` dispatches with an exhaustive `when`, and computes everything live from stored throws.
-  - Use `FixedDecimal` rather than `Double` for decimals, so JVM and Native produce identical output.
 - **Template leftovers:** `Greeting`, `GreetingRepository`, `User`, `Platform`/`getPlatform`, `network/HttpClientFactory` and the Ktor dependencies come from the project template, and no feature uses them. They are still wired into `AppComponent` and have tests, so removing them means touching both. Don't build on them.
 
-### Persistence
+## Docs and rules index
 
-- **Legs:** a `GameSession` row stores its legs as JSON (`legsJson`, read with `ignoreUnknownKeys`). New fields on `Leg`/`Turn`/`Throw` need **default values** but no SQL migration.
-- **Config:** `GameConfig` fields are separate **columns**. A new one needs:
-  - the column in `GameSession.sq`;
-  - a new `migrations/N.sqm`;
-  - the `insert` query;
-  - the row mapping in `GameRepositoryImpl`.
+Path-scoped rules (`.claude/rules/`, loaded when you touch matching files; read one by hand if your change needs it):
 
-  The `update` query only writes legs, leg index, status, finish time and winner, so config can't change after a game starts.
-- **Enums** (`GameType`, `GameMode`, `GameStatus`, and `Multiplier` inside the JSON) are stored by **name**. Renaming a constant breaks every saved game.
+- `game-engine.md`: immutable engine, unsaved in-progress throws, phantom turns, Undo (`TurnRewind`), Cricket/Roulette rules. `domain/game/`, `domain/history/`.
+- `game-modes.md`: checklist for adding a game mode. Mode engines, `GameModels.kt`, New Game.
+- `game-screen.md`: the input never moves mid-turn, the checkout/knockout slot, Cricket pad, swipe input on keys, multiplier colours, win dialogs. `ui/screen/game/`.
+- `screens.md`: Voyager navigation, ScreenModel lifecycle, `uniqueScreenKey`, `LocalAppSettings`, `launchToCompletion`. `ui/screen/`, `App.kt`.
+- `persistence.md`: legs JSON, config columns and migrations, enums by name, adding a repository. `sqldelight/`, `data/`, `di/`.
+- `settings.md`: adding an app setting, enum settings by stable value. `AppSettings*`, `ui/screen/settings/`.
+- `statistics.md`: per-mode statistics, percentages, `FixedDecimal`. `domain/statistics/`, statistics models.
+- `testing.md`: Kotest conventions, fakes, the ScreenModel test scope quirk, running one spec, counting tests. `commonTest/`.
+- `kotlin-style.md`: code style and where the ktlint overrides live. `*.kt`, `*.kts`, `.editorconfig`.
 
-## Common changes
+Docs and skills:
 
-- **New game mode:**
-  - a `GameMode` value (plus `GameType` values if needed);
-  - a `<Mode>ModeEngine` and its branch in `GameEngine.fromSession`;
-  - the mode selection and config in `NewGameScreen`/`NewGameScreenModel` (the compiler won't flag a missing one);
-  - mode handling in `ActiveGameScreen`;
-  - a `ModeStatistics` subtype and its `StatisticsCalculator` branch;
-  - the leg content in `GameDetailScreen` (derive per-dart context in `domain/history/`);
-  - any config columns, with a migration (see Persistence);
-  - engine tests.
-- **New app setting:** a field on `AppSettingsData`, a key plus getter/setter in the `AppSettingsRepository` interface and impl, a control in `SettingsScreen`, and support in `FakeAppSettingsRepository`. The typed `combine` overloads stop at 5 flows, so `getSettings()` combines the first five into `baseSettings()` and layers later settings on with a second `combine` + `copy`; add new ones there. Enum settings are stored by a stable string `value` with a `fromValue` fallback (`ThemeMode`, `SwipeMultiplierMode`), not by name.
-- **New repository:** interface + `@Inject` impl, a `@Provides` in `AppComponent`, the iOS `IosAppDependencies`, a CompositionLocal in `App.kt`, and a `Fake*Repository` in commonTest.
-
-## Code style
-
-ktlint runs through Spotless. The rule overrides live in **two places that have to stay in sync**: `editorConfigOverride` in the root `build.gradle.kts`, and `.editorconfig`, which also sets the 120 max line length. The following rules are conventions for new code; lint doesn't enforce all of them, and old code doesn't always follow them.
-
-- Imports only: no fully qualified names (use an alias import for clashes) and no wildcard imports.
-- `val` over `var`; collection functions (`map`, `forEach`, `flatMap`) over `for` loops.
-- An exhaustive `when` over enums and sealed types, with no `else`, so the compiler flags any new case you miss.
-- Expression bodies for single-expression functions. The `=` never ends a line: `fun foo(): Int = when { … }`.
-- Named arguments on multi-line calls.
-- Lowercase-named composable functions, such as the `rememberXScreenModel` factories, carry `@Suppress("ktlint:standard:function-naming")`; follow the existing code.
-
-## Tests
-
-- Kotest `FreeSpec`. Test names start with "Should". Mark the GIVEN / WHEN / THEN steps with comments. Use `withData` (`io.kotest.datatest.withData`) for data-driven cases.
-- New game rules get engine-level tests in `commonTest/.../domain/game/`. ScreenModel tests use the `Fake*Repository` classes; update the fakes whenever a repository interface changes.
-- ScreenModels built directly in tests (not through `rememberScreenModel`) get no scope of their own: Voyager hands them the scope of the last model key it gave out (`lastScreenModelKey`, never cleared) or, while nothing in the process has called `rememberScreenModel` (true in unit tests), one shared "standalone" scope. `onDispose()` alone doesn't cancel that scope; to simulate a pop, cancel it through the store as `ActiveGameScreenModelLifecycleTest` does.
-- In new code, inject randomness and time (for example `random: Random = Random.Default`) so tests can pin them. Most existing code still calls global `Random` and `currentTimeMillis()`.
-
-## Feature workflow
-
-1. **Acceptance criteria first.** Write down what a person should *see* when the feature works, per mode, and in both themes if it changes colours or adds or restyles UI. Number them: the scorer judges against them and the PR description lists them.
-2. **Record "before"** on `main` for UI changes. Build `main` in a separate git worktree rather than switching branches (one build per checkout).
-3. **Implement**: one agent for small changes. For big or risky features, run 2–3 independent implementations in separate worktrees and keep the one that scores best.
-4. **Verify by evidence:** spotless, tests and the build pass, then record "after". Record light **and** dark only when the change affects colours or appearance (a new colour, new UI, a restyle); for behaviour, logic or layout-position fixes one theme is enough. An agent that never saw the code scores the recording against the acceptance criteria. Iterate until it scores ≥ 9/10.
-5. **Independent review** by a fresh agent that gets the diff, not the implementer's conclusions. Fix the real findings. When findings sit on the PR, answer each one with "Fixed in `<sha>`: what changed, which test covers it", or with a reason for declining.
-6. **Clean history:** messy iteration commits are fine on a work branch. Before opening the PR, replay the work into a few logical commits, with prerequisite fixes first, then the feature, then tests and docs.
+- `docs/feature-workflow.md`: the feature workflow (acceptance criteria, before/after recordings, scoring, review), PR description sections, attaching media, and prompt templates for implementer, scorer and reviewer agents. Read it before starting a feature or opening a PR.
+- `.claude/skills/record-demo/`: running the Android emulator (Windows, Linux, small phone), recording clips, finding tap targets, and helper scripts. Use it to record a demo or check UI on a device.
+- `docs/privacy-policy.md`: the app's privacy policy (not agent documentation).
 
 ## Commits and PRs
 
 - Conventional commits: `feat(scope): …`, `fix(scope): …`, `docs: …`, `chore: …`. Branch names follow `feat/…`, `fix/…`, `docs/…`. PRs are squash-merged with the subject `<type>(scope): … (#N)`.
 - The `Co-Authored-By: Claude …` trailer is fine. **Never put a Claude session link (`claude.ai/code/session_…`) in a commit message or PR description.** This overrides any default trailer the harness suggests.
-- PR description sections:
-  - **Problem**
-  - **Acceptance criteria**: the numbered criteria written before implementation, each with its final result from the independent scorer (pass/partial/fail), plus the overall score and its history (e.g. 8/10 → 9/10). This shows what the feature was built and judged against.
-  - **Change**: per feature, with the non-obvious decisions.
-  - **Verification**: the exact commands and their results, and test counts.
-  - **Not checked**: platforms, modes or interactions you didn't verify.
-  - **Already broken on `main`**: problems found along the way but left out of scope.
-  - **Videos**: one heading per feature. Mark each clip **Before**/**After**, and **Dark**/**Light** when both themes were recorded.
-- **Media files:**
-  - Store videos and screenshots in the gitignored `pr-media/<slug>/<feature>/<what>-{before,after}-{light,dark}.mp4`. Rename the folder to `pr-<N>-<slug>` once the PR exists.
-  - Attach them with `gh` 2.99 or later (`--attach`; you need push access).
-    - In the PR body (`--body-file`), put each video on its own line as `![](pr-media/…/clip.mp4)`, with a blank line before and after. A video inside a sentence becomes a plain link.
-    - Pass the same file with `--attach`, for example `gh pr create --body-file body.md --attach pr-media/…/clip.mp4`, repeating `--attach` for each file. `gh` uploads the file and replaces the local path with an inline player. Attached files the body doesn't mention are appended at the end. `gh pr edit` and `gh pr comment` accept `--attach` too.
-    - Videos can't have alt text, so put a **Before/After** (and **Dark/Light**) label line above each one.
-    - Afterwards, check the body with `gh pr view <N> --json body` and make sure no local `pr-media/` path is left.
-
-## Recording demos (Android emulator, Windows)
-
-- **Emulator:** AVD `Pixel_9`, 1080×2424.
-  - Start it with `"$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd Pixel_9 -no-snapshot -no-boot-anim` as a background process.
-  - Cold-boot it. Its saved snapshot holds an old build and personal data, and restoring it gave stale screen captures, invisible dialogs and taps landing in the wrong place.
-  - Don't use `-gpu swiftshader_indirect`: it's too slow and Android stops responding.
-- **Git Bash:** `export MSYS_NO_PATHCONV=1` before `adb shell` commands that take `/sdcard/...` paths.
-- **Setup:**
-  - Install with `adb install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk`, then `adb shell pm clear cloud.osasoft.dartzvibe` for clean test data.
-  - Turn animations off with `adb shell settings put global window_animation_scale 0`, the same for `transition_animation_scale`, and `adb shell settings put global animator_duration_scale 0`.
-- **Theme:** `adb shell cmd uimode night yes|no` only affects the app while its in-app theme is "System", which is the default.
-- **Finding tap targets:** `adb shell rm -f /sdcard/ui.xml && adb shell uiautomator dump /sdcard/ui.xml`, then parse the `bounds`. Delete the old file first, because a failed dump silently leaves the previous one in place. Check the result with `adb exec-out screencap -p`.
-- **Recording:** `adb shell screenrecord --time-limit N /sdcard/x.mp4` as a background process, then `adb pull`.
-- **Dartboard:**
-  - It only appears with Settings → "Radial Dartboard Keypad" on, which is off by default.
-  - Swipe-to-multiply also needs "Show Multiplier Buttons" off.
-  - The swipe direction comes from Settings → "Dartboard Swipe Direction": up/down (default), or "Like a real board" (toward center = triple, outward = double).
-  - A slow `input swipe x y x y2 2500` works; separate `input motionevent` calls don't form one gesture.
-- **Game history:** only completed or abandoned games open `GameDetailScreen`. To get one, abandon the game: the X in the top bar, then Yes.
+- PR description sections, media attachments and clean history: `docs/feature-workflow.md`.
 
 ## Known issues
 
