@@ -151,7 +151,8 @@ fun SettingsScreenContent(
 
             SwitchSettingItem(
                 title = "Radial Dartboard Keypad",
-                description = "Use a dartboard-style input instead of grid",
+                description = "Use a dartboard-style input instead of grid " +
+                    "(Cricket and Roulette always use their own pads)",
                 checked = state.settings.useRadialKeypad,
                 onCheckedChange = onUseRadialKeypadChange,
             )

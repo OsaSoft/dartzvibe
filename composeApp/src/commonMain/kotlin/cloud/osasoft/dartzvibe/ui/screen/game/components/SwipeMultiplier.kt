@@ -80,6 +80,12 @@ internal fun classifyKeySwipe(
 ): Multiplier =
     verticalSwipeMultiplier(deltaY = deltaY, thresholdPx = thresholdPx, isBull = isBull) ?: Multiplier.SINGLE
 
+/** What the Bull key enters with [selected] chosen on the S/D/T buttons: there is no triple bull, so Triple is Double. */
+internal fun bullMultiplier(selected: Multiplier): Multiplier = when (selected) {
+    Multiplier.SINGLE -> Multiplier.SINGLE
+    Multiplier.DOUBLE, Multiplier.TRIPLE -> Multiplier.DOUBLE
+}
+
 /** The grid keypad's swipe pill: the [multiplier] previewed by the key ([key]: its number, 25 for Bull) that set it. */
 internal data class SwipePill(
     val key: Int,

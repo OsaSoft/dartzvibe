@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.CricketSegments
 import cloud.osasoft.dartzvibe.data.model.CricketState
@@ -33,6 +34,11 @@ import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
+/**
+ * The Cricket marks and points of every player. [rowHeight] null: the layout of tall phones. Set (short phones): a
+ * compact layout, with tighter header and points rows and every segment row exactly [rowHeight] tall, so the pad below
+ * fits without scrolling. It is worked out from the viewport only, so the scoreboard never changes height mid-game.
+ */
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
@@ -43,7 +49,9 @@ fun CricketScoreboard(
     cricketState: CricketState,
     currentPlayerId: Uuid?,
     modifier: Modifier = Modifier,
+    rowHeight: Dp? = null,
 ) {
+    val compact = rowHeight != null
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
@@ -53,7 +61,7 @@ fun CricketScoreboard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(if (compact) 6.dp else 8.dp),
         ) {
             // Header row with player names
             Row(
@@ -88,14 +96,14 @@ fun CricketScoreboard(
                                     Modifier
                                 },
                             )
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = if (compact) 2.dp else 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            if (player != null) {
+                        if (player != null) {
+                            val avatar = @Composable {
                                 Box(
                                     modifier = Modifier
-                                        .size(24.dp)
+                                        .size(if (compact) 20.dp else 24.dp)
                                         .clip(CircleShape)
                                         .background(AvatarColors.getColor(player.avatarColor)),
                                     contentAlignment = Alignment.Center,
@@ -107,7 +115,8 @@ fun CricketScoreboard(
                                         fontWeight = FontWeight.Bold,
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
+                            }
+                            val name = @Composable {
                                 Text(
                                     text = player.name,
                                     style = MaterialTheme.typography.labelSmall,
@@ -115,12 +124,28 @@ fun CricketScoreboard(
                                     maxLines = 1,
                                 )
                             }
+                            if (compact) {
+                                // Avatar and name side by side: one line instead of two
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    avatar()
+                                    name()
+                                }
+                            } else {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    avatar()
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    name()
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
 
             // Segment rows
             segments.segments.forEach { segment ->
@@ -129,11 +154,14 @@ fun CricketScoreboard(
                     playerIds = playerIds,
                     cricketState = cricketState,
                     currentPlayerId = currentPlayerId,
+                    rowHeight = rowHeight,
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                if (!compact) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
 
             // Points row
             Row(
@@ -141,7 +169,7 @@ fun CricketScoreboard(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = if (compact) 4.dp else 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -166,7 +194,11 @@ fun CricketScoreboard(
                     ) {
                         Text(
                             text = "${playerState.points}",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = if (compact) {
+                                MaterialTheme.typography.titleMedium
+                            } else {
+                                MaterialTheme.typography.titleLarge
+                            },
                             fontWeight = FontWeight.Bold,
                             color = if (isCurrentPlayer) {
                                 MaterialTheme.colorScheme.primary
@@ -189,9 +221,11 @@ private fun CricketSegmentRow(
     playerIds: List<Uuid>,
     cricketState: CricketState,
     currentPlayerId: Uuid?,
+    // Compact layout: the row is exactly this tall (gap included), with smaller marks
+    rowHeight: Dp?,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().then(if (rowHeight != null) Modifier.height(rowHeight) else Modifier),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -222,6 +256,7 @@ private fun CricketSegmentRow(
                     marks = marks,
                     isClosed = isClosed,
                     isCurrentPlayer = isCurrentPlayer,
+                    size = rowHeight?.let { minOf(MarksSize, it - 2.dp) } ?: MarksSize,
                 )
             }
         }
@@ -235,6 +270,7 @@ fun CricketMarksDisplay(
     isClosed: Boolean,
     isCurrentPlayer: Boolean,
     modifier: Modifier = Modifier,
+    size: Dp = MarksSize,
 ) {
     val textColor = when {
         isClosed -> MaterialTheme.colorScheme.primary
@@ -251,7 +287,7 @@ fun CricketMarksDisplay(
 
     Box(
         modifier = modifier
-            .size(32.dp)
+            .size(size)
             .then(
                 if (isClosed) {
                     Modifier
@@ -269,10 +305,13 @@ fun CricketMarksDisplay(
     ) {
         Text(
             text = displayText,
-            style = MaterialTheme.typography.titleMedium,
+            style = if (size < MarksSize) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
             fontWeight = if (isClosed) FontWeight.Bold else FontWeight.Normal,
             color = textColor,
             textAlign = TextAlign.Center,
         )
     }
 }
+
+/** Side of a marks cell on tall phones. */
+private val MarksSize = 32.dp

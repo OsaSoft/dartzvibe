@@ -59,16 +59,16 @@ private const val BULL_KEY = 25
 private const val PRESSED_TINT_ALPHA = 0.16f
 
 /** Padding around the whole keypad. */
-private val KeypadPadding = 8.dp
+internal val KeypadPadding = 8.dp
 
 /** Gap between the keypad's rows. */
-private val KeypadRowGap = 4.dp
+internal val KeypadRowGap = 4.dp
 
 /** Number of 1–20 key rows. */
 private const val KEY_ROWS = 4
 
 /** Padding inside a key, around its label. */
-private val KeyContentPadding = 2.dp
+internal val KeyContentPadding = 2.dp
 
 private enum class KeypadSlot { TOP, KEYS, BOTTOM }
 
@@ -78,16 +78,22 @@ private enum class KeypadSlot { TOP, KEYS, BOTTOM }
  * padding included) is set and too short: then they share what the other rows leave (see [fitKeyHeight]), no lower
  * than [minKeyHeight]. The other rows are measured first, so the key height depends only on them and [heightLeft].
  * [keys] is told once whether the keys were shrunk, so their labels go on one line only then.
+ *
+ * The Cricket pad uses it with its own [keyRows] and [nominalKeyHeight], and [twoLineKeyHeight] (the smallest key
+ * that still fits a two-line label), so its labels go on one line only when the keys are shorter than that.
  */
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun KeypadColumn(
+internal fun KeypadColumn(
     heightLeft: Dp?,
     minKeyHeight: Dp,
     top: @Composable () -> Unit,
     keys: @Composable (oneLineLabels: Boolean) -> Unit,
     bottom: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    keyRows: Int = KEY_ROWS,
+    nominalKeyHeight: Dp = KeyHeight,
+    twoLineKeyHeight: Dp = nominalKeyHeight,
 ) {
     SubcomposeLayout(modifier = modifier) { constraints ->
         val width = constraints.maxWidth
@@ -95,7 +101,7 @@ private fun KeypadColumn(
         val gap = KeypadRowGap.roundToPx()
         val topPlaceables = subcompose(KeypadSlot.TOP, top).map { it.measure(rowConstraints) }
         val bottomPlaceables = subcompose(KeypadSlot.BOTTOM, bottom).map { it.measure(rowConstraints) }
-        val nominalKeyHeight = KeyHeight.roundToPx()
+        val nominalKeyHeightPx = nominalKeyHeight.roundToPx()
         val keyHeight = fitKeyHeight(
             // In pixels, like the padding modifier, so rounding never leaves a pixel over
             heightLeftPx = heightLeft?.let {
@@ -104,15 +110,15 @@ private fun KeypadColumn(
                         paddingPx = KeypadPadding.roundToPx(),
                         gapPx = gap,
                         rowHeightsPx = (topPlaceables + bottomPlaceables).map { row -> row.height },
-                        flexibleRows = KEY_ROWS,
+                        flexibleRows = keyRows,
                     )
             },
-            rows = KEY_ROWS,
-            nominalPx = nominalKeyHeight,
+            rows = keyRows,
+            nominalPx = nominalKeyHeightPx,
             minPx = minKeyHeight.roundToPx(),
         )
         val keyConstraints = Constraints(maxWidth = width, minHeight = keyHeight, maxHeight = keyHeight)
-        val keyPlaceables = subcompose(KeypadSlot.KEYS) { keys(keyHeight < nominalKeyHeight) }
+        val keyPlaceables = subcompose(KeypadSlot.KEYS) { keys(keyHeight < twoLineKeyHeight.roundToPx()) }
             .map { it.measure(keyConstraints) }
         val placeables = topPlaceables + keyPlaceables + bottomPlaceables
         val gapsHeight = gap * (placeables.size - 1).coerceAtLeast(0)
@@ -164,7 +170,7 @@ fun ScoreInputKeypad(
             top = {
                 // Multiplier selection row (optional)
                 if (showMultiplierButtons) {
-                    MultiplierButtonsRow(
+                    KeypadMultiplierRow(
                         selectedMultiplier = selectedMultiplier,
                         onMultiplierChange = onMultiplierChange,
                     )
@@ -200,6 +206,7 @@ fun ScoreInputKeypad(
                     enabled = canThrow,
                     onScoreSelect = onScoreSelect,
                     onSwipeChange = swipeChangeFor(BULL_KEY),
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
                 )
 
                 // Miss button
@@ -214,12 +221,7 @@ fun ScoreInputKeypad(
 
                 // Swipe hint (only when multiplier buttons are hidden)
                 if (!showMultiplierButtons) {
-                    Text(
-                        text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    )
+                    SwipeHint()
                 }
             },
         )
@@ -232,9 +234,21 @@ fun ScoreInputKeypad(
     }
 }
 
+/** How to enter a multiplier without the S/D/T buttons, under the keys. */
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun MultiplierButtonsRow(
+internal fun SwipeHint() {
+    Text(
+        text = "Tap = Single • Swipe ↑ = Double • Swipe ↓ = Triple",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+    )
+}
+
+@Suppress("ktlint:standard:function-naming")
+@Composable
+internal fun KeypadMultiplierRow(
     selectedMultiplier: Multiplier,
     onMultiplierChange: (Multiplier) -> Unit,
 ) {
@@ -374,7 +388,7 @@ private fun pressedKeyContainer(): Color = MaterialTheme.colorScheme.onSecondary
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun ScoreButton(
+internal fun ScoreButton(
     score: Int,
     selectedMultiplier: Multiplier,
     showMultiplierButtons: Boolean,
@@ -491,13 +505,15 @@ private fun ScoreButton(
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun BullButton(
+internal fun BullButton(
     showMultiplierButtons: Boolean,
     selectedMultiplier: Multiplier,
     enabled: Boolean,
     onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
     onSwipeChange: (Multiplier?) -> Unit,
     modifier: Modifier = Modifier,
+    // Label and points on one line: only when the Cricket pad's keys were shrunk below a two-line label
+    oneLineLabel: Boolean = false,
 ) {
     val swipe = remember { KeySwipeState() }
     val isPressed = swipe.isPressed
@@ -505,7 +521,7 @@ private fun BullButton(
     // Bull only has single (25) and double (50), no triple: buttons clamp Triple to Double, and a swipe either way
     // is Double (see classifyKeySwipe)
     val displayMultiplier = if (showMultiplierButtons) {
-        if (selectedMultiplier == Multiplier.TRIPLE) Multiplier.DOUBLE else selectedMultiplier
+        bullMultiplier(selectedMultiplier)
     } else {
         swipe.preview
     }
@@ -549,13 +565,10 @@ private fun BullButton(
         )
 
     FilledTonalButton(
-        onClick = {
-            // Clamp to SINGLE or DOUBLE only for bull
-            val multiplier = if (selectedMultiplier == Multiplier.TRIPLE) Multiplier.DOUBLE else selectedMultiplier
-            onScoreSelect(25, multiplier)
-        },
+        // Clamp to SINGLE or DOUBLE only for bull
+        onClick = { onScoreSelect(25, bullMultiplier(selectedMultiplier)) },
         enabled = enabled && showMultiplierButtons,
-        modifier = gestureModifier.fillMaxWidth().height(44.dp),
+        modifier = gestureModifier,
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(2.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
@@ -565,16 +578,34 @@ private fun BullButton(
             disabledContentColor = contentColor,
         ),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = displayText,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = subtitleText,
-                style = MaterialTheme.typography.labelSmall,
-            )
+        if (oneLineLabel) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = displayText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                Text(
+                    text = subtitleText,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    modifier = Modifier.alignByBaseline(),
+                )
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = displayText,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = subtitleText,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
     }
 }
