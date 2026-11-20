@@ -218,25 +218,26 @@ data class ActiveGameState(
             GameMode.CRICKET, GameMode.ROULETTE, null -> false
         }
 
-    val checkoutOptions: List<CheckoutPath>?
-        get() {
-            // No checkout hints for Cricket or Roulette, nor once the turn has ended: after a bust or bounce the
-            // score is back at the turn start (or the bounced score), which this turn can no longer finish
-            if (!hasCheckoutSlot || isTurnEnded) return null
+    // Lazy: recomposition reads it often, and the 3-dart search loops over every dart
+    val checkoutOptions: List<CheckoutPath>? by lazy {
+        // No checkout hints for Cricket or Roulette, nor once the turn has ended: after a bust or bounce the
+        // score is back at the turn start (or the bounced score), which this turn can no longer finish
+        if (!hasCheckoutSlot || isTurnEnded) return@lazy null
 
-            val doubleOut = session?.config?.doubleOut ?: true
-            // For Parcheesi, calculate remaining to target
-            val remaining = if (isCountUp) {
-                targetScore - currentPlayerScore
-            } else {
-                currentPlayerScore
-            }
-            return if (remaining in 2..170) {
-                CheckoutCalculator.getCheckoutOptions(remaining, doubleOut, maxDarts = throwsRemaining)
-            } else {
-                null
-            }
+        val doubleOut = session?.config?.doubleOut ?: true
+        // For Parcheesi, calculate remaining to target
+        val remaining = if (isCountUp) {
+            targetScore - currentPlayerScore
+        } else {
+            currentPlayerScore
         }
+        // Up to 170 with double-out, up to 180 (and 1) without it; the calculator rejects the rest
+        if (remaining in 1..180) {
+            CheckoutCalculator.getCheckoutOptions(remaining, doubleOut, maxDarts = throwsRemaining)
+        } else {
+            null
+        }
+    }
 
     /**
      * The route the checkout slot shows: [checkoutOptions], or null when "Show Checkout Hints" is off. The slot

@@ -4,6 +4,7 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -226,6 +227,130 @@ class CheckoutCalculatorTest : FreeSpec({
             options.shouldNotBeEmpty()
             val firstOption = options.first()
             firstOption.throws shouldBe listOf(double(20))
+        }
+
+        "Should return T20, T20, T20 for score 180 without double-out" {
+            // GIVEN a score of 180 without double-out requirement
+            // WHEN getting checkout options with 3 darts
+            val options = CheckoutCalculator.getCheckoutOptions(180, doubleOut = false)
+
+            // THEN the only route is T20, T20, T20
+            options shouldBe listOf(CheckoutPath(listOf(triple(20), triple(20), triple(20))))
+        }
+
+        withData(
+            nameFn = { (score, routes) -> "Should return $routes for score $score without double-out" },
+            177 to listOf(listOf(triple(20), triple(20), triple(19))),
+            174 to listOf(
+                listOf(triple(20), triple(20), triple(18)),
+                listOf(triple(20), triple(19), triple(19)),
+            ),
+            171 to listOf(
+                listOf(triple(20), triple(20), triple(17)),
+                listOf(triple(20), triple(19), triple(18)),
+                listOf(triple(19), triple(19), triple(19)),
+            ),
+        ) { (score, routes) ->
+            // GIVEN a score above 170 without double-out requirement
+            // WHEN getting checkout options with 3 darts
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = false)
+
+            // THEN the routes are the distinct sets of three trebles, highest darts first
+            options.shouldNotBeNull().map { it.throws } shouldBe routes
+        }
+
+        withData(
+            nameFn = { "Should return null for impossible score $it without double-out" },
+            179,
+            178,
+            176,
+            175,
+            173,
+            172,
+            181,
+        ) { score ->
+            // GIVEN a score no 3 darts add up to
+            // WHEN getting checkout options without double-out
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = false)
+
+            // THEN there is no checkout
+            options.shouldBeNull()
+        }
+
+        "Should find a route for every finishable score from 1 to 180 without double-out" {
+            // GIVEN every score that 1 to 3 darts can add up to
+            val darts = (1..20).flatMap { listOf(it, it * 2, it * 3) } + listOf(25, 50)
+            val oneDart = darts.toSet()
+            val twoDarts = darts.flatMap { a -> darts.map { a + it } }.toSet() + oneDart
+            val threeDarts = darts.flatMap { a -> twoDarts.map { a + it } }.toSet() + twoDarts
+
+            (1..180).forEach { score ->
+                // WHEN getting checkout options with 1, 2 and 3 darts
+                // THEN there is a route exactly when the darts can add up to the score, using no more darts than left
+                listOf(1 to oneDart, 2 to twoDarts, 3 to threeDarts).forEach { (maxDarts, reachable) ->
+                    val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = false, maxDarts = maxDarts)
+                    if (score in reachable) {
+                        options.shouldNotBeNull().forEach { path ->
+                            path.totalScore shouldBe score
+                            path.throws.size shouldBeLessThanOrEqual maxDarts
+                        }
+                    } else {
+                        options.shouldBeNull()
+                    }
+                }
+            }
+        }
+
+        "Should return null above 120 with 2 darts left without double-out" {
+            // GIVEN 2 darts left without double-out requirement
+            // WHEN getting checkout options for 121 to 180
+            // THEN there is none, while 120 still has T20, T20
+            (121..180).forEach { score ->
+                CheckoutCalculator.getCheckoutOptions(score, doubleOut = false, maxDarts = 2).shouldBeNull()
+            }
+            CheckoutCalculator.getCheckoutOptions(120, doubleOut = false, maxDarts = 2)
+                .shouldNotBeNull().first().throws shouldBe listOf(triple(20), triple(20))
+        }
+
+        "Should never offer the same darts in another order as an alternative without double-out" {
+            // GIVEN every score from 1 to 180 and 1 to 3 darts left
+            (1..180).forEach { score ->
+                (1..3).forEach { maxDarts ->
+                    // WHEN getting checkout options without double-out
+                    val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = false, maxDarts = maxDarts)
+
+                    // THEN no two routes are the same set of darts
+                    val sets = options.orEmpty().map { path -> path.throws.groupingBy { it }.eachCount() }
+                    sets.distinct().size shouldBe sets.size
+                }
+            }
+        }
+    }
+
+    "getCheckoutOptions above 170 with double-out" - {
+
+        withData(nameFn = { "Should return null for score $it with double-out" }, (171..180).toList()) { score ->
+            // GIVEN a score above 170 with double-out (T20, T20, Bull is the highest finish)
+            // WHEN getting checkout options
+            val options = CheckoutCalculator.getCheckoutOptions(score, doubleOut = true)
+
+            // THEN there is no checkout
+            options.shouldBeNull()
+        }
+
+        "Should keep the double-out routes, alternatives included, as they were" {
+            // GIVEN double-out scores with several routes
+            // WHEN getting checkout options
+            // THEN the routes match the ones before 171-180 were added (setup darts in their old order)
+            CheckoutCalculator.getCheckoutOptions(167, doubleOut = true).shouldNotBeNull().map { it.throws } shouldBe
+                listOf(listOf(triple(19), triple(20), bull()), listOf(triple(20), triple(19), bull()))
+            CheckoutCalculator.getCheckoutOptions(100, doubleOut = true).shouldNotBeNull().map { it.throws } shouldBe
+                listOf(
+                    listOf(triple(20), double(20)),
+                    listOf(bull(), bull()),
+                    listOf(double(19), triple(20), double(1)),
+                )
+            CheckoutCalculator.getCheckoutOptions(1, doubleOut = true).shouldBeNull()
         }
     }
 

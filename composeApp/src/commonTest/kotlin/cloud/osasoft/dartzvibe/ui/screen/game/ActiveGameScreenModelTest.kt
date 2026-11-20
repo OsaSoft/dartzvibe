@@ -377,6 +377,152 @@ class ActiveGameScreenModelTest : FreeSpec({
             }
         }
 
+        // Classic 301: P1 throws [first] (segment 0 is a miss), P2 three misses; P1 to throw with 3 darts
+        suspend fun TestScope.classicAfter(doubleOut: Boolean, vararg first: Pair<Int, Multiplier>): ActiveGameState {
+            val (screenModel, _) = configScreenModel(
+                GameConfig(
+                    gameType = GameType.CLASSIC_301,
+                    gameMode = GameMode.CLASSIC,
+                    doubleOut = doubleOut,
+                    playerIds = listOf(undoPlayer1Id, undoPlayer2Id),
+                ),
+            )
+            first.forEach { (segment, multiplier) ->
+                if (segment == 0) screenModel.onMiss() else screenModel.onScoreSelect(segment, multiplier)
+            }
+            screenModel.endTurn()
+            repeat(3) { screenModel.onMiss() }
+            screenModel.endTurn()
+            advanceUntilIdle()
+            return screenModel.state.first()
+        }
+
+        "Should show T20, T20, T20 on 180 without double-out" {
+            runTest {
+                // GIVEN Classic 301 without double-out and P1 on 180 (T20 T20 S1) with 3 darts
+                val state =
+                    classicAfter(false, 20 to Multiplier.TRIPLE, 20 to Multiplier.TRIPLE, 1 to Multiplier.SINGLE)
+
+                // WHEN reading the route
+                state.currentPlayerScore shouldBe 180
+                val options = state.checkoutOptions.shouldNotBeNull()
+
+                // THEN it is T20, T20, T20
+                options.first().throws shouldBe List(3) { Throw(segment = 20, multiplier = Multiplier.TRIPLE) }
+            }
+        }
+
+        "Should show no route on 181 without double-out" {
+            runTest {
+                // GIVEN Classic 301 without double-out and P1 on 181 (T20 T20 Miss) with 3 darts
+                val state =
+                    classicAfter(false, 20 to Multiplier.TRIPLE, 20 to Multiplier.TRIPLE, 0 to Multiplier.SINGLE)
+
+                // WHEN reading the route
+                // THEN there is none, as no 3 darts make 181
+                state.currentPlayerScore shouldBe 181
+                state.checkoutOptions.shouldBeNull()
+            }
+        }
+
+        "Should show no route on 180 with double-out" {
+            runTest {
+                // GIVEN Classic 301 with double-out and P1 on 180 (T20 T20 S1) with 3 darts
+                val state = classicAfter(true, 20 to Multiplier.TRIPLE, 20 to Multiplier.TRIPLE, 1 to Multiplier.SINGLE)
+
+                // WHEN reading the route
+                // THEN there is none, as 170 is the highest double-out finish
+                state.currentPlayerScore shouldBe 180
+                state.checkoutOptions.shouldBeNull()
+            }
+        }
+
+        "Should show no route on 180 with only 2 darts left without double-out" {
+            runTest {
+                // GIVEN Classic 301 without double-out and P1 on 180 who misses the first dart
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                screenModel.endTurn()
+                repeat(3) { screenModel.onMiss() }
+                screenModel.endTurn()
+                screenModel.onMiss()
+                advanceUntilIdle()
+
+                // WHEN reading the route
+                val state = screenModel.state.first()
+
+                // THEN there is none, as 2 darts make at most 120
+                state.currentPlayerScore shouldBe 180
+                state.throwsRemaining shouldBe 2
+                state.checkoutOptions.shouldBeNull()
+            }
+        }
+
+        "Should show S1 on 1 left without double-out" {
+            runTest {
+                // GIVEN Classic 301 without double-out and P1 on 1
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                screenModel.playClassicToOneLeft()
+                advanceUntilIdle()
+
+                // WHEN reading the route
+                val state = screenModel.state.first()
+
+                // THEN it is S1
+                state.currentPlayerScore shouldBe 1
+                state.checkoutOptions.shouldNotBeNull().first().throws shouldBe
+                    listOf(Throw(segment = 1, multiplier = Multiplier.SINGLE))
+            }
+        }
+
+        // Parcheesi 301 (no double-out): P1 scores T20 T20 [last] (121 + last - 1), P2 T20 T20 S20 (140); P1 to throw
+        suspend fun TestScope.parcheesiP1On(last: Int): ActiveGameState {
+            val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI)
+            screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+            screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+            screenModel.onScoreSelect(last, Multiplier.SINGLE)
+            screenModel.endTurn()
+            screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+            screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+            screenModel.onScoreSelect(20, Multiplier.SINGLE)
+            screenModel.endTurn()
+            advanceUntilIdle()
+            return screenModel.state.first()
+        }
+
+        "Should show the Parcheesi checkout instead of the knockout on 180 to go" {
+            runTest {
+                // GIVEN P1 on 121 (180 to go) and P2 on 140, a one-dart knockout
+                val state = parcheesiP1On(1)
+                state.currentPlayerScore shouldBe 121
+                state.getPlayerScore(undoPlayer2Id) shouldBe 140
+                state.knockoutRoutes.map { it.opponentId } shouldBe listOf(undoPlayer2Id)
+
+                // WHEN reading the slot
+                val hint = state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true)
+
+                // THEN it shows the checkout T20, T20, T20
+                val checkout = hint.shouldBeInstanceOf<CheckoutSlotHint.Checkout>()
+                checkout.options.first().throws shouldBe List(3) { Throw(segment = 20, multiplier = Multiplier.TRIPLE) }
+            }
+        }
+
+        "Should show the Parcheesi knockout on 179 to go, which no 3 darts finish" {
+            runTest {
+                // GIVEN P1 on 122 (179 to go) and P2 on 140, a one-dart knockout
+                val state = parcheesiP1On(2)
+                state.currentPlayerScore shouldBe 122
+
+                // WHEN reading the slot
+                // THEN there is no checkout and the slot shows the knockout
+                state.checkoutOptions.shouldBeNull()
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true) shouldBe
+                    CheckoutSlotHint.Knockout(state.knockoutRoutes)
+            }
+        }
+
         withData(
             nameFn = { (mode, expected) -> "Should ${if (expected) "" else "not "}reserve the slot in $mode" },
             GameMode.CLASSIC to true,
