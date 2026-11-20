@@ -45,6 +45,8 @@ class SettingsScreenModelTest : FreeSpec({
                 state.settings.themeMode shouldBe ThemeMode.SYSTEM
                 state.settings.keepScreenOn shouldBe false
                 state.settings.showCheckoutHints shouldBe true
+                // AND knockout hints are on by default too
+                state.settings.showKnockoutHints shouldBe true
                 state.isLoading shouldBe false
             }
         }
@@ -97,6 +99,25 @@ class SettingsScreenModelTest : FreeSpec({
                 // THEN state.settings.showCheckoutHints should be false
                 val state = screenModel.state.first()
                 state.settings.showCheckoutHints shouldBe false
+            }
+        }
+
+        "Should update show knockout hints setting without touching checkout hints" {
+            runTest {
+                // GIVEN a SettingsScreenModel
+                val repository = FakeAppSettingsRepository()
+                val screenModel = SettingsScreenModel(repository)
+                advanceUntilIdle()
+
+                // WHEN setShowKnockoutHints(false) is called
+                screenModel.setShowKnockoutHints(false)
+                advanceUntilIdle()
+
+                // THEN state and the repository hold false, and checkout hints stay on
+                val state = screenModel.state.first()
+                state.settings.showKnockoutHints shouldBe false
+                state.settings.showCheckoutHints shouldBe true
+                repository.getCurrentSettings().showKnockoutHints shouldBe false
             }
         }
 

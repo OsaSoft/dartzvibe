@@ -21,6 +21,8 @@ import cloud.osasoft.dartzvibe.domain.game.CricketRules
 import cloud.osasoft.dartzvibe.domain.game.CricketTurnSummary
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
 import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
+import cloud.osasoft.dartzvibe.domain.game.KnockoutCalculator
+import cloud.osasoft.dartzvibe.domain.game.KnockoutRoute
 import cloud.osasoft.dartzvibe.domain.game.LastTurn
 import cloud.osasoft.dartzvibe.domain.game.RewindResult
 import cloud.osasoft.dartzvibe.domain.game.RouletteRules
@@ -39,6 +41,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+
+/** The content of the checkout slot: a checkout route, or (Parcheesi) a knockout suggestion. */
+sealed interface CheckoutSlotHint {
+    data class Checkout(
+        val options: List<CheckoutPath>,
+    ) : CheckoutSlotHint
+
+    data class Knockout(
+        val routes: List<KnockoutRoute>,
+    ) : CheckoutSlotHint
+}
 
 @OptIn(ExperimentalUuidApi::class)
 data class ActiveGameState(
@@ -231,6 +244,36 @@ data class ActiveGameState(
      */
     fun visibleCheckoutOptions(showCheckoutHints: Boolean): List<CheckoutPath>? =
         checkoutOptions.takeIf { showCheckoutHints }
+
+    /**
+     * Parcheesi only: up to two knockouts the current player can reach with the darts left (fewest darts, then the
+     * leader), from the running score. Empty in other modes, once the turn has ended, between turns, and under
+     * double-in until the player has doubled in.
+     */
+    // Lazy: recomposition reads it often, and the route search loops over every dart
+    val knockoutRoutes: List<KnockoutRoute> by lazy {
+        val config = session?.config
+        val playerId = currentPlayerId
+        if (config?.gameMode != GameMode.PARCHEESI || playerId == null || !canThrow) return@lazy emptyList()
+        // Under double-in nothing scores (or knocks anyone out) until the player hits a double, so no route would work
+        if (config.doubleIn && engine?.hasDoubledIn() != true) return@lazy emptyList()
+        KnockoutCalculator.getKnockoutOptions(
+            currentScore = currentPlayerScore,
+            targetScore = targetScore,
+            opponentScores = config.playerIds.filter { it != playerId }.map { it to getPlayerScore(it) },
+            dartsLeft = throwsRemaining,
+        )
+    }
+
+    /**
+     * What the checkout slot shows: the checkout route when hints are on and the turn can finish, otherwise (with
+     * "Show Knockout Hints" on) the Parcheesi knockouts, otherwise nothing. The slot stays reserved either way.
+     */
+    fun checkoutSlotHint(
+        showCheckoutHints: Boolean,
+        showKnockoutHints: Boolean,
+    ): CheckoutSlotHint? = visibleCheckoutOptions(showCheckoutHints)?.let { CheckoutSlotHint.Checkout(it) }
+        ?: knockoutRoutes.takeIf { showKnockoutHints && it.isNotEmpty() }?.let { CheckoutSlotHint.Knockout(it) }
 
     fun getPlayerScore(playerId: Uuid): Int = engine?.getPlayerScore(playerId) ?: session?.config?.startingScore ?: 0
 

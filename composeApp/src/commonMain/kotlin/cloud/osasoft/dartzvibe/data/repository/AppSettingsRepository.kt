@@ -22,10 +22,11 @@ interface AppSettingsRepository {
     suspend fun setUseRadialKeypad(value: Boolean)
     suspend fun setShowMultiplierButtons(value: Boolean)
     suspend fun setSwipeMultiplierMode(mode: SwipeMultiplierMode)
+    suspend fun setShowKnockoutHints(value: Boolean)
 }
 
 /**
- * Every settings flow registers a listener on [settings] from [dispatcher]. `getSettings()` combines six of them, so
+ * Every settings flow registers a listener on [settings] from [dispatcher]. `getSettings()` combines seven of them, so
  * on a multi-threaded dispatcher those registrations run in parallel: fine for SharedPreferences and NSUserDefaults,
  * but not for a store with a plain listener list such as `MapSettings`. Tests pass a single-threaded test dispatcher.
  */
@@ -41,8 +42,12 @@ class AppSettingsRepositoryImpl(
     override fun getSettings(): Flow<AppSettingsData> = combine(
         baseSettings(),
         flowSettings.getStringFlow(KEY_SWIPE_MULTIPLIER_MODE, defaultValue = SwipeMultiplierMode.VERTICAL.value),
-    ) { base, swipeMultiplierMode ->
-        base.copy(swipeMultiplierMode = SwipeMultiplierMode.fromValue(swipeMultiplierMode))
+        flowSettings.getBooleanFlow(KEY_SHOW_KNOCKOUT_HINTS, defaultValue = true),
+    ) { base, swipeMultiplierMode, showKnockoutHints ->
+        base.copy(
+            swipeMultiplierMode = SwipeMultiplierMode.fromValue(swipeMultiplierMode),
+            showKnockoutHints = showKnockoutHints,
+        )
     }
 
     private fun baseSettings(): Flow<AppSettingsData> = combine(
@@ -85,6 +90,10 @@ class AppSettingsRepositoryImpl(
         flowSettings.putString(KEY_SWIPE_MULTIPLIER_MODE, mode.value)
     }
 
+    override suspend fun setShowKnockoutHints(value: Boolean) {
+        flowSettings.putBoolean(KEY_SHOW_KNOCKOUT_HINTS, value)
+    }
+
     companion object {
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
@@ -92,5 +101,6 @@ class AppSettingsRepositoryImpl(
         private const val KEY_USE_RADIAL_KEYPAD = "use_radial_keypad"
         private const val KEY_SHOW_MULTIPLIER_BUTTONS = "show_multiplier_buttons"
         private const val KEY_SWIPE_MULTIPLIER_MODE = "swipe_multiplier_mode"
+        private const val KEY_SHOW_KNOCKOUT_HINTS = "show_knockout_hints"
     }
 }

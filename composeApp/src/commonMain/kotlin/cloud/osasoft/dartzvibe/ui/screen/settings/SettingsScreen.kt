@@ -68,6 +68,7 @@ class SettingsScreen : Screen {
             onThemeModeChange = screenModel::setThemeMode,
             onKeepScreenOnChange = screenModel::setKeepScreenOn,
             onShowCheckoutHintsChange = screenModel::setShowCheckoutHints,
+            onShowKnockoutHintsChange = screenModel::setShowKnockoutHints,
             onUseRadialKeypadChange = screenModel::setUseRadialKeypad,
             onShowMultiplierButtonsChange = screenModel::setShowMultiplierButtons,
             onSwipeMultiplierModeChange = screenModel::setSwipeMultiplierMode,
@@ -89,6 +90,7 @@ fun SettingsScreenContent(
     onThemeModeChange: (ThemeMode) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onShowCheckoutHintsChange: (Boolean) -> Unit,
+    onShowKnockoutHintsChange: (Boolean) -> Unit,
     onUseRadialKeypadChange: (Boolean) -> Unit,
     onShowMultiplierButtonsChange: (Boolean) -> Unit,
     onSwipeMultiplierModeChange: (SwipeMultiplierMode) -> Unit,
@@ -145,6 +147,15 @@ fun SettingsScreenContent(
                 description = "Display possible checkouts during game",
                 checked = state.settings.showCheckoutHints,
                 onCheckedChange = onShowCheckoutHintsChange,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SwitchSettingItem(
+                title = "Show Knockout Hints",
+                description = "In Parcheesi, suggest darts that knock an opponent back to 0",
+                checked = state.settings.showKnockoutHints,
+                onCheckedChange = onShowKnockoutHintsChange,
             )
 
             Spacer(modifier = Modifier.height(8.dp))

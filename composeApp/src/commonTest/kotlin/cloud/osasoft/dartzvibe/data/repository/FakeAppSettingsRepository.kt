@@ -41,6 +41,10 @@ class FakeAppSettingsRepository : AppSettingsRepository {
         _settings.update { it.copy(swipeMultiplierMode = mode) }
     }
 
+    override suspend fun setShowKnockoutHints(value: Boolean) {
+        _settings.update { it.copy(showKnockoutHints = value) }
+    }
+
     // Test helpers
     fun reset() {
         _settings.value = AppSettingsData()
