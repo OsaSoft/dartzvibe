@@ -9,13 +9,16 @@ import cloud.osasoft.dartzvibe.data.model.Leg
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
+import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.util.currentTimeMillis
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -74,6 +77,168 @@ class HomeScreenModelTest : FreeSpec({
         finishedAt = null,
         winnerId = null,
     )
+
+    "Loading versus loaded zero" - {
+        "Should report loading with blank subtitles before the counts arrive" {
+            runTest {
+                // GIVEN repositories that hold players and a completed game
+                val playerRepo = FakePlayerRepository()
+                val gameRepo = FakeGameRepository()
+                val alice = makePlayer("Alice")
+                playerRepo.insertPlayer(alice)
+                gameRepo.insertSession(makeCompletedSession(listOf(alice.id)))
+
+                // WHEN the model is built and nothing has been collected yet
+                val screenModel = HomeScreenModel(playerRepo, gameRepo)
+                val state = screenModel.state.value
+
+                // THEN the counts are unknown and no count shows (no "0 players" / "0 completed" flash)
+                state.isLoading shouldBe true
+                state.countsKnown shouldBe false
+                state.playersSubtitle shouldBe null
+                state.gamesSubtitle shouldBe null
+            }
+        }
+
+        "Should report loaded zero with the zero wording once empty repositories load" {
+            runTest {
+                // GIVEN empty repositories
+                val screenModel = HomeScreenModel(FakePlayerRepository(), FakeGameRepository())
+
+                // WHEN state loads
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN it is loaded, and a real zero reads "0 players" with no Games subtitle
+                state.isLoading shouldBe false
+                state.countsKnown shouldBe true
+                state.playerCount shouldBe 0
+                state.playersSubtitle shouldBe "0 players"
+                state.gamesSubtitle shouldBe null
+            }
+        }
+
+        "Should report the real counts once loaded" {
+            runTest {
+                // GIVEN one player and one completed game
+                val playerRepo = FakePlayerRepository()
+                val gameRepo = FakeGameRepository()
+                val alice = makePlayer("Alice")
+                playerRepo.insertPlayer(alice)
+                gameRepo.insertSession(makeCompletedSession(listOf(alice.id)))
+                val screenModel = HomeScreenModel(playerRepo, gameRepo)
+
+                // WHEN state loads
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN the subtitles show the counts
+                state.isLoading shouldBe false
+                state.playersSubtitle shouldBe "1 player"
+                state.gamesSubtitle shouldBe "1 completed"
+            }
+        }
+
+        "Should draw Statistics, Head-to-Head and Leaderboard enabled while loading" {
+            runTest {
+                // GIVEN repositories with data, and a model that hasn't collected yet
+                val playerRepo = FakePlayerRepository()
+                val gameRepo = FakeGameRepository()
+                val alice = makePlayer("Alice")
+                playerRepo.insertPlayer(alice)
+                gameRepo.insertSession(makeCompletedSession(listOf(alice.id)))
+
+                // WHEN the model is built
+                val state = HomeScreenModel(playerRepo, gameRepo).state.value
+
+                // THEN the buttons keep their enabled look (no grey flicker on launch)
+                state.isLoading shouldBe true
+                state.statisticsEnabled shouldBe true
+                state.headToHeadEnabled shouldBe true
+                state.leaderboardEnabled shouldBe true
+            }
+        }
+
+        "Should draw Statistics, Head-to-Head and Leaderboard disabled once a real zero loads" {
+            runTest {
+                // GIVEN empty repositories
+                val screenModel = HomeScreenModel(FakePlayerRepository(), FakeGameRepository())
+
+                // WHEN state loads
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN the buttons are disabled
+                state.statisticsEnabled shouldBe false
+                state.headToHeadEnabled shouldBe false
+                state.leaderboardEnabled shouldBe false
+            }
+        }
+
+        "Should keep Head-to-Head disabled with games but only one player once loaded" {
+            runTest {
+                // GIVEN one player and one completed game
+                val playerRepo = FakePlayerRepository()
+                val gameRepo = FakeGameRepository()
+                val alice = makePlayer("Alice")
+                playerRepo.insertPlayer(alice)
+                gameRepo.insertSession(makeCompletedSession(listOf(alice.id)))
+                val screenModel = HomeScreenModel(playerRepo, gameRepo)
+
+                // WHEN state loads
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN Statistics and Leaderboard are enabled, Head-to-Head isn't
+                state.statisticsEnabled shouldBe true
+                state.leaderboardEnabled shouldBe true
+                state.headToHeadEnabled shouldBe false
+            }
+        }
+
+        "Should show no count when loading fails" {
+            runTest {
+                // GIVEN a player repository whose flow throws
+                val playerRepo = object : PlayerRepository by FakePlayerRepository() {
+                    override fun getAllPlayers(): Flow<List<Player>> = flow { throw IllegalStateException("DB down") }
+                }
+                val screenModel = HomeScreenModel(playerRepo, FakeGameRepository())
+
+                // WHEN state loads
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN loading has ended with an error, but the counts are unknown rather than "0 players"
+                state.isLoading shouldBe false
+                state.error shouldBe "DB down"
+                state.countsKnown shouldBe false
+                state.playersSubtitle shouldBe null
+                state.gamesSubtitle shouldBe null
+                state.statisticsEnabled shouldBe false
+                state.headToHeadEnabled shouldBe false
+                state.leaderboardEnabled shouldBe false
+            }
+        }
+
+        "Should show no count when loading fails with an exception that has no message" {
+            runTest {
+                // GIVEN a player repository whose flow throws without a message
+                val playerRepo = object : PlayerRepository by FakePlayerRepository() {
+                    override fun getAllPlayers(): Flow<List<Player>> = flow { throw IllegalStateException() }
+                }
+                val screenModel = HomeScreenModel(playerRepo, FakeGameRepository())
+
+                // WHEN state loads
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN the error is still recorded, so the counts stay unknown
+                state.error shouldNotBe null
+                state.countsKnown shouldBe false
+                state.playersSubtitle shouldBe null
+            }
+        }
+    }
 
     "Player count thresholds" - {
         "Should report playerCount 0 with no players" {
