@@ -46,6 +46,7 @@ class LastTurnTest : FreeSpec({
         leg = toGameSession().currentLeg,
         playerId = playerId,
         isRoulette = toGameSession().config.isRoulette,
+        parcheesiConfig = config.takeIf { it.gameMode == GameMode.PARCHEESI },
     )
 
     val classic = GameConfig(
@@ -73,6 +74,7 @@ class LastTurnTest : FreeSpec({
             LabelCase("Should show a count-up zero with a plus", LastTurn.Score(0), true, "Last: +0"),
             LabelCase("Should show a count-down bust as BUST", LastTurn.Bust, false, "Last: BUST"),
             LabelCase("Should show a count-up bust as BUST", LastTurn.Bust, true, "Last: BUST"),
+            LabelCase("Should show a bounce as BOUNCE", LastTurn.Bounce, true, "Last: BOUNCE"),
             LabelCase("Should show no turn yet as an en dash, counting down", LastTurn.None, false, "Last: –"),
             LabelCase("Should show no turn yet as an en dash, counting up", LastTurn.None, true, "Last: –"),
         ) { (_, lastTurn, isCountUp, expected) ->
@@ -194,6 +196,53 @@ class LastTurnTest : FreeSpec({
             midTurn.lastTurn(p1).label(isCountUp = true) shouldBe "Last: +20"
             afterP2.lastTurn(p1).label(isCountUp = true) shouldBe "Last: +20"
             afterP2.lastTurn(p2).label(isCountUp = true) shouldBe "Last: +20"
+        }
+    }
+
+    "Should follow Parcheesi bounces and non-counting darts" - {
+        // P1 to 300 (five T20s over two turns), P2 missing in between
+        fun at300(config: GameConfig): GameEngine = engine(config)
+            .turn(t(20, TRIPLE), t(20, TRIPLE), t(20, TRIPLE))
+            .turn(t(0))
+            .turn(t(20, TRIPLE), t(20, TRIPLE))
+            .turn(t(0))
+
+        "Should show BOUNCE after a turn that overshot the target" {
+            // GIVEN P1 at 300
+            val engine = at300(parcheesi)
+
+            // WHEN P1 throws S20 (bounces to 282) and the turn ends
+            val afterBounce = engine.turn(t(20))
+
+            // THEN P1's card reads BOUNCE, not +20
+            afterBounce.getPlayerScore(p1) shouldBe 282
+            afterBounce.lastTurn(p1).label(isCountUp = true) shouldBe "Last: BOUNCE"
+        }
+
+        "Should keep +N for a normal Parcheesi turn" {
+            // GIVEN / WHEN P1 reaches 300 normally
+            val engine = at300(parcheesi)
+
+            // THEN the last turn reads +120
+            engine.lastTurn(p1).label(isCountUp = true) shouldBe "Last: +120"
+        }
+
+        "Should not count a dart that hit the target without the double under double-out" {
+            // GIVEN P1 at 281 under double-out
+            val doubleOut = parcheesi.copy(doubleOut = true)
+            val at281 = engine(doubleOut)
+                .turn(t(20, TRIPLE), t(20, TRIPLE), t(20, TRIPLE))
+                .turn(t(0))
+                .turn(t(20, TRIPLE), t(20, DOUBLE), t(1))
+                .turn(t(0))
+            at281.getPlayerScore(p1) shouldBe 281
+
+            // WHEN P1 throws S20 (would be 301 without a double), S1 and a miss
+            val after = at281.turn(t(20), t(1), t(0))
+
+            // THEN only the S1 counted
+            after.getPlayerScore(p1) shouldBe 282
+            after.lastTurn(p1).label(isCountUp = true) shouldBe "Last: +1"
         }
     }
 

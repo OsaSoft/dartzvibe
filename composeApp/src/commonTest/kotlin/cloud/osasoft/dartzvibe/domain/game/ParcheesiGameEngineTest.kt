@@ -513,10 +513,55 @@ class ParcheesiGameEngineTest : FreeSpec({
             // Player 1 at 281
 
             // WHEN player throws S20 (not double) to reach exactly 301
-            val (_, result) = engine.addThrow(20, Multiplier.SINGLE)
+            val (afterSingle, result) = engine.addThrow(20, Multiplier.SINGLE)
 
-            // THEN it bounces back (not checkout without double)
-            result.shouldBeInstanceOf<ThrowResult.BounceBack>()
+            // THEN the dart doesn't count: no checkout, no bounce, the score stays at 281
+            result shouldBe ThrowResult.Success(281)
+            afterSingle.getCurrentPlayerScore() shouldBe 281
+            afterSingle.isTurnEnded() shouldBe false
+            // AND the dart stays in the turn as thrown
+            afterSingle.getCurrentTurnThrows().map { it.score } shouldBe listOf(20)
+
+            // WHEN the player then hits D10 with the next dart
+            val (_, doubleResult) = afterSingle.addThrow(10, Multiplier.DOUBLE)
+
+            // THEN it checks out
+            doubleResult shouldBe ThrowResult.Checkout(playerId1)
+        }
+
+        "Should keep the score when a turn ends after a non-counting dart under doubleOut" {
+            // GIVEN a Parcheesi 301 game with doubleOut, player 1 at 281
+            var engine = createParcheesiEngine(doubleOut = true)
+            repeat(4) {
+                val (e1, _) = engine.addThrow(20, Multiplier.TRIPLE)
+                val (e2, _) = e1.endTurn()
+                val (e3, _) = e2.addThrow(0, Multiplier.SINGLE)
+                val (e4, _) = e3.endTurn()
+                engine = e4
+            }
+            val (e5, _) = engine.addThrow(20, Multiplier.DOUBLE) // 280
+            val (e6, _) = e5.addThrow(1, Multiplier.SINGLE) // 281
+            val (e7, _) = e6.endTurn()
+            val (e8, _) = e7.addThrow(0, Multiplier.SINGLE)
+            val (e9, _) = e8.endTurn()
+            engine = e9
+
+            // WHEN player 1 throws S20 (non-counting), S19 (300) and misses, then ends the turn
+            val (t1, _) = engine.addThrow(20, Multiplier.SINGLE)
+            val (t2, r2) = t1.addThrow(19, Multiplier.SINGLE)
+            val (t3, _) = t2.addThrow(0, Multiplier.SINGLE)
+            val (ended, turnResult) = t3.endTurn()
+
+            // THEN the S19 counted from 281, the turn ends on 300 (kept), and no one won
+            r2 shouldBe ThrowResult.Success(300)
+            turnResult.shouldBeInstanceOf<TurnResult.NextPlayer>()
+            ended.getPlayerScore(playerId1) shouldBe 300
+            val turn = ended.toGameSession().currentLeg.playerTurns.last()
+            turn.isBounce shouldBe false
+            turn.scoreBeforeTurn shouldBe 281
+            turn.scoreAfterTurn shouldBe 300
+            // AND the turn's points leave out the non-counting dart
+            ParcheesiRules.turnPoints(turn, ended.config) shouldBe 19
         }
 
         "Should checkout with double when doubleOut enabled" {

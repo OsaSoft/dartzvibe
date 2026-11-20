@@ -11,6 +11,7 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier.DOUBLE
 import cloud.osasoft.dartzvibe.data.model.Multiplier.SINGLE
 import cloud.osasoft.dartzvibe.data.model.Multiplier.TRIPLE
 import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.model.Turn
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -235,11 +236,19 @@ class TurnRewindTest : FreeSpec({
                             TurnRewind.undo(candidate)
                         }
 
-                        // THEN the player is back mid-turn exactly as before End Turn
+                        // THEN the player is back mid-turn exactly as before End Turn, except that a Checkout
+                        // Practice round comes back without its checkout dart (live again, as before that dart)
                         rewound.shouldNotBeNull()
-                        assertSameState(rewound.engine, beforeEndTurn)
+                        val isPracticeCheckout = script.config.isCheckoutPractice &&
+                            lastDartResult is ThrowResult.Checkout
+                        val expected = if (isPracticeCheckout) {
+                            TurnRewind.undoLastThrow(beforeEndTurn).shouldNotBeNull()
+                        } else {
+                            RewindResult(beforeEndTurn, lastDartResult)
+                        }
+                        assertSameState(rewound.engine, expected.engine)
                         // AND the last dart's result (bust, bounce, checkout...) drives the UI as before
-                        rewound.lastThrowResult shouldBe lastDartResult
+                        rewound.lastThrowResult shouldBe expected.lastThrowResult
                         // AND the normal Undo never reopens a finished leg
                         if (crossesLeg) TurnRewind.undo(candidate).shouldBeNull()
                     }
@@ -289,10 +298,16 @@ class TurnRewindTest : FreeSpec({
                     s.copy(legs = s.legs.dropLast(1) + Leg())
                 }
 
-                // WHEN Undo is pressed until it does nothing
+                // WHEN Undo is pressed until it does nothing (a Practice checkout round reopens without its
+                // checkout dart, so it takes one press fewer)
                 val darts = script.turns.dropLast(1).let { turns ->
-                    val legTurns = played.toGameSession().currentLeg.playerTurns.size
-                    turns.takeLast(legTurns).sumOf { it.size } + legTurns
+                    val legTurns = played.toGameSession().currentLeg.playerTurns
+                    val practiceCheckouts = if (script.config.isCheckoutPractice) {
+                        legTurns.count { it.scoreAfterTurn == 0 && !it.isBust }
+                    } else {
+                        0
+                    }
+                    turns.takeLast(legTurns.size).sumOf { it.size } + legTurns.size - practiceCheckouts
                 }
                 val rewound = (1..darts).fold(resumed) { engine, _ ->
                     TurnRewind.undo(engine).shouldNotBeNull().engine
@@ -511,6 +526,168 @@ class TurnRewindTest : FreeSpec({
 
             // THEN the dialog Undo is unavailable too
             TurnRewind.canUndoWin(GameEngine.fromSession(completed)) shouldBe false
+        }
+    }
+
+    "Parcheesi double-out and bounces" - {
+        val doubleOutConfig = parcheesiConfig.copy(doubleOut = true)
+
+        // P1 to 281, P2 missing in between; P1 to throw
+        val to281 = listOf(
+            listOf(t(20, TRIPLE), t(20, TRIPLE), t(20, TRIPLE)),
+            listOf(t(0)),
+            listOf(t(20, TRIPLE), t(20, DOUBLE), t(1)),
+            listOf(t(0)),
+        )
+
+        "Should undo a dart that didn't count, back to the same score" {
+            // GIVEN P1 on 281 under double-out has thrown S20 (doesn't count) and S1 (282)
+            val engine = GameEngine.fromSession(session(doubleOutConfig)).playTurns(to281)
+                .play(listOf(t(20), t(1)))
+            engine.getCurrentPlayerScore() shouldBe 282
+
+            // WHEN Undo removes S1, then the non-counting S20
+            val first = TurnRewind.undo(engine).shouldNotBeNull()
+            val second = TurnRewind.undo(first.engine).shouldNotBeNull()
+
+            // THEN the score is 281 after each, and the turn stays open
+            first.engine.getCurrentPlayerScore() shouldBe 281
+            first.lastThrowResult shouldBe ThrowResult.Success(281)
+            first.engine.isTurnEnded() shouldBe false
+            second.engine.getCurrentTurnThrows().shouldBeEmpty()
+            second.engine.getCurrentPlayerScore() shouldBe 281
+        }
+
+        "Should reopen a turn with a non-counting dart with its darts and score" {
+            // GIVEN P1 on 281 ended a turn S20 (doesn't count), S1, miss, and P2 is to throw
+            val engine = GameEngine.fromSession(
+                session(doubleOutConfig),
+            ).playTurns(to281 + listOf(listOf(t(20), t(1), t(0))))
+
+            // WHEN Undo reopens that turn
+            val reopened = TurnRewind.undo(engine).shouldNotBeNull()
+
+            // THEN its three darts are back on 282 and the leg replays to itself
+            reopened.engine.getCurrentPlayerId() shouldBe p1
+            reopened.engine.getCurrentTurnThrows() shouldBe listOf(t(20), t(1), t(0))
+            reopened.engine.getCurrentPlayerScore() shouldBe 282
+            reopened.engine.getPlayerScore(p1) shouldBe 281
+        }
+
+        "Should reopen a bounce turn still bounced" {
+            // GIVEN P1 on 300 bounced with S20 (to 282)
+            val engine = GameEngine.fromSession(session(parcheesiConfig)).playTurns(
+                listOf(
+                    listOf(t(20, TRIPLE), t(20, TRIPLE), t(20, TRIPLE)),
+                    listOf(t(0)),
+                    listOf(t(20, TRIPLE), t(20, TRIPLE)),
+                    listOf(t(0)),
+                    listOf(t(20)),
+                ),
+            )
+
+            // WHEN Undo reopens the bounce turn
+            val reopened = TurnRewind.undo(engine).shouldNotBeNull()
+
+            // THEN it is a bounce again: no more darts, on the bounced score
+            reopened.lastThrowResult shouldBe ThrowResult.BounceBack(282, 19)
+            reopened.engine.isTurnEnded() shouldBe true
+            reopened.engine.getCurrentPlayerScore() shouldBe 282
+
+            // WHEN Undo removes the bouncing dart
+            val undone = TurnRewind.undo(reopened.engine).shouldNotBeNull()
+
+            // THEN P1 is back on 300 with the turn open
+            undone.engine.isTurnEnded() shouldBe false
+            undone.engine.getCurrentPlayerScore() shouldBe 300
+        }
+
+        "Should load an old save's exact-without-double bounce, and reopen it under the current rule" {
+            // GIVEN a leg saved by the old engine: P1 on 281 threw S20 and it was stored as a bounce on 301
+            val played = GameEngine.fromSession(session(doubleOutConfig)).playTurns(to281)
+            val stored = played.toGameSession()
+            val oldTurn = Turn(
+                playerId = p1,
+                throws = listOf(t(20)),
+                scoreBeforeTurn = 281,
+                scoreAfterTurn = 301,
+                isBounce = true,
+            )
+            val oldSave = stored.copy(legs = listOf(stored.currentLeg.copy(turns = stored.currentLeg.turns + oldTurn)))
+
+            // WHEN it is loaded
+            val loaded = GameEngine.fromSession(oldSave)
+
+            // THEN it loads as stored, with P2 to throw
+            loaded.getCurrentPlayerId() shouldBe p2
+            loaded.getPlayerScore(p1) shouldBe 301
+            // WHEN Undo reopens that turn (only the turns before it have to replay to themselves)
+            val reopened = TurnRewind.undo(loaded).shouldNotBeNull()
+
+            // THEN its dart is replayed under the current rule: it doesn't count, P1 is on 281 with two darts left
+            reopened.engine.getCurrentTurnThrows() shouldBe listOf(t(20))
+            reopened.engine.getCurrentPlayerScore() shouldBe 281
+            reopened.engine.isTurnEnded() shouldBe false
+            // AND its points leave out the dart that wouldn't count under the current rules
+            ParcheesiRules.turnPoints(oldTurn, doubleOutConfig) shouldBe 0
+        }
+    }
+
+    "Checkout Practice reopen" - {
+        val practiceConfig = GameConfig(
+            gameType = GameType.CHECKOUT_EASY,
+            gameMode = GameMode.CHECKOUT_PRACTICE,
+            doubleOut = true,
+            playerIds = listOf(p1),
+            checkoutPracticeTargets = listOf(40, 32, 5),
+        )
+
+        "Should reopen a successful round live, without its checkout dart" {
+            // GIVEN round 1 (40) checked out with S20 D10, as live play does (the checkout ends the round)
+            val (afterS20, s20) = GameEngine.fromSession(session(practiceConfig)).playWithResult(listOf(t(20)))
+            val (live, _) = afterS20.play(listOf(t(10, DOUBLE))).endTurn()
+            live.getCheckoutPracticeState().shouldNotBeNull().currentTarget shouldBe 32
+
+            // WHEN one Undo goes back into that round
+            val reopened = TurnRewind.undo(live).shouldNotBeNull()
+
+            // THEN round 1 is live again with S20 on 20 remaining, exactly as before the checkout dart
+            val state = reopened.engine.getCheckoutPracticeState().shouldNotBeNull()
+            state.currentRoundIndex shouldBe 0
+            state.currentTarget shouldBe 40
+            state.successCount shouldBe 0
+            reopened.engine.getCurrentTurnThrows() shouldBe listOf(t(20))
+            reopened.engine.getCurrentPlayerScore() shouldBe 20
+            reopened.engine.isTurnEnded() shouldBe false
+            reopened.lastThrowResult shouldBe s20
+            assertSameState(reopened.engine, afterS20)
+        }
+
+        "Should reopen a one-dart checkout round with no darts and all three to throw" {
+            // GIVEN round 1 (40) checked out with D20
+            val live = GameEngine.fromSession(session(practiceConfig)).playTurns(listOf(listOf(t(20, DOUBLE))))
+
+            // WHEN one Undo goes back into that round
+            val reopened = TurnRewind.undo(live).shouldNotBeNull()
+
+            // THEN round 1 is open on 40 with no darts
+            reopened.engine.getCheckoutPracticeState().shouldNotBeNull().currentTarget shouldBe 40
+            reopened.engine.getCurrentTurnThrows().shouldBeEmpty()
+            reopened.engine.getCurrentPlayerScore() shouldBe 40
+            reopened.lastThrowResult.shouldBeNull()
+        }
+
+        "Should reopen a failed round as before, still open for its End Turn" {
+            // GIVEN round 1 (40) missed with three darts and ended
+            val live = GameEngine.fromSession(session(practiceConfig)).playTurns(listOf(listOf(t(1), t(1), t(1))))
+
+            // WHEN Undo goes back into that round
+            val reopened = TurnRewind.undo(live).shouldNotBeNull()
+
+            // THEN its darts are back on 37 remaining
+            reopened.engine.getCurrentTurnThrows() shouldBe listOf(t(1), t(1), t(1))
+            reopened.engine.getCurrentPlayerScore() shouldBe 37
+            reopened.lastThrowResult shouldBe ThrowResult.Success(37)
         }
     }
 })

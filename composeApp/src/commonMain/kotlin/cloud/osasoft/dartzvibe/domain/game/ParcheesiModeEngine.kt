@@ -2,7 +2,6 @@ package cloud.osasoft.dartzvibe.domain.game
 
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.Leg
-import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
 import kotlin.uuid.ExperimentalUuidApi
@@ -53,21 +52,18 @@ internal data class ParcheesiModeEngine(
                 }
             }
 
+            // Hitting the target exactly without the double that double-out needs: the dart scores nothing
+            ParcheesiRules.isNonCountingDart(currentScore, throwObj, config) -> {
+                val newEngine = copy(currentTurnThrows = currentTurnThrows + throwObj)
+                newEngine to ThrowResult.Success(currentScore)
+            }
+
             rawNewScore == targetScore -> {
-                if (config.doubleOut && throwObj.multiplier != Multiplier.DOUBLE) {
-                    val newEngine = copy(
-                        currentTurnThrows = currentTurnThrows + throwObj,
-                        pendingScore = targetScore,
-                        isBounced = true,
-                    )
-                    newEngine to ThrowResult.BounceBack(targetScore, 0)
-                } else {
-                    val newEngine = copy(
-                        currentTurnThrows = currentTurnThrows + throwObj,
-                        pendingScore = targetScore,
-                    )
-                    newEngine to ThrowResult.Checkout(currentPlayerId())
-                }
+                val newEngine = copy(
+                    currentTurnThrows = currentTurnThrows + throwObj,
+                    pendingScore = targetScore,
+                )
+                newEngine to ThrowResult.Checkout(currentPlayerId())
             }
 
             else -> {

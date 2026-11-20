@@ -1,9 +1,11 @@
 package cloud.osasoft.dartzvibe.domain.game
 
+import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.Leg
 import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.model.Turn
 import kotlin.uuid.ExperimentalUuidApi
 
 /**
@@ -23,7 +25,8 @@ data class RewindResult(
  *   Anything the removed dart did mid-turn (a Parcheesi knockout phantom) disappears with it.
  * - **Previous turn:** rebuild the leg from scratch by replaying every kept turn (so mode state stored on the leg,
  *   such as Cricket marks, Roulette round and Checkout results, is recomputed and phantoms are regenerated), then
- *   replay the removed turn's darts without ending it, so that player is mid-turn with all their darts.
+ *   replay the removed turn's darts without ending it, so that player is mid-turn with all their darts. A
+ *   successful Checkout Practice round comes back without its checkout dart, live again.
  *
  * Normal undo never leaves the current leg. Only [rewindTurn] with `crossLegBoundary = true` (the Undo on the
  * leg-won and game-over dialogs) reopens a finished leg or a completed match.
@@ -96,7 +99,22 @@ object TurnRewind {
             .dropLastWhile { it.isPhantom }
         if (rebuilt.toGameSession().currentLeg.turns != expectedTurns) return null
 
-        return replayThrows(rebuilt, reopenedTurn.throws)
+        return replayThrows(rebuilt, reopenedDarts(start, reopenedTurn))
+    }
+
+    /**
+     * The darts the reopened turn is replayed with: all of them, except that a successful Checkout Practice round
+     * comes back without its checkout dart. Live play never waits after a checkout (the dart ends the round), so
+     * the reopened round is live again with the darts it had left, like Undo of any single dart.
+     */
+    private fun reopenedDarts(
+        session: GameSession,
+        turn: Turn,
+    ): List<Throw> {
+        val isPracticeCheckout = session.config.gameMode == GameMode.CHECKOUT_PRACTICE &&
+            turn.scoreAfterTurn == 0 &&
+            !turn.isBust
+        return if (isPracticeCheckout) turn.throws.dropLast(1) else turn.throws
     }
 
     /** Index of the leg whose last turn [rewindTurn] would reopen, or null if there is none. */

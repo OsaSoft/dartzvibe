@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,10 +50,15 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -486,6 +492,8 @@ private fun GameHeader(
         isCricket = state.session?.config?.gameMode == GameMode.CRICKET,
         cricketTurnSummary = state.cricketTurnSummary,
         rouletteTurnPoints = state.rouletteTurnPoints,
+        turnTotal = state.parcheesiTurnPoints,
+        nonCountingDarts = state.parcheesiNonCountingDarts,
         compact = hasCheckoutSlot || cricketRowHeight != null,
         modifier = Modifier
             .fillMaxWidth()
@@ -754,6 +762,10 @@ fun CurrentTurnDisplay(
     isCricket: Boolean = false,
     cricketTurnSummary: CricketTurnSummary? = null,
     rouletteTurnPoints: Int? = null,
+    // The turn total to show instead of the darts' sum (Parcheesi: a dart that didn't count adds nothing)
+    turnTotal: Int? = null,
+    // Per dart, whether it didn't count (Parcheesi: exact target without the double-out double); empty elsewhere
+    nonCountingDarts: List<Boolean> = emptyList(),
     // Tighter vertical spacing, used where the checkout slot also needs room above the input
     compact: Boolean = false,
     modifier: Modifier = Modifier,
@@ -800,8 +812,8 @@ fun CurrentTurnDisplay(
                 }
 
                 // Throw boxes
-                currentThrows.forEach { throwObj ->
-                    ThrowDisplay(throwObj)
+                currentThrows.forEachIndexed { index, throwObj ->
+                    ThrowDisplay(throwObj, notCounted = nonCountingDarts.getOrNull(index) == true)
                 }
 
                 // Placeholder for remaining throws
@@ -819,10 +831,14 @@ fun CurrentTurnDisplay(
                     val isBounce = lastThrowResult is ThrowResult.BounceBack
                     val isCheckout = lastThrowResult is ThrowResult.Checkout
                     val isCricketWin = lastThrowResult is ThrowResult.CricketWin
+                    // The last dart hit the target without the double: say why it scored nothing
+                    val isNoDouble = nonCountingDarts.lastOrNull() == true
                     val displayText = when {
                         isBust -> "BUST"
 
                         isBounce -> "BOUNCE"
+
+                        isNoDouble -> "NO DOUBLE"
 
                         isCheckout -> "OUT!"
 
@@ -834,10 +850,13 @@ fun CurrentTurnDisplay(
                         // Roulette shows the whole turn's points, not just the last dart's
                         rouletteTurnPoints != null -> "+$rouletteTurnPoints"
 
-                        else -> "${currentThrows.sumOf { it.score }}"
+                        else -> "${turnTotal ?: currentThrows.sumOf { it.score }}"
                     }
                     val displayColor = when {
                         isBust -> MaterialTheme.colorScheme.error
+
+                        // Grey, like the void dart chip, at the BUST/BOUNCE/OUT! size: neither OUT!'s red nor BOUNCE's colour
+                        isNoDouble -> MaterialTheme.colorScheme.onSurfaceVariant
 
                         isBounce -> MaterialTheme.colorScheme.tertiary
 
@@ -874,7 +893,19 @@ fun CurrentTurnDisplay(
                                 baseStyle.copy(fontSize = baseStyle.fontSize * fitTextScale(widest, maxWidthPx))
                             }
                         } else {
-                            baseStyle
+                            // One line: a long status (NO DOUBLE) shrinks to the room right of the darts
+                            val textMeasurer = rememberTextMeasurer()
+                            val maxWidthPx = constraints.maxWidth
+                            remember(displayText, maxWidthPx, baseStyle) {
+                                val width = textMeasurer.measure(
+                                    text = displayText,
+                                    style = baseStyle,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                ).size.width
+                                val scale = fitTextScale(width, maxWidthPx)
+                                if (scale < 1f) baseStyle.copy(fontSize = baseStyle.fontSize * scale) else baseStyle
+                            }
                         }
                         if (currentThrows.isNotEmpty()) {
                             Text(
@@ -921,7 +952,11 @@ internal fun cricketTurnSummaryText(summary: CricketTurnSummary): String {
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
-fun ThrowDisplay(throwObj: Throw) {
+fun ThrowDisplay(
+    throwObj: Throw,
+    // Parcheesi: the dart didn't count (exact target without the double), so it's a grey chip with a red ✕ badge
+    notCounted: Boolean = false,
+) {
     val displayText = when {
         throwObj.segment == 0 -> "Miss"
         throwObj.segment == 25 && throwObj.multiplier == Multiplier.DOUBLE -> "BULL"
@@ -932,17 +967,52 @@ fun ThrowDisplay(throwObj: Throw) {
     // secondaryContainer because surfaceVariant would vanish on this card
     val colorScheme = MaterialTheme.colorScheme
     val multiplierColors = MaterialTheme.multiplierColors
-    val (backgroundColor, textColor) = when (throwObj.multiplier) {
-        Multiplier.SINGLE -> colorScheme.secondaryContainer to colorScheme.onSecondaryContainer
-        Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
-        Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
+    val voidBadgeColor = colorScheme.error
+    val voidBadgeMarkColor = colorScheme.onError
+    val (backgroundColor, textColor) = if (notCounted) {
+        // Void: a neutral grey chip, so it never reads as a valid single or treble
+        colorScheme.outlineVariant to colorScheme.onSurfaceVariant
+    } else {
+        when (throwObj.multiplier) {
+            Multiplier.SINGLE -> colorScheme.secondaryContainer to colorScheme.onSecondaryContainer
+            Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
+            Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
+        }
     }
 
     Box(
         modifier = Modifier
             .size(36.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(backgroundColor),
+            .background(backgroundColor)
+            .then(
+                if (notCounted) {
+                    // A small red ✕ badge in the top-right corner, clear of the centred label, which stays legible
+                    Modifier
+                        .drawWithContent {
+                            drawContent()
+                            // 14 dp across, 1 dp in from the top and right edges: fully inside the rounded corner
+                            val radius = 7.dp.toPx()
+                            val center = Offset(x = size.width - 8.dp.toPx(), y = 8.dp.toPx())
+                            drawCircle(color = voidBadgeColor, radius = radius, center = center)
+                            val arm = 3.dp.toPx()
+                            listOf(
+                                Offset(-arm, -arm) to Offset(arm, arm),
+                                Offset(-arm, arm) to Offset(arm, -arm),
+                            ).forEach { (from, to) ->
+                                drawLine(
+                                    color = voidBadgeMarkColor,
+                                    start = center + from,
+                                    end = center + to,
+                                    strokeWidth = 2.dp.toPx(),
+                                    cap = StrokeCap.Round,
+                                )
+                            }
+                        }.semantics { stateDescription = "didn't count" }
+                } else {
+                    Modifier
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -950,6 +1020,8 @@ fun ThrowDisplay(throwObj: Throw) {
             style = MaterialTheme.typography.bodyMedium,
             color = textColor,
             fontWeight = FontWeight.Bold,
+            // On a void chip the label sits a little down and left, clear of the corner badge
+            modifier = if (notCounted) Modifier.offset(x = (-2).dp, y = 3.dp) else Modifier,
         )
     }
 }
@@ -1015,10 +1087,10 @@ fun CheckoutPracticeHeader(
             // Remaining score
             // Hidden at 0: a final checkout stays on screen behind Practice Complete, the darts row shows OUT!
             // Hidden lines stay laid out (transparent), so the header keeps its height and the input below never moves
-            val remaining = state.currentPlayerScore
-            val showRemaining = remaining != state.currentCheckoutTarget && remaining != 0
+            val remaining = state.checkoutPracticeRemaining
+            val showRemaining = remaining != null
             Text(
-                text = "Remaining: $remaining",
+                text = "Remaining: ${remaining ?: 0}",
                 style = MaterialTheme.typography.titleMedium,
                 // Hidden: keep it out of TalkBack too
                 modifier = if (showRemaining) Modifier else Modifier.clearAndSetSemantics { },

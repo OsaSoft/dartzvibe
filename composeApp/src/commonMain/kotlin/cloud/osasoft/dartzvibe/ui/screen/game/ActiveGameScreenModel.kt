@@ -24,6 +24,7 @@ import cloud.osasoft.dartzvibe.domain.game.GameEngineHelper
 import cloud.osasoft.dartzvibe.domain.game.KnockoutCalculator
 import cloud.osasoft.dartzvibe.domain.game.KnockoutRoute
 import cloud.osasoft.dartzvibe.domain.game.LastTurn
+import cloud.osasoft.dartzvibe.domain.game.ParcheesiRules
 import cloud.osasoft.dartzvibe.domain.game.RewindResult
 import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
@@ -168,6 +169,13 @@ data class ActiveGameState(
             if (state.isComplete) null else state.currentTarget
         }
 
+    /**
+     * The Practice header's "Remaining" line, or null while it is hidden: before the first scoring dart (it would
+     * repeat the target) and at 0 (the checkout's darts row already says OUT!, live or reopened by Undo).
+     */
+    val checkoutPracticeRemaining: Int?
+        get() = currentPlayerScore.takeIf { isCheckoutPractice && it != currentCheckoutTarget && it != 0 }
+
     val checkoutRoundNumber: Int
         get() = (checkoutPracticeState?.currentRoundIndex ?: 0) + 1
 
@@ -201,6 +209,41 @@ data class ActiveGameState(
             val playerId = currentPlayerId ?: return 0
             return currentPlayerScore - getPlayerScore(playerId)
         }
+
+    /**
+     * Points the current Parcheesi turn has scored so far, or null outside Parcheesi: the running score minus the
+     * committed one, so a dart that doesn't count (exact target without the double-out double) adds nothing.
+     */
+    val parcheesiTurnPoints: Int?
+        get() {
+            if (session?.config?.gameMode != GameMode.PARCHEESI) return null
+            val playerId = currentPlayerId ?: return 0
+            return currentPlayerScore - getPlayerScore(playerId)
+        }
+
+    /**
+     * Parcheesi only: for each dart of the current turn, whether it didn't count (it hit the target exactly without
+     * the double that double-out needs), so the turn row can mark it. Empty in other modes and between turns.
+     */
+    val parcheesiNonCountingDarts: List<Boolean> by lazy {
+        val engine = engine ?: return@lazy emptyList()
+        val config = engine.config
+        val throws = engine.getCurrentTurnThrows()
+        if (config.gameMode != GameMode.PARCHEESI || throws.isEmpty()) return@lazy emptyList()
+        val playerId = engine.getCurrentPlayerId()
+        ParcheesiRules.nonCountingDarts(
+            startScore = engine.getPlayerScore(playerId),
+            darts = throws,
+            config = config,
+            doubledIn = engine.toGameSession().currentLeg.turns.any { turn ->
+                turn.playerId == playerId && turn.throws.any { it.multiplier == Multiplier.DOUBLE }
+            },
+        )
+    }
+
+    /** The last dart didn't count ([parcheesiNonCountingDarts]): the turn row says NO DOUBLE. */
+    val isLastDartNotCounted: Boolean
+        get() = parcheesiNonCountingDarts.lastOrNull() == true
 
     val rouletteRoundNumber: Int
         get() = (rouletteState?.currentRoundIndex ?: 0) + 1
@@ -283,7 +326,14 @@ data class ActiveGameState(
     fun getPlayer(playerId: Uuid): Player? = players[playerId]
 
     fun getLastTurn(playerId: Uuid): LastTurn = session?.currentLeg
-        ?.let { LastTurn.of(leg = it, playerId = playerId, isRoulette = isRoulette) }
+        ?.let { leg ->
+            LastTurn.of(
+                leg = leg,
+                playerId = playerId,
+                isRoulette = isRoulette,
+                parcheesiConfig = session.config.takeIf { it.gameMode == GameMode.PARCHEESI },
+            )
+        }
         ?: LastTurn.None
 }
 
@@ -419,6 +469,14 @@ class ActiveGameScreenModel(
         // Only while the win is pending: not after a second tap, nor once Continue swapped in the next leg
         if (current.pendingWinEngine == null || !current.canUndoWin) return
         val engine = current.engine ?: return
+        // Practice checkout: the reopened round loses its checkout dart and is live again, as TurnRewind.rewindTurn
+        // reopens it. A missed final round keeps all its darts, like any reopened round
+        if (current.isCheckoutPractice && current.lastThrowResult is ThrowResult.Checkout) {
+            TurnRewind.undoLastThrow(engine)?.let { rewind ->
+                applyRewind(rewind)
+                return
+            }
+        }
         // The screen already shows the engine before the winning End Turn, which is what rewinding the win
         // produces (TurnRewindTest): keep it, so nothing moves when the dialog closes
         _state.update {
