@@ -15,11 +15,14 @@ data class CheckoutPath(
 
 /**
  * Calculator for dart checkout combinations.
- * Provides optimal checkout paths for scores up to 170 (maximum 3-dart checkout with bull).
+ * Provides optimal checkout paths for scores up to 170 with double-out (T20, T20, Bull) and up to 180 without it
+ * (T20, T20, T20), where any dart can finish.
  */
 object CheckoutCalculator {
 
     private const val MAX_CHECKOUT = 170
+
+    private const val MAX_CHECKOUT_WITHOUT_DOUBLE_OUT = 180
 
     /**
      * Returns possible checkout paths for the given score.
@@ -35,7 +38,7 @@ object CheckoutCalculator {
     ): List<CheckoutPath>? = when {
         maxDarts <= 0 -> null
         score <= 0 -> null
-        score > MAX_CHECKOUT -> null
+        score > (if (doubleOut) MAX_CHECKOUT else MAX_CHECKOUT_WITHOUT_DOUBLE_OUT) -> null
         score == 1 && doubleOut -> null
         else -> calculateCheckouts(score, doubleOut, maxDarts)
     }
@@ -47,19 +50,30 @@ object CheckoutCalculator {
     private fun calculateCheckouts(score: Int, doubleOut: Boolean, maxDarts: Int): List<CheckoutPath>? {
         val paths = mutableListOf<CheckoutPath>()
 
+        // Without double-out the order of the darts doesn't matter, so keep only the first (preferred) order of each
+        // set of darts; otherwise the alternative could be the same darts reordered
+        fun add(found: List<CheckoutPath>) {
+            paths.addAll(found)
+            if (!doubleOut) {
+                val distinct = paths.distinctBy { path -> path.throws.groupingBy { it }.eachCount() }
+                paths.clear()
+                paths.addAll(distinct)
+            }
+        }
+
         // Try 1-dart finishes
-        findOneDartFinishes(score, doubleOut)?.let { paths.addAll(it) }
+        findOneDartFinishes(score, doubleOut)?.let { add(it) }
         if (paths.size >= 3) return paths.take(3)
 
         // Try 2-dart finishes
         if (maxDarts >= 2) {
-            findTwoDartFinishes(score, doubleOut).let { paths.addAll(it) }
+            add(findTwoDartFinishes(score, doubleOut))
             if (paths.size >= 3) return paths.take(3)
         }
 
         // Try 3-dart finishes
         if (maxDarts >= 3) {
-            findThreeDartFinishes(score, doubleOut).let { paths.addAll(it) }
+            add(findThreeDartFinishes(score, doubleOut))
         }
 
         return paths.take(3).ifEmpty { null }
@@ -132,7 +146,13 @@ object CheckoutCalculator {
                             .map { setup2 -> CheckoutPath(listOf(setup1, setup2, finish)) }
                     }
             }
-            .sortedByDescending { path -> path.throws.dropLast(1).sumOf { it.score } }
+            .sortedWith(threeDartOrder(doubleOut))
+    }
+
+    /** Highest setup total first; without double-out, ties read the setup darts high to low (T20 → T19 → T18). */
+    private fun threeDartOrder(doubleOut: Boolean): Comparator<CheckoutPath> {
+        val bySetup = compareByDescending<CheckoutPath> { path -> path.throws.dropLast(1).sumOf { it.score } }
+        return if (doubleOut) bySetup else bySetup.thenByDescending { path -> path.throws.first().score }
     }
 
     /**
