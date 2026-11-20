@@ -62,6 +62,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.CheckoutRoundResult
+import cloud.osasoft.dartzvibe.data.model.GameConfig
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.GameSession
 import cloud.osasoft.dartzvibe.data.model.GameStatus
@@ -72,6 +73,7 @@ import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.domain.game.ParcheesiRules
 import cloud.osasoft.dartzvibe.domain.history.CricketTurnEffect
 import cloud.osasoft.dartzvibe.domain.history.DartOutcome
 import cloud.osasoft.dartzvibe.domain.history.ParcheesiKnockout
@@ -462,7 +464,7 @@ private fun LegSection(
                                 )
                             }
 
-                        GameMode.PARCHEESI -> ParcheesiLegContent(leg, players)
+                        GameMode.PARCHEESI -> ParcheesiLegContent(leg, session.config, players)
                     }
                 }
             }
@@ -479,6 +481,8 @@ private fun TurnRow(
     showCheckout: Boolean = true,
     showBounce: Boolean = false,
     knockouts: List<KnockoutDisplay> = emptyList(),
+    // The turn's points; Parcheesi passes the darts that counted
+    points: Int = turn.totalScore,
 ) {
     Column(
         modifier = Modifier
@@ -498,6 +502,7 @@ private fun TurnRow(
             playerName = playerName,
             showCheckout = showCheckout,
             showBounce = showBounce,
+            points = points,
         )
         if (knockouts.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -514,6 +519,7 @@ private fun TurnRowMain(
     playerName: String,
     showCheckout: Boolean,
     showBounce: Boolean,
+    points: Int,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -553,14 +559,14 @@ private fun TurnRowMain(
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     Text(
-                        text = turn.totalScore.toString(),
+                        text = points.toString(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.tertiary,
                     )
                 } else {
                     Text(
-                        text = turn.totalScore.toString(),
+                        text = points.toString(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1072,6 +1078,7 @@ private fun RouletteLegContent(
 @Composable
 private fun ParcheesiLegContent(
     leg: Leg,
+    config: GameConfig,
     players: Map<Uuid, Player>,
 ) {
     val history = remember(leg) { parcheesiLegHistory(leg) }
@@ -1083,6 +1090,7 @@ private fun ParcheesiLegContent(
             showCheckout = false,
             showBounce = true,
             knockouts = context.knockouts.map { it.toDisplay(players) },
+            points = ParcheesiRules.turnPoints(context.turn, config),
         )
     }
 

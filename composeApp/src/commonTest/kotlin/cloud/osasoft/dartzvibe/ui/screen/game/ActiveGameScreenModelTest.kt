@@ -12,8 +12,10 @@ import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
+import cloud.osasoft.dartzvibe.domain.game.ParcheesiRules
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnRewind
+import cloud.osasoft.dartzvibe.domain.game.label
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -316,6 +318,142 @@ class ActiveGameScreenModelTest : FreeSpec({
         endTurn()
         onMiss()
         endTurn()
+    }
+
+    "Parcheesi Last line and turn total" - {
+        "Should read Last: BOUNCE after a bounce and +N after a normal turn" {
+            runTest {
+                // GIVEN a Parcheesi 301 game with P1 on 300 after five T20 turns
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = false,
+                        playerIds = listOf(roulettePlayer1Id, roulettePlayer2Id),
+                    ),
+                )
+                repeat(5) {
+                    screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                    screenModel.endTurn()
+                    screenModel.onMiss()
+                    screenModel.endTurn()
+                }
+                advanceUntilIdle()
+                screenModel.state.value.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: +60"
+
+                // WHEN P1 bounces with S20 and ends the turn
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // THEN P1's card reads BOUNCE, and P2's miss still reads +0
+                val state = screenModel.state.value
+                state.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: BOUNCE"
+                state.getLastTurn(roulettePlayer2Id).label(isCountUp = true) shouldBe "Last: +0"
+            }
+        }
+
+        "Should count darts before doubling in as 0 under double-in" {
+            runTest {
+                // GIVEN a Parcheesi 301 double-in game
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleIn = true,
+                        doubleOut = false,
+                        playerIds = listOf(roulettePlayer1Id, roulettePlayer2Id),
+                    ),
+                )
+
+                // WHEN P1 throws T20 and S5 without a double
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(5, Multiplier.SINGLE)
+
+                // THEN the live turn total is 0, matching the unchanged score
+                val midTurn = screenModel.state.value
+                midTurn.currentPlayerScore shouldBe 0
+                midTurn.parcheesiTurnPoints shouldBe 0
+                // AND those darts aren't marked as NO DOUBLE (they never reached the target)
+                midTurn.parcheesiNonCountingDarts shouldBe listOf(false, false)
+
+                // WHEN the turn ends with a miss
+                screenModel.onMiss()
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // THEN its points, the Last line and the stored turn agree on 0
+                val state = screenModel.state.value
+                val turn = state.session!!.currentLeg.playerTurns.last()
+                turn.totalScore shouldBe 65
+                ParcheesiRules.turnPoints(turn, state.session!!.config) shouldBe 0
+                state.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: +0"
+            }
+        }
+
+        "Should not add a dart that hit the target without the double under double-out" {
+            runTest {
+                // GIVEN a Parcheesi 301 double-out game with P1 on 281
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = true,
+                        playerIds = listOf(roulettePlayer1Id, roulettePlayer2Id),
+                    ),
+                )
+                repeat(4) {
+                    screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                    screenModel.endTurn()
+                    screenModel.onMiss()
+                    screenModel.endTurn()
+                }
+                screenModel.onScoreSelect(20, Multiplier.DOUBLE)
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                screenModel.endTurn()
+                screenModel.onMiss()
+                screenModel.endTurn()
+                advanceUntilIdle()
+                screenModel.state.value.currentPlayerScore shouldBe 281
+
+                // WHEN P1 throws S20 (301 without a double)
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN the dart shows but scores nothing: no win, no bounce, two darts left
+                state.currentTurnThrows shouldBe listOf(Throw(20, Multiplier.SINGLE))
+                state.currentPlayerScore shouldBe 281
+                state.parcheesiTurnPoints shouldBe 0
+                // AND the turn row marks it: the dart as not counted, NO DOUBLE as the turn's status
+                state.parcheesiNonCountingDarts shouldBe listOf(true)
+                state.isLastDartNotCounted shouldBe true
+                state.isBounced shouldBe false
+                state.isWinningDartThrown shouldBe false
+                state.canThrow shouldBe true
+                state.showGameCompleteDialog shouldBe false
+
+                // WHEN P1 throws S1 instead (282)
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                val afterS1 = screenModel.state.value
+
+                // THEN the S20 stays marked, the status goes back to the turn total of 1
+                afterS1.parcheesiNonCountingDarts shouldBe listOf(true, false)
+                afterS1.isLastDartNotCounted shouldBe false
+                afterS1.parcheesiTurnPoints shouldBe 1
+
+                // WHEN Undo removes the S1
+                screenModel.undo()
+                screenModel.state.value.isLastDartNotCounted shouldBe true
+
+                // WHEN P1 then hits D10
+                screenModel.onScoreSelect(10, Multiplier.DOUBLE)
+                advanceUntilIdle()
+
+                // THEN P1 wins
+                screenModel.state.value.showGameCompleteDialog shouldBe true
+            }
+        }
     }
 
     "Checkout slot" - {
@@ -909,6 +1047,80 @@ class ActiveGameScreenModelTest : FreeSpec({
             }
         }
 
+        "Should reopen a successful Practice round live, without its checkout dart" {
+            runTest {
+                // GIVEN Practice on 40 then 32, round 1 checked out with S20 D10 (live play goes straight to 32)
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CHECKOUT_EASY,
+                        gameMode = GameMode.CHECKOUT_PRACTICE,
+                        doubleOut = true,
+                        playerIds = listOf(undoPlayer1Id),
+                        checkoutPracticeTargets = listOf(40, 32),
+                    ),
+                )
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                screenModel.onScoreSelect(10, Multiplier.DOUBLE)
+                advanceUntilIdle()
+                val live = screenModel.state.value
+                live.currentCheckoutTarget shouldBe 32
+                live.currentTurnThrows.shouldBeEmpty()
+                live.checkoutPracticeState?.successCount shouldBe 1
+
+                // WHEN one Undo goes back into round 1
+                screenModel.undo()
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // THEN round 1 (target 40) is live again with S20 and 20 remaining, the checkout dart gone
+                state.checkoutRoundNumber shouldBe 1
+                state.currentCheckoutTarget shouldBe 40
+                state.currentTurnThrows shouldBe listOf(Throw(20, Multiplier.SINGLE))
+                state.lastThrowResult shouldBe ThrowResult.Success(20)
+                state.checkoutPracticeRemaining shouldBe 20
+                state.canThrow shouldBe true
+                state.isTurnEnded shouldBe false
+                // AND the banner no longer counts that checkout
+                state.checkoutPracticeState?.successCount shouldBe 0
+
+                // WHEN the checkout dart is thrown again
+                screenModel.onScoreSelect(10, Multiplier.DOUBLE)
+                advanceUntilIdle()
+
+                // THEN the round ends straight away, as live
+                screenModel.state.value.currentCheckoutTarget shouldBe 32
+                screenModel.state.value.checkoutPracticeState?.successCount shouldBe 1
+            }
+        }
+
+        "Should reopen a failed Practice round with its Next Target step, as before" {
+            runTest {
+                // GIVEN Practice on 40 then 32, round 1 missed with three darts and ended
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CHECKOUT_EASY,
+                        gameMode = GameMode.CHECKOUT_PRACTICE,
+                        doubleOut = true,
+                        playerIds = listOf(undoPlayer1Id),
+                        checkoutPracticeTargets = listOf(40, 32),
+                    ),
+                )
+                repeat(3) { screenModel.onScoreSelect(1, Multiplier.SINGLE) }
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // WHEN Undo goes back into round 1
+                screenModel.undo()
+                val state = screenModel.state.value
+
+                // THEN its three darts are back on 37 remaining and the round still ends with Next Target
+                state.currentCheckoutTarget shouldBe 40
+                state.currentTurnThrows.size shouldBe 3
+                state.checkoutPracticeRemaining shouldBe 37
+                state.canThrow shouldBe false
+            }
+        }
+
         "Should close the results dialog from its Undo" - {
             withData(
                 nameFn = { it.first },
@@ -950,8 +1162,17 @@ class ActiveGameScreenModelTest : FreeSpec({
                     // THEN the dialog closes and the game is in progress again
                     screenModel.state.value.showGameCompleteDialog shouldBe false
                     screenModel.state.value.isGameComplete shouldBe false
-                    screenModel.state.value.currentTurnThrows.isNotEmpty() shouldBe true
                     repository.saved().status shouldBe GameStatus.IN_PROGRESS
+                    val state = screenModel.state.value
+                    if (config.isCheckoutPractice) {
+                        // AND the final round is live again without its (only) checkout dart, on its target
+                        state.currentTurnThrows.shouldBeEmpty()
+                        state.currentCheckoutTarget shouldBe 2
+                        state.canThrow shouldBe true
+                        state.lastThrowResult.shouldBeNull()
+                    } else {
+                        state.currentTurnThrows.isNotEmpty() shouldBe true
+                    }
                 }
             }
         }
@@ -1570,17 +1791,25 @@ class ActiveGameScreenModelTest : FreeSpec({
                     screenModel.undoWin()
                     advanceUntilIdle()
 
-                    // THEN only the dialog is gone
-                    screenModel.state.value shouldBe behindDialog.copy(
-                        lastTurnResult = null,
-                        showLegWonDialog = false,
-                        showGameCompleteDialog = false,
-                        pendingWinEngine = null,
-                    )
+                    // THEN only the dialog is gone; a Practice checkout round also loses its checkout dart and is
+                    // live again (as the normal Undo reopens it)
+                    val after = screenModel.state.value
+                    if (case.name == "Practice Complete after a checkout") {
+                        after.showGameCompleteDialog shouldBe false
+                        after.pendingWinEngine.shouldBeNull()
+                        after.canThrow shouldBe true
+                    } else {
+                        after shouldBe behindDialog.copy(
+                            lastTurnResult = null,
+                            showLegWonDialog = false,
+                            showGameCompleteDialog = false,
+                            pendingWinEngine = null,
+                        )
+                    }
                     // AND that is what rewinding the win produces
                     val rewind = TurnRewind.rewindTurn(pending.toGameSession(), crossLegBoundary = true)!!
-                    rewind.engine.view() shouldBe behindDialog.engine!!.view()
-                    rewind.lastThrowResult shouldBe behindDialog.lastThrowResult
+                    rewind.engine.view() shouldBe after.engine!!.view()
+                    rewind.lastThrowResult shouldBe after.lastThrowResult
                     // AND the saved game is the reopened turn's start, in progress, without its knockout
                     repository.saved() shouldBe TurnRewind.turnStartSession(behindDialog.session!!)
                     repository.saved().status shouldBe GameStatus.IN_PROGRESS

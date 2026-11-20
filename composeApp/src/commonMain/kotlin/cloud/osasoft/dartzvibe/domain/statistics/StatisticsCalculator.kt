@@ -15,6 +15,7 @@ import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.model.StatAchievement
 import cloud.osasoft.dartzvibe.data.model.StatisticsFilter
 import cloud.osasoft.dartzvibe.data.model.Turn
+import cloud.osasoft.dartzvibe.domain.game.ParcheesiRules
 import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import cloud.osasoft.dartzvibe.domain.history.parcheesiLegHistory
 import kotlin.uuid.ExperimentalUuidApi
@@ -296,14 +297,21 @@ class StatisticsCalculator {
         games: List<GameSession>,
         playerId: Uuid,
     ): ModeStatistics.Parcheesi {
-        val playerTurns = games.flatMap { game ->
-            game.legs.flatMap { leg -> leg.playerTurns.filter { it.playerId == playerId } }
+        // Each turn with its game's config: ParcheesiRules needs it to tell which darts counted
+        val playerTurnsWithConfig = games.flatMap { game ->
+            game.legs.flatMap { leg ->
+                leg.playerTurns.filter { it.playerId == playerId }.map { it to game.config }
+            }
         }
-        val validTurns = playerTurns.filter { !it.isBust && it.throws.size == 3 }
+        val playerTurns = playerTurnsWithConfig.map { (turn, _) -> turn }
+        val validTurns = playerTurnsWithConfig.filter { (turn, _) -> !turn.isBust && turn.throws.size == 3 }
         val threeDartAverage = if (validTurns.isEmpty()) {
             FixedDecimal.ZERO
         } else {
-            FixedDecimal.divide(validTurns.sumOf { it.totalScore }, validTurns.size)
+            FixedDecimal.divide(
+                validTurns.sumOf { (turn, config) -> ParcheesiRules.turnPoints(turn, config) },
+                validTurns.size,
+            )
         }
 
         val knockout = calculateKnockoutStats(games, playerId)

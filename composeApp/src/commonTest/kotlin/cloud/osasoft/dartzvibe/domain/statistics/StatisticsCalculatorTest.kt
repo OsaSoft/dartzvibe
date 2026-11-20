@@ -441,6 +441,7 @@ class StatisticsCalculatorTest : FreeSpec({
             playerIds: List<Uuid>,
             turns: List<List<Throw>>,
             midTurnThrows: List<Throw> = emptyList(),
+            doubleOut: Boolean = false,
         ): GameSession {
             val start = GameEngine.fromSession(
                 GameSession(
@@ -448,7 +449,7 @@ class StatisticsCalculatorTest : FreeSpec({
                     config = GameConfig(
                         gameType = GameType.CLASSIC_301,
                         gameMode = GameMode.PARCHEESI,
-                        doubleOut = false,
+                        doubleOut = doubleOut,
                         playerIds = playerIds,
                     ),
                     startedAt = 0L,
@@ -468,6 +469,29 @@ class StatisticsCalculatorTest : FreeSpec({
                 players,
                 StatisticsFilter(gameMode = GameMode.PARCHEESI),
             ).modeStats as ModeStatistics.Parcheesi
+
+        "Should leave a dart that hit the target without the double out of the three-dart average" {
+            // GIVEN Alice under double-out scores 180, then 101 (to 281), then S20 (301 without a double: doesn't
+            // count), S1 and a miss; Bob misses throughout
+            val miss = listOf(t(0), t(0), t(0))
+            val game = playedParcheesiGame(
+                playerIds = listOf(playerId1, playerId2),
+                turns = listOf(
+                    listOf(t(20, Multiplier.TRIPLE), t(20, Multiplier.TRIPLE), t(20, Multiplier.TRIPLE)),
+                    miss,
+                    listOf(t(20, Multiplier.TRIPLE), t(20, Multiplier.DOUBLE), t(1)),
+                    miss,
+                    listOf(t(20), t(1), t(0)),
+                ),
+                doubleOut = true,
+            )
+
+            // WHEN computing Alice's Parcheesi stats
+            val alice = parcheesi(playerId1, listOf(game))
+
+            // THEN the average is (180 + 101 + 1) / 3 = 94, not counting the S20
+            alice.threeDartAverage shouldBe FixedDecimal.fromInt(94)
+        }
 
         "Should credit a 2-player knockout to the thrower, not the victim" {
             // GIVEN Alice reaches 20 and Bob matches it, knocking Alice out
