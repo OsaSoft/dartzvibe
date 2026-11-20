@@ -151,18 +151,19 @@ ktlint runs through Spotless. The rule overrides live in **two places that have 
     - Videos can't have alt text, so put a **Before/After** (and **Dark/Light**) label line above each one.
     - Afterwards, check the body with `gh pr view <N> --json body` and make sure no local `pr-media/` path is left.
 
-## Recording demos (Android emulator, Windows)
+## Recording demos (Android emulator)
 
-- **Emulator:** AVD `Pixel_9`, 1080×2424.
-  - Start it with `"$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd Pixel_9 -no-snapshot -no-boot-anim` as a background process.
-  - Cold-boot it. Its saved snapshot holds an old build and personal data, and restoring it gave stale screen captures, invisible dialogs and taps landing in the wrong place.
-  - Don't use `-gpu swiftshader_indirect`: it's too slow and Android stops responding.
-- **Git Bash:** `export MSYS_NO_PATHCONV=1` before `adb shell` commands that take `/sdcard/...` paths.
+- **AVDs:** `Pixel_9` (1080×2424, 411×923 dp) for every recording. Check layout changes on a short phone too: `Small_Phone` (720×1280, 360×640 dp; created with `avdmanager create avd -n Small_Phone -d small_phone`). Toggle 3-button navigation with `adb shell cmd overlay enable|disable com.android.internal.systemui.navbar.threebutton` and font size with `adb shell settings put system font_scale 1.3`.
+- **Cold-boot** (`-no-snapshot`): a saved snapshot held an old build and personal data, and restoring it gave stale screen captures, invisible dialogs and taps landing in the wrong place.
+- **Windows:** start `"$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd Pixel_9 -no-snapshot -no-boot-anim` as a background process. Don't use `-gpu swiftshader_indirect` there: it was too slow and Android stopped responding. In Git Bash, `export MSYS_NO_PATHCONV=1` before `adb shell` commands that take `/sdcard/...` paths.
+- **Linux (AMD GPU):** run headless with software rendering, `emulator -avd Pixel_9 -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -no-snapshot -port 5554` (a second AVD on `-port 5556`, then `ANDROID_SERIAL=emulator-5556`). It's fast enough here and screen recording works. Use platform-tools **37.x or newer**: with adb 36.0.2 the whole PC hard-froze a few minutes after the adb server started (the same freeze is reported for Ryzen + RX 9060 XT + KDE Wayland machines), with or without the emulator.
 - **Setup:**
   - Install with `adb install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk`, then `adb shell pm clear cloud.osasoft.dartzvibe` for clean test data.
   - Turn animations off with `adb shell settings put global window_animation_scale 0`, the same for `transition_animation_scale`, and `adb shell settings put global animator_duration_scale 0`.
 - **Theme:** `adb shell cmd uimode night yes|no` only affects the app while its in-app theme is "System", which is the default.
 - **Finding tap targets:** `adb shell rm -f /sdcard/ui.xml && adb shell uiautomator dump /sdcard/ui.xml`, then parse the `bounds`. Delete the old file first, because a failed dump silently leaves the previous one in place. Check the result with `adb exec-out screencap -p`.
+  - With S/D/T buttons off, the grid and Cricket keys expose their number as `content-desc` (e.g. `25, Outer bull`), not `text`. With Double/Triple selected, the key labels change (`D20`, `BULL`).
+  - With four players, Start Game sits below the fold on New Game: scroll first.
 - **Recording:** `adb shell screenrecord --time-limit N /sdcard/x.mp4` as a background process, then `adb pull`.
 - **Dartboard:**
   - It only appears with Settings → "Radial Dartboard Keypad" on, which is off by default.
