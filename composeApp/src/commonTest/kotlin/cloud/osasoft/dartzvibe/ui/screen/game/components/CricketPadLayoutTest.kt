@@ -21,7 +21,7 @@ class CricketPadLayoutTest : FreeSpec({
         override fun toString(): String = name
     }
 
-    "Should lay out only the game's Cricket numbers, Bull and Miss in two full rows" - {
+    "Should lay out only the game's Cricket targets and Miss in two full rows" - {
         withData(
             RowsCase(
                 name = "Regular: 20 19 18 17 / 16 15 Bull Miss",
@@ -60,7 +60,7 @@ class CricketPadLayoutTest : FreeSpec({
                 ),
             ),
             RowsCase(
-                name = "Random without the bull: 7 numbers, Bull still shown, Miss takes the spare column",
+                name = "Random without the bull: 7 numbers and Miss, no Bull key: 20 13 12 8 / 7 4 2 Miss",
                 segments = listOf(20, 13, 12, 8, 7, 4, 2),
                 expected = listOf(
                     listOf(
@@ -68,13 +68,12 @@ class CricketPadLayoutTest : FreeSpec({
                         CricketPadCell(Number(13)),
                         CricketPadCell(Number(12)),
                         CricketPadCell(Number(8)),
-                        CricketPadCell(Number(7)),
                     ),
                     listOf(
+                        CricketPadCell(Number(7)),
                         CricketPadCell(Number(4)),
                         CricketPadCell(Number(2)),
-                        CricketPadCell(Bull),
-                        CricketPadCell(Miss, weight = 2),
+                        CricketPadCell(Miss),
                     ),
                 ),
             ),
@@ -83,7 +82,7 @@ class CricketPadLayoutTest : FreeSpec({
             // WHEN the pad is laid out
             val rows = cricketPadRows(case.segments)
 
-            // THEN it holds exactly those numbers, in order, then Bull and Miss
+            // THEN it holds exactly those targets, in order, then Miss
             rows shouldBe case.expected
         }
     }
@@ -101,7 +100,23 @@ class CricketPadLayoutTest : FreeSpec({
             rows[0].sumOf { it.weight } shouldBe rows[1].sumOf { it.weight }
             rows.flatten().map { it.key }.filterIsInstance<Number>().map { it.segment } shouldBe
                 segments.filter { it != 25 }
+            // AND a Bull key only when the bull is a target, and one Miss key
+            rows.flatten().count { it.key == Bull } shouldBe if (25 in segments) 1 else 0
+            rows.flatten().count { it.key == Miss } shouldBe 1
         }
+    }
+
+    "Should give a Random game without the bull 4 keys of equal width in each row, as Regular Cricket" {
+        // GIVEN a Random game without the bull
+        val segments = listOf(19, 17, 10, 9, 5, 3, 1)
+
+        // WHEN the pad is laid out
+        val rows = cricketPadRows(segments)
+
+        // THEN both rows hold 4 single-column keys, like the Regular pad
+        rows.map { row -> row.map { it.weight } } shouldBe
+            cricketPadRows(CricketSegments.STANDARD_CRICKET_SEGMENTS).map { row -> row.map { it.weight } }
+        rows.map { row -> row.map { it.weight } } shouldBe listOf(listOf(1, 1, 1, 1), listOf(1, 1, 1, 1))
     }
 
     "Should enter Double for Bull with Double or Triple selected (no triple bull)" - {
