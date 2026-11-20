@@ -28,9 +28,9 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier
 private const val BULL_PILL_KEY = 25
 
 /**
- * Cricket input: only this game's Cricket numbers ([segments], in the scoreboard's order), Bull and Miss, in two rows
- * across the width (see [cricketPadRows]). A dart on any other number is entered as Miss, which marks and scores the
- * same. Used instead of the grid and the radial board, whatever the keypad settings.
+ * Cricket input: only this game's Cricket numbers ([segments], in the scoreboard's order, Bull only when it is one)
+ * and Miss, in two rows across the width (see [cricketPadRows]). A dart on any other number is entered as Miss, which
+ * marks and scores the same. Used instead of the grid and the radial board, whatever the keypad settings.
  *
  * The keys are the grid keypad's ([ScoreButton], [BullButton]): the same S/D/T buttons, or without them the same
  * tap/swipe handling, live preview, pill and TalkBack actions. They are [CricketKeyHeight] tall, or share [maxHeight]
