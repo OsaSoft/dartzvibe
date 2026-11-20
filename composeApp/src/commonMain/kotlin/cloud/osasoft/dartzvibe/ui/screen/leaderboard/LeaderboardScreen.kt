@@ -54,6 +54,7 @@ import cloud.osasoft.dartzvibe.data.model.FixedDecimal
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.theme.brandColors
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -272,7 +273,7 @@ private fun LeaderboardCard(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (entry.rank <= 3) {
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.brandColors.text
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },

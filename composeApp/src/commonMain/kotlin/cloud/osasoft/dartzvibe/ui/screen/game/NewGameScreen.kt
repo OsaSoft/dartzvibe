@@ -70,6 +70,7 @@ import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.replaceFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
+import cloud.osasoft.dartzvibe.ui.theme.brandColors
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -668,7 +669,7 @@ fun PlayerSelectionSection(
                                 "Throwing Order:"
                             },
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.brandColors.textOnContainer,
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }

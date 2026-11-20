@@ -106,6 +106,8 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.knockoutSlotText
 import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
+import cloud.osasoft.dartzvibe.ui.theme.brandColors
+import cloud.osasoft.dartzvibe.ui.theme.dialogTextButtonColors
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import dartzvibe.composeapp.generated.resources.Res
 import dartzvibe.composeapp.generated.resources.forever_alone_bw
@@ -318,7 +320,7 @@ fun ActiveGameContent(
             title = { Text("Leg Won!") },
             text = { Text("$winnerName wins the leg!") },
             confirmButton = {
-                TextButton(onClick = onContinueLegWon) {
+                TextButton(onClick = onContinueLegWon, colors = dialogTextButtonColors()) {
                     Text("Continue")
                 }
             },
@@ -358,7 +360,7 @@ fun ActiveGameContent(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismissGameComplete) {
+                    TextButton(onClick = onDismissGameComplete, colors = dialogTextButtonColors()) {
                         Text("Finish")
                     }
                 },
@@ -379,12 +381,13 @@ fun ActiveGameContent(
                         showAbandonConfirmDialog = false
                         onAbandonGame()
                     },
+                    colors = dialogTextButtonColors(),
                 ) {
                     Text("Yes")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAbandonConfirmDialog = false }) {
+                TextButton(onClick = { showAbandonConfirmDialog = false }, colors = dialogTextButtonColors()) {
                     Text("No")
                 }
             },
@@ -405,7 +408,7 @@ fun ActiveGameContent(
             title = { Text("Knockout!") },
             text = { Text(knockedOutText) },
             confirmButton = {
-                TextButton(onClick = onDismissKnockout) {
+                TextButton(onClick = onDismissKnockout, colors = dialogTextButtonColors()) {
                     Text("Continue")
                 }
             },
@@ -860,14 +863,14 @@ fun CurrentTurnDisplay(
 
                         isBounce -> MaterialTheme.colorScheme.tertiary
 
-                        isCheckout -> MaterialTheme.colorScheme.primary
+                        isCheckout -> MaterialTheme.brandColors.text
 
-                        isCricketWin -> MaterialTheme.colorScheme.primary
+                        isCricketWin -> MaterialTheme.brandColors.text
 
                         cricketTurnSummary != null && cricketTurnSummary.points > 0 ->
-                            MaterialTheme.colorScheme.primary
+                            MaterialTheme.brandColors.text
 
-                        rouletteTurnPoints != null && rouletteTurnPoints > 0 -> MaterialTheme.colorScheme.primary
+                        rouletteTurnPoints != null && rouletteTurnPoints > 0 -> MaterialTheme.brandColors.text
 
                         rouletteTurnPoints != null -> MaterialTheme.colorScheme.error
 
@@ -1188,7 +1191,7 @@ fun CheckoutPracticeResultsDialog(
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (result.success) {
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.brandColors.text
                             } else {
                                 MaterialTheme.colorScheme.error
                             },
@@ -1199,7 +1202,7 @@ fun CheckoutPracticeResultsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, colors = dialogTextButtonColors()) {
                 Text("Finish")
             }
         },
@@ -1325,7 +1328,7 @@ fun RouletteResultsDialog(
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
                             color = if (isWinner) {
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.brandColors.text
                             } else {
                                 MaterialTheme.colorScheme.onSurface
                             },
@@ -1335,7 +1338,7 @@ fun RouletteResultsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, colors = dialogTextButtonColors()) {
                 Text("Finish")
             }
         },
@@ -1347,7 +1350,7 @@ fun RouletteResultsDialog(
 @Suppress("ktlint:standard:function-naming")
 @Composable
 fun UndoWinButton(onClick: () -> Unit) {
-    TextButton(onClick = onClick) {
+    TextButton(onClick = onClick, colors = dialogTextButtonColors()) {
         Text("Undo")
     }
 }

@@ -1,11 +1,17 @@
 package cloud.osasoft.dartzvibe.ui.screen.game.components
 
+import androidx.compose.material3.ColorScheme
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.domain.game.CheckoutPath
 import cloud.osasoft.dartzvibe.domain.game.KnockoutRoute
+import cloud.osasoft.dartzvibe.ui.theme.DarkColorScheme
+import cloud.osasoft.dartzvibe.ui.theme.LightColorScheme
+import cloud.osasoft.dartzvibe.ui.theme.contrastRatio
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.floats.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.floats.shouldBeLessThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlin.uuid.ExperimentalUuidApi
@@ -144,6 +150,116 @@ class CheckoutSlotTextTest : FreeSpec({
 
             // THEN a fitting route keeps its size and a wider one shrinks to just under the strip width
             scale shouldBe case.expected
+        }
+    }
+
+    "fitSlotLine" - {
+
+        data class FitCase(
+            val description: String,
+            val primaryTextWidth: Int,
+            val secondaryTextWidth: Int?,
+            val maxWidth: Int,
+            val primaryFixedWidth: Int = 0,
+            val secondaryFixedWidth: Int = 0,
+            val expected: SlotLineFit,
+        )
+
+        withData(
+            nameFn = { "Should ${it.description}" },
+            FitCase(
+                description = "keep both at full size when they fit",
+                primaryTextWidth = 120,
+                secondaryTextWidth = 140,
+                maxWidth = 300,
+                expected = SlotLineFit(primaryScale = 1f, secondaryScale = 1f),
+            ),
+            FitCase(
+                description = "keep the main suggestion at full size and shrink only the alternative into what's left",
+                primaryTextWidth = 190,
+                secondaryTextWidth = 140,
+                maxWidth = 320,
+                expected = SlotLineFit(primaryScale = 1f, secondaryScale = 130f / 140f * 0.97f),
+            ),
+            FitCase(
+                description = "shrink only the alternative's text, not the fixed room around the line",
+                primaryTextWidth = 160,
+                secondaryTextWidth = 120,
+                maxWidth = 320,
+                primaryFixedWidth = 20,
+                secondaryFixedWidth = 30,
+                expected = SlotLineFit(primaryScale = 1f, secondaryScale = 110f / 120f * 0.97f),
+            ),
+            FitCase(
+                description = "keep the alternative down to the floor",
+                primaryTextWidth = 200,
+                secondaryTextWidth = 100,
+                maxWidth = 280,
+                expected = SlotLineFit(primaryScale = 1f, secondaryScale = 80f / 100f * 0.97f),
+            ),
+            FitCase(
+                description = "drop the alternative when it would shrink below the floor",
+                primaryTextWidth = 200,
+                secondaryTextWidth = 150,
+                maxWidth = 300,
+                expected = SlotLineFit(primaryScale = 1f, secondaryScale = null),
+            ),
+            FitCase(
+                description = "shrink a main suggestion wider than the strip and drop the alternative",
+                primaryTextWidth = 400,
+                secondaryTextWidth = 200,
+                maxWidth = 300,
+                primaryFixedWidth = 20,
+                expected = SlotLineFit(primaryScale = 280f / 400f * 0.97f, secondaryScale = null),
+            ),
+            FitCase(
+                description = "shrink a lone main suggestion that is too wide",
+                primaryTextWidth = 400,
+                secondaryTextWidth = null,
+                maxWidth = 300,
+                expected = SlotLineFit(primaryScale = 300f / 400f * 0.97f, secondaryScale = null),
+            ),
+        ) { case ->
+            // GIVEN the measured text widths, the room that doesn't shrink, and the strip width
+            // WHEN fitting the knockout line
+            val fit = fitSlotLine(
+                primaryTextWidth = case.primaryTextWidth,
+                secondaryTextWidth = case.secondaryTextWidth,
+                maxWidth = case.maxWidth,
+                primaryFixedWidth = case.primaryFixedWidth,
+                secondaryFixedWidth = case.secondaryFixedWidth,
+            )
+
+            // THEN the main suggestion keeps its size where it fits, and the alternative shrinks into the rest or is
+            // dropped
+            fit shouldBe case.expected
+        }
+    }
+
+    "slotSecondaryColor" - {
+
+        data class SecondaryCase(
+            val theme: String,
+            val scheme: ColorScheme,
+            val minRatio: Float,
+        )
+
+        withData(
+            nameFn = { "Should reach ${it.minRatio}:1 but stay dimmer than the route in ${it.theme} theme" },
+            SecondaryCase(theme = "light", scheme = LightColorScheme, minRatio = 6f),
+            SecondaryCase(theme = "dark", scheme = DarkColorScheme, minRatio = 8f),
+        ) { case ->
+            // GIVEN the slot's background and text colour
+            val container = case.scheme.tertiaryContainer
+            val onContainer = case.scheme.onTertiaryContainer
+
+            // WHEN picking the colour of the "or …" alternative
+            val secondary = slotSecondaryColor(onContainer = onContainer, container = container)
+
+            // THEN it is well above WCAG AA on the slot, yet has less contrast than the route itself
+            val ratio = contrastRatio(secondary, container)
+            ratio shouldBeGreaterThanOrEqual case.minRatio
+            ratio shouldBeLessThan contrastRatio(onContainer, container)
         }
     }
 })

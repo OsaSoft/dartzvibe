@@ -33,6 +33,7 @@ import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.domain.game.LastTurn
 import cloud.osasoft.dartzvibe.domain.game.label
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
+import cloud.osasoft.dartzvibe.ui.theme.brandColors
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
@@ -53,7 +54,7 @@ fun PlayerScoreCard(
                 if (isCurrentPlayer) {
                     Modifier.border(
                         width = 3.dp,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.brandColors.highlight,
                         shape = RoundedCornerShape(12.dp),
                     )
                 } else {
@@ -140,7 +141,7 @@ fun PlayerScoreCard(
                             style = MaterialTheme.typography.headlineLarge.scaled(scoreScale),
                             fontWeight = FontWeight.Bold,
                             color = if (isCurrentPlayer) {
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.brandColors.text
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -162,7 +163,7 @@ fun PlayerScoreCard(
                         style = MaterialTheme.typography.headlineLarge.scaled(scoreScale),
                         fontWeight = FontWeight.Bold,
                         color = if (isCurrentPlayer) {
-                            MaterialTheme.colorScheme.primary
+                            MaterialTheme.brandColors.text
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -214,7 +215,7 @@ fun CompactPlayerScoreCard(
                 if (isCurrentPlayer) {
                     Modifier.border(
                         width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.brandColors.highlight,
                         shape = RoundedCornerShape(8.dp),
                     )
                 } else {
@@ -257,7 +258,7 @@ fun CompactPlayerScoreCard(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = if (isCurrentPlayer) {
-                    MaterialTheme.colorScheme.primary
+                    MaterialTheme.brandColors.text
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
