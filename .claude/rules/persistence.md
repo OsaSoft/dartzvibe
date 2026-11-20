@@ -8,7 +8,7 @@ paths:
 
 # Persistence
 
-- **SQLDelight `verifyMigrations` is disabled on Windows** (the `sqldelight {}` block in `composeApp/build.gradle.kts`), so a migration mistake won't fail the build here. Check `.sqm` files by hand.
+- **SQLDelight `verifyMigrations` is disabled on Windows** (the `sqldelight {}` block in `composeApp/build.gradle.kts`), so on Windows a migration mistake won't fail the build; check `.sqm` files by hand there. Linux and macOS builds verify them.
 - **Legs:** a `GameSession` row stores its legs as JSON (`legsJson`, read with `ignoreUnknownKeys`). New fields on `Leg`/`Turn`/`Throw` need **default values** but no SQL migration.
 - **Config:** `GameConfig` fields are separate **columns**. A new one needs:
   - the column in `GameSession.sq`;
