@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.home
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,7 +35,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberScreenModel
@@ -74,7 +77,9 @@ class HomeScreen : Screen {
         HomeScreenContent(
             state = state,
             onNewGame = {
-                if (state.playerCount >= 1) {
+                if (state.isLoading) {
+                    // The player count isn't known yet; a fast tap would wrongly route to player setup.
+                } else if (state.playerCount >= 1) {
                     navigator.pushFrom(this@HomeScreen, NewGameScreen())
                 } else {
                     // No players yet — route through player setup first instead of dead-ending.
@@ -217,7 +222,9 @@ fun HomeScreenContent(
             // Games history button
             MenuButton(
                 text = "Games",
-                subtitle = if (state.completedGameCount > 0) "${state.completedGameCount} completed" else null,
+                subtitle = state.gamesSubtitle,
+                reserveSubtitleLine = true,
+                subtitlePending = state.isLoading,
                 icon = Icons.AutoMirrored.Filled.List,
                 onClick = onViewGames,
                 isPrimary = false,
@@ -229,8 +236,8 @@ fun HomeScreenContent(
             MenuButton(
                 text = "Statistics",
                 icon = Icons.Default.BarChart,
-                onClick = onViewStatistics,
-                enabled = state.completedGameCount > 0,
+                onClick = { if (!state.isLoading) onViewStatistics() },
+                enabled = state.statisticsEnabled,
                 isPrimary = false,
             )
 
@@ -240,8 +247,8 @@ fun HomeScreenContent(
             MenuButton(
                 text = "Head-to-Head",
                 icon = Icons.Default.People,
-                onClick = onViewHeadToHead,
-                enabled = state.completedGameCount > 0 && state.playerCount >= 2,
+                onClick = { if (!state.isLoading) onViewHeadToHead() },
+                enabled = state.headToHeadEnabled,
                 isPrimary = false,
             )
 
@@ -251,8 +258,8 @@ fun HomeScreenContent(
             MenuButton(
                 text = "Leaderboard",
                 icon = Icons.Default.Leaderboard,
-                onClick = onViewLeaderboard,
-                enabled = state.completedGameCount > 0,
+                onClick = { if (!state.isLoading) onViewLeaderboard() },
+                enabled = state.leaderboardEnabled,
                 isPrimary = false,
             )
 
@@ -261,7 +268,9 @@ fun HomeScreenContent(
             // Manage Players button
             MenuButton(
                 text = "Players",
-                subtitle = "${state.playerCount} player${if (state.playerCount != 1) "s" else ""}",
+                subtitle = state.playersSubtitle,
+                reserveSubtitleLine = true,
+                subtitlePending = state.isLoading,
                 icon = Icons.Default.Person,
                 onClick = onManagePlayers,
                 isPrimary = false,
@@ -280,6 +289,8 @@ fun MenuButton(
     subtitle: String? = null,
     enabled: Boolean = true,
     isPrimary: Boolean = true,
+    reserveSubtitleLine: Boolean = false,
+    subtitlePending: Boolean = false,
 ) {
     if (isPrimary) {
         Button(
@@ -289,12 +300,12 @@ fun MenuButton(
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))
-            Column {
-                Text(text, style = MaterialTheme.typography.titleMedium)
-                subtitle?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall)
-                }
-            }
+            MenuButtonLabel(
+                text = text,
+                subtitle = subtitle,
+                reserveSubtitleLine = reserveSubtitleLine,
+                subtitlePending = subtitlePending,
+            )
         }
     } else {
         OutlinedButton(
@@ -304,11 +315,42 @@ fun MenuButton(
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))
-            Column {
+            MenuButtonLabel(
+                text = text,
+                subtitle = subtitle,
+                reserveSubtitleLine = reserveSubtitleLine,
+                subtitlePending = subtitlePending,
+            )
+        }
+    }
+}
+
+// With reserveSubtitleLine, an invisible title + subtitle copy fixes the label's height, so the button never
+// changes size when the subtitle arrives, while the visible label stays vertically centred when there's no
+// subtitle. The copy has no semantics, so TalkBack reads nothing extra.
+// With subtitlePending (counts still loading), the label already sits where it will once the subtitle appears,
+// above a blank line, so it doesn't move when the number arrives.
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun MenuButtonLabel(text: String, subtitle: String?, reserveSubtitleLine: Boolean, subtitlePending: Boolean) {
+    Box(contentAlignment = Alignment.CenterStart) {
+        if (reserveSubtitleLine) {
+            Column(modifier = Modifier.alpha(0f).clearAndSetSemantics {}) {
                 Text(text, style = MaterialTheme.typography.titleMedium)
-                subtitle?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall)
-                }
+                Text(text = "", style = MaterialTheme.typography.bodySmall, minLines = 1)
+            }
+        }
+        Column {
+            Text(text, style = MaterialTheme.typography.titleMedium)
+            when {
+                subtitle != null -> Text(subtitle, style = MaterialTheme.typography.bodySmall)
+
+                subtitlePending -> Text(
+                    text = "",
+                    style = MaterialTheme.typography.bodySmall,
+                    minLines = 1,
+                    modifier = Modifier.clearAndSetSemantics {},
+                )
             }
         }
     }

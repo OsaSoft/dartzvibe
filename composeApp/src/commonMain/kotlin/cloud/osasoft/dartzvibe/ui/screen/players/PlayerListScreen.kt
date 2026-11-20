@@ -115,7 +115,7 @@ fun PlayerListContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("DartzVibe") },
+                title = { Text("Players") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

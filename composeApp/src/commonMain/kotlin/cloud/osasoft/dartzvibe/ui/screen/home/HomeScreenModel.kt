@@ -26,7 +26,29 @@ data class HomeScreenState(
     val inProgressGamePlayers: List<Player> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-)
+) {
+    // False while loading and after a load error: the counts are then unknown, not zero
+    val countsKnown: Boolean
+        get() = !isLoading && error == null
+
+    // Null while the counts are unknown, so Home shows no number (MenuButton keeps the line's space)
+    val playersSubtitle: String?
+        get() = if (countsKnown) "$playerCount player${if (playerCount != 1) "s" else ""}" else null
+
+    val gamesSubtitle: String?
+        get() = if (countsKnown && completedGameCount > 0) "$completedGameCount completed" else null
+
+    // While loading, these buttons look enabled (taps are ignored) so they don't flicker grey on every launch;
+    // only a loaded zero, or a load error, draws them disabled.
+    val statisticsEnabled: Boolean
+        get() = isLoading || completedGameCount > 0
+
+    val headToHeadEnabled: Boolean
+        get() = isLoading || (completedGameCount > 0 && playerCount >= 2)
+
+    val leaderboardEnabled: Boolean
+        get() = isLoading || completedGameCount > 0
+}
 
 @OptIn(ExperimentalUuidApi::class)
 class HomeScreenModel(
@@ -65,7 +87,7 @@ class HomeScreenModel(
             _state.update { newState }
         }.catch { e ->
             log.e(e) { "Error loading data" }
-            _state.update { it.copy(isLoading = false, error = e.message) }
+            _state.update { it.copy(isLoading = false, error = e.message ?: "Couldn't load players and games") }
         }.launchIn(screenModelScope)
     }
 }
