@@ -64,6 +64,12 @@ class SettingsScreenModel(
         }
     }
 
+    fun setShowKnockoutHints(value: Boolean) {
+        launchToCompletion {
+            appSettingsRepository.setShowKnockoutHints(value)
+        }
+    }
+
     fun setUseRadialKeypad(value: Boolean) {
         launchToCompletion {
             appSettingsRepository.setUseRadialKeypad(value)

@@ -36,6 +36,38 @@ class AppSettingsRepositoryImplTest : FreeSpec({
         }
     }
 
+    "Show knockout hints" - {
+        "Should default to on when nothing is stored" {
+            runTest {
+                // GIVEN empty settings storage
+                // WHEN the settings are read
+                val settings = repository().getSettings().first()
+
+                // THEN knockout hints are on
+                settings.showKnockoutHints shouldBe true
+            }
+        }
+
+        "Should read back off after it is set, also through a new repository on the same storage" {
+            runTest {
+                // GIVEN a repository with checkout hints turned off
+                val storage = MapSettings()
+                val repository = repository(storage)
+                repository.setShowCheckoutHints(false)
+
+                // WHEN knockout hints are turned off
+                repository.setShowKnockoutHints(false)
+
+                // THEN getSettings() returns off, and the checkout setting is kept
+                val settings = repository.getSettings().first()
+                settings.showKnockoutHints shouldBe false
+                settings.showCheckoutHints shouldBe false
+                // AND a new repository on the same storage (like after an app restart) reads off
+                repository(storage).getSettings().first().showKnockoutHints shouldBe false
+            }
+        }
+    }
+
     "Dartboard swipe direction" - {
         "Should default to vertical when nothing is stored" {
             runTest {

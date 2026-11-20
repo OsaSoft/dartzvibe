@@ -92,9 +92,11 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.game.components.checkoutSlotText
 import cloud.osasoft.dartzvibe.ui.screen.game.components.cricketPadHeightPx
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitScoreboardRowHeight
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
+import cloud.osasoft.dartzvibe.ui.screen.game.components.knockoutSlotText
 import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
@@ -264,6 +266,7 @@ fun ActiveGameContent(
                         GameHeader(
                             state = state,
                             showCheckoutHints = settings.showCheckoutHints,
+                            showKnockoutHints = settings.showKnockoutHints,
                             cricketRowHeight = cricketRowHeight,
                             onUndo = onUndo,
                         )
@@ -415,6 +418,7 @@ fun ActiveGameContent(
 private fun GameHeader(
     state: ActiveGameState,
     showCheckoutHints: Boolean,
+    showKnockoutHints: Boolean,
     cricketRowHeight: Dp?,
     onUndo: () -> Unit,
 ) {
@@ -491,8 +495,18 @@ private fun GameHeader(
     // Checkout slot: always laid out at a fixed height in the modes that can have a checkout, so the
     // input below never moves when a suggestion appears, changes or disappears
     if (hasCheckoutSlot) {
+        // The checkout route when the turn can finish, else (Parcheesi) a knockout suggestion
+        val slotText = when (val hint = state.checkoutSlotHint(showCheckoutHints, showKnockoutHints)) {
+            is CheckoutSlotHint.Checkout -> checkoutSlotText(hint.options)
+
+            is CheckoutSlotHint.Knockout -> knockoutSlotText(hint.routes) { id ->
+                state.getPlayer(id)?.name ?: "Player"
+            }
+
+            null -> null
+        }
         CheckoutHint(
-            checkoutOptions = state.visibleCheckoutOptions(showCheckoutHints),
+            text = slotText,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 8.dp, top = 4.dp, end = 8.dp),

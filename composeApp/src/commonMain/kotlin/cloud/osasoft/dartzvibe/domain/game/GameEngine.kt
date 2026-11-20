@@ -168,7 +168,8 @@ class GameEngine private constructor(
 
     fun toGameSession(): GameSession = modeEngine.session
 
-    private fun hasDoubledIn(): Boolean {
+    /** Whether the current player has hit a double this leg, so their darts score under double-in. */
+    fun hasDoubledIn(): Boolean {
         val currentPlayerId = getCurrentPlayerId()
         val currentLeg = modeEngine.session.currentLeg
 

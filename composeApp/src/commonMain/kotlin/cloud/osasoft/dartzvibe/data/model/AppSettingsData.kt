@@ -7,4 +7,5 @@ data class AppSettingsData(
     val useRadialKeypad: Boolean = false,
     val showMultiplierButtons: Boolean = true,
     val swipeMultiplierMode: SwipeMultiplierMode = SwipeMultiplierMode.VERTICAL,
+    val showKnockoutHints: Boolean = true,
 )

@@ -8,6 +8,7 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Leg
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
@@ -15,6 +16,7 @@ import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnRewind
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -289,11 +291,12 @@ class ActiveGameScreenModelTest : FreeSpec({
     suspend fun TestScope.undoScreenModel(
         mode: GameMode,
         legsToWin: Int = 1,
+        doubleIn: Boolean = false,
     ): Pair<ActiveGameScreenModel, FakeGameRepository> = configScreenModel(
         GameConfig(
             gameType = if (mode == GameMode.CRICKET) GameType.CRICKET_REGULAR else GameType.CLASSIC_301,
             gameMode = mode,
-            doubleIn = false,
+            doubleIn = doubleIn,
             doubleOut = false,
             playerIds = listOf(undoPlayer1Id, undoPlayer2Id),
             legsToWin = legsToWin,
@@ -482,6 +485,229 @@ class ActiveGameScreenModelTest : FreeSpec({
                     state.visibleCheckoutOptions(showCheckoutHints = false).shouldBeNull()
                     state.hasCheckoutSlot shouldBe false
                 }
+            }
+        }
+    }
+
+    "Knockout hint" - {
+        // Parcheesi 301 (no double-out): P1 three misses, P2 S20 S1 (21); P1 to throw on 0 with P2 21 ahead
+        suspend fun TestScope.parcheesiP2On21(): ActiveGameScreenModel {
+            val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI)
+            repeat(3) { screenModel.onMiss() }
+            screenModel.endTurn()
+            screenModel.onScoreSelect(20, Multiplier.SINGLE)
+            screenModel.onScoreSelect(1, Multiplier.SINGLE)
+            screenModel.endTurn()
+            advanceUntilIdle()
+            return screenModel
+        }
+
+        "Should suggest knocking out the opponent ahead when no checkout exists" {
+            runTest {
+                // GIVEN P1 on 0 (281 to go, no checkout) and P2 21 ahead
+                val screenModel = parcheesiP2On21()
+
+                // WHEN reading the state
+                val state = screenModel.state.first()
+
+                // THEN the slot suggests T7 on P2 whenever knockout hints are on, whatever the checkout setting
+                state.checkoutOptions.shouldBeNull()
+                val routes = state.knockoutRoutes
+                routes.map { it.opponentId } shouldBe listOf(undoPlayer2Id)
+                routes.single().throws shouldBe listOf(Throw(segment = 7, multiplier = Multiplier.TRIPLE))
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true) shouldBe
+                    CheckoutSlotHint.Knockout(routes)
+                state.checkoutSlotHint(showCheckoutHints = false, showKnockoutHints = true) shouldBe
+                    CheckoutSlotHint.Knockout(routes)
+                // AND nothing shows with knockout hints off
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = false).shouldBeNull()
+                state.checkoutSlotHint(showCheckoutHints = false, showKnockoutHints = false).shouldBeNull()
+            }
+        }
+
+        "Should suggest nothing under double-in until the player has doubled in" {
+            runTest {
+                // GIVEN Parcheesi 301 with double-in: P1 three misses, P2 D10 S1 (21); P1 to throw, not doubled in
+                val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI, doubleIn = true)
+                repeat(3) { screenModel.onMiss() }
+                screenModel.endTurn()
+                screenModel.onScoreSelect(10, Multiplier.DOUBLE)
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // WHEN reading the state before and after P1's D1
+                val before = screenModel.state.first()
+                screenModel.onScoreSelect(1, Multiplier.DOUBLE)
+                advanceUntilIdle()
+                val after = screenModel.state.first()
+
+                // THEN no knockout is suggested before the double (a T7 would score nothing)
+                before.getPlayerScore(undoPlayer2Id) shouldBe 21
+                before.knockoutRoutes.shouldBeEmpty()
+                before.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true).shouldBeNull()
+                // AND once doubled in (on 2, 19 to go with two darts) the route is back
+                after.knockoutRoutes.single().throws shouldBe
+                    listOf(Throw(segment = 19, multiplier = Multiplier.SINGLE))
+            }
+        }
+
+        "Should recompute after every dart and drop a knocked-out opponent" {
+            runTest {
+                // GIVEN P1 on 0 and P2 21 ahead
+                val screenModel = parcheesiP2On21()
+
+                // WHEN P1 throws S1
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                advanceUntilIdle()
+
+                // THEN the suggestion follows the new running score: 20 to go with two darts
+                screenModel.state.first().knockoutRoutes.single().throws shouldBe
+                    listOf(Throw(segment = 20, multiplier = Multiplier.SINGLE))
+
+                // AND WHEN P1 lands on 21 with S20, knocking P2 back to 0
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                advanceUntilIdle()
+                val state = screenModel.state.first()
+
+                // THEN P2 is on 0 and no longer suggested
+                state.getPlayerScore(undoPlayer2Id) shouldBe 0
+                state.knockoutRoutes.shouldBeEmpty()
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true).shouldBeNull()
+            }
+        }
+
+        "Should disappear once the darts are thrown and when the last dart can't reach" {
+            runTest {
+                // GIVEN P1 on 0 and P2 21 ahead
+                val screenModel = parcheesiP2On21()
+
+                // WHEN P1 throws two S1 (19 to go, one dart left)
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                advanceUntilIdle()
+
+                // THEN the last dart can still do it
+                screenModel.state.first().knockoutRoutes.single().throws shouldBe
+                    listOf(Throw(segment = 19, multiplier = Multiplier.SINGLE))
+
+                // AND WHEN the third dart misses
+                screenModel.onMiss()
+                advanceUntilIdle()
+
+                // THEN with no darts left there is no suggestion
+                screenModel.state.first().knockoutRoutes.shouldBeEmpty()
+
+                // AND WHEN the turn ends, P2 (21) to throw with P1 behind on 2
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // THEN nobody is ahead of P2, so nothing is suggested
+                screenModel.state.first().knockoutRoutes.shouldBeEmpty()
+            }
+        }
+
+        "Should suggest nothing after a bounce" {
+            runTest {
+                // GIVEN P1 on 300 of 301 after five rounds of T20 against misses (P2 on 0)
+                val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI)
+                repeat(5) {
+                    screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                    screenModel.endTurn()
+                    screenModel.onMiss()
+                    screenModel.endTurn()
+                }
+
+                // WHEN P1 bounces with S20 (back to 282)
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                advanceUntilIdle()
+
+                // THEN the turn is over: no knockout
+                val state = screenModel.state.first()
+                state.isBounced shouldBe true
+                state.knockoutRoutes.shouldBeEmpty()
+            }
+        }
+
+        "Should show the checkout first and the knockout only with checkout hints off" {
+            runTest {
+                // GIVEN P1 on 200 (101 to go, checkable) and P2 on 240 (40 ahead, a one-dart knockout)
+                val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                screenModel.endTurn()
+                repeat(3) { screenModel.onScoreSelect(20, Multiplier.TRIPLE) }
+                screenModel.endTurn()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // WHEN reading the state
+                val state = screenModel.state.first()
+                state.currentPlayerScore shouldBe 200
+                state.getPlayerScore(undoPlayer2Id) shouldBe 240
+
+                // THEN both a checkout and a knockout exist
+                val checkout = state.checkoutOptions.shouldNotBeNull()
+                state.knockoutRoutes.single().throws shouldBe
+                    listOf(Throw(segment = 20, multiplier = Multiplier.DOUBLE))
+                // AND the checkout wins while checkout hints are on, knockout setting or not
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true) shouldBe
+                    CheckoutSlotHint.Checkout(checkout)
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = false) shouldBe
+                    CheckoutSlotHint.Checkout(checkout)
+                // AND with checkout hints off the knockout shows, and with both off nothing does
+                state.checkoutSlotHint(showCheckoutHints = false, showKnockoutHints = true) shouldBe
+                    CheckoutSlotHint.Knockout(state.knockoutRoutes)
+                state.checkoutSlotHint(showCheckoutHints = false, showKnockoutHints = false).shouldBeNull()
+            }
+        }
+
+        withData(
+            nameFn = { "Should never suggest a knockout in $it" },
+            GameMode.CLASSIC,
+            GameMode.CRICKET,
+            GameMode.ROULETTE,
+            GameMode.CHECKOUT_PRACTICE,
+        ) { mode ->
+            runTest {
+                // GIVEN a game in another mode where P2 has scored more than P1
+                val screenModel = when (mode) {
+                    GameMode.CHECKOUT_PRACTICE -> configScreenModel(
+                        GameConfig(
+                            gameType = GameType.CHECKOUT_EASY,
+                            gameMode = GameMode.CHECKOUT_PRACTICE,
+                            doubleOut = true,
+                            playerIds = listOf(undoPlayer1Id),
+                            checkoutPracticeTargets = listOf(40),
+                        ),
+                    ).first
+
+                    GameMode.ROULETTE -> rouletteScreenModel(targets = listOf(20, 19, 18))
+
+                    GameMode.CLASSIC, GameMode.CRICKET -> undoScreenModel(mode).first.apply {
+                        repeat(3) { onMiss() }
+                        endTurn()
+                        onScoreSelect(20, Multiplier.SINGLE)
+                        onScoreSelect(1, Multiplier.SINGLE)
+                        endTurn()
+                    }
+
+                    GameMode.PARCHEESI -> error("Parcheesi has knockouts")
+                }
+                advanceUntilIdle()
+
+                // WHEN reading the state
+                val state = screenModel.state.first()
+
+                // THEN there are no knockouts, and the slot is what the checkout setting alone gives
+                state.knockoutRoutes.shouldBeEmpty()
+                state.checkoutSlotHint(showCheckoutHints = false, showKnockoutHints = true).shouldBeNull()
+                state.checkoutSlotHint(showCheckoutHints = true, showKnockoutHints = true) shouldBe
+                    state.visibleCheckoutOptions(showCheckoutHints = true)?.let { CheckoutSlotHint.Checkout(it) }
             }
         }
     }
