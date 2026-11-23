@@ -32,8 +32,11 @@ import kotlin.uuid.Uuid
 class StatisticsCalculator {
 
     companion object {
-        /** Maximum score that can be checked out in a single turn (170 = T20, T20, Bull) */
+        /** Maximum score that can be checked out in a single turn with double-out (170 = T20, T20, Bull) */
         const val MAX_CHECKOUT_SCORE = 170
+
+        /** Maximum score that can be checked out in a single turn without double-out (180 = T20, T20, T20) */
+        const val MAX_CHECKOUT_SCORE_WITHOUT_DOUBLE_OUT = 180
 
         /** Checkout-practice difficulty bands, in display order. */
         private val CHECKOUT_BANDS = listOf(
@@ -138,11 +141,19 @@ class StatisticsCalculator {
     ): List<TurnWithContext> = buildList {
         games.forEach { game ->
             val gameRef = createGameReference(game, playerId, playerNameMap)
+            val maxCheckoutScore = maxCheckoutScore(game)
             game.legs.forEach { leg ->
                 leg.playerTurns
                     .filter { it.playerId == playerId }
                     .forEachIndexed { index, turn ->
-                        add(TurnWithContext(turn = turn, legTurnIndex = index, gameRef = gameRef))
+                        add(
+                            TurnWithContext(
+                                turn = turn,
+                                legTurnIndex = index,
+                                gameRef = gameRef,
+                                maxCheckoutScore = maxCheckoutScore,
+                            ),
+                        )
                     }
             }
         }
@@ -208,7 +219,7 @@ class StatisticsCalculator {
         turns: List<TurnWithContext>,
         playerId: Uuid,
     ): CheckoutStats {
-        val attempts = turns.count { it.turn.scoreBeforeTurn in 1..MAX_CHECKOUT_SCORE }
+        val attempts = turns.count { it.turn.scoreBeforeTurn in 1..it.maxCheckoutScore }
         val hits = countLegsWon(games, playerId)
         return CheckoutStats(
             attempts = attempts,
@@ -216,6 +227,10 @@ class StatisticsCalculator {
             percentage = FixedDecimal.percentage(hits, attempts),
         )
     }
+
+    /** Highest score a turn can finish from, so every won leg is also an attempt. */
+    private fun maxCheckoutScore(game: GameSession): Int =
+        if (game.config.doubleOut) MAX_CHECKOUT_SCORE else MAX_CHECKOUT_SCORE_WITHOUT_DOUBLE_OUT
 
     private fun findBestCheckout(
         games: List<GameSession>,
@@ -580,6 +595,8 @@ class StatisticsCalculator {
         val turn: Turn,
         val legTurnIndex: Int,
         val gameRef: GameReference,
+        /** Highest `scoreBeforeTurn` that counts as a checkout attempt in this turn's game. */
+        val maxCheckoutScore: Int,
     )
 
     /** Checkout statistics result. */
