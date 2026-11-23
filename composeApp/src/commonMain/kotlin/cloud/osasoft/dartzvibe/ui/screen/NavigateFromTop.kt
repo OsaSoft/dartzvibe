@@ -21,3 +21,8 @@ fun Navigator.pushFrom(current: Screen, next: Screen) {
 fun Navigator.replaceFrom(current: Screen, next: Screen) {
     if (canNavigateFrom(top = lastItemOrNull, current = current)) replace(next)
 }
+
+/** Pops [current] only if it is still the top screen, so a second tap during the slide can't pop the one below. */
+fun Navigator.popFrom(current: Screen) {
+    if (canNavigateFrom(top = lastItemOrNull, current = current)) pop()
+}

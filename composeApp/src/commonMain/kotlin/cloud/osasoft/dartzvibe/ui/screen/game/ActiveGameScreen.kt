@@ -1,6 +1,7 @@
 package cloud.osasoft.dartzvibe.ui.screen.game
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,12 +44,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -86,6 +90,7 @@ import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.CricketTurnSummary
 import cloud.osasoft.dartzvibe.domain.game.ThrowResult
 import cloud.osasoft.dartzvibe.domain.game.TurnResult
+import cloud.osasoft.dartzvibe.ui.screen.canNavigateFrom
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CheckoutHint
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.CricketMinRowHeight
@@ -98,12 +103,16 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.game.components.WinDialogCard
+import cloud.osasoft.dartzvibe.ui.screen.game.components.WinDialogLayer
+import cloud.osasoft.dartzvibe.ui.screen.game.components.WinDialogScrim
 import cloud.osasoft.dartzvibe.ui.screen.game.components.checkoutSlotText
 import cloud.osasoft.dartzvibe.ui.screen.game.components.cricketPadHeightPx
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitScoreboardRowHeight
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
 import cloud.osasoft.dartzvibe.ui.screen.game.components.knockoutSlotText
 import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.theme.brandColors
@@ -131,6 +140,11 @@ class ActiveGameScreen(
         val state by screenModel.state.collectAsState()
         val settings = LocalAppSettings.current
         val navigator = LocalNavigator.currentOrThrow
+        // The win dialogs are drawn in the screen, so their buttons stay live while it slides away after Finish:
+        // ignore taps once the screen is no longer on top
+        val ifOnTop = { action: () -> Unit ->
+            if (canNavigateFrom(top = navigator.lastItemOrNull, current = this)) action()
+        }
 
         ActiveGameContent(
             state = state,
@@ -139,12 +153,12 @@ class ActiveGameScreen(
             onScoreSelect = screenModel::onScoreSelect,
             onMiss = screenModel::onMiss,
             onUndo = screenModel::undo,
-            onUndoWin = screenModel::undoWin,
+            onUndoWin = { ifOnTop(screenModel::undoWin) },
             onEndTurn = screenModel::endTurn,
-            onContinueLegWon = screenModel::continueToNextLeg,
+            onContinueLegWon = { ifOnTop(screenModel::continueToNextLeg) },
             onCloseLegWon = screenModel::closeLegWonDialog,
             // The dialog leaves with the screen: closing it first would flash the ended game
-            onDismissGameComplete = { navigator.pop() },
+            onDismissGameComplete = { navigator.popFrom(this@ActiveGameScreen) },
             onDismissKnockout = screenModel::dismissKnockoutDialog,
             onAbandonGame = {
                 screenModel.abandonGame()
@@ -165,7 +179,7 @@ fun Screen.rememberActiveGameScreenModel(
 ): ActiveGameScreenModel = rememberScreenModel { ActiveGameScreenModel(gameRepository, playerRepository, sessionId) }
 
 @Suppress("ktlint:standard:function-naming")
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
+@OptIn(ExperimentalUuidApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun ActiveGameContent(
     state: ActiveGameState,
@@ -185,120 +199,64 @@ fun ActiveGameContent(
     onBack: () -> Unit,
 ) {
     var showAbandonConfirmDialog by remember { mutableStateOf(false) }
+    val showWinDialog = state.showLegWonDialog || state.showGameCompleteDialog
+    // The header's height, set while the screen lays out, and the screen's scroll: the win dialog sits below the
+    // header, so it never covers the darts row
+    val headerHeightPx = remember { mutableIntStateOf(0) }
+    val scrollState = rememberScrollState()
+
+    // Like the dialog window's ignored dismiss request: only the dialog's buttons close it
+    BackHandler(enabled = showWinDialog) { }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            when {
-                                state.isCheckoutPractice -> "Checkout Practice"
-
-                                state.isRoulette -> "Roulette"
-
-                                else ->
-                                    state.session
-                                        ?.config
-                                        ?.gameType
-                                        ?.displayName ?: "Game"
-                            },
-                            fontWeight = FontWeight.Bold,
-                        )
-                        val isSoloGame = state.session?.config?.playerIds?.size == 1
-                        if (isSoloGame && !state.isCheckoutPractice && !state.isRoulette) {
-                            Image(
-                                painter = painterResource(Res.drawable.forever_alone_bw),
-                                contentDescription = "Forever alone",
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                    IconButton(onClick = { showAbandonConfirmDialog = true }) {
-                        Icon(Icons.Default.Close, contentDescription = "Abandon game")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-            )
+            WinDialogDimmed(showWinDialog) {
+                GameTopBar(
+                    state = state,
+                    onBack = onBack,
+                    onSettings = onSettings,
+                    onAbandon = { showAbandonConfirmDialog = true },
+                )
+            }
         },
     ) { padding ->
-        if (state.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (state.error != null) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "Error: ${state.error}",
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        } else {
-            BoxWithConstraints(
+        Box(modifier = Modifier.fillMaxSize()) {
+            GameBody(
+                state = state,
+                settings = settings,
+                scrollState = scrollState,
+                onHeaderHeight = { headerHeightPx.intValue = it },
+                onMultiplierChange = onMultiplierChange,
+                onScoreSelect = onScoreSelect,
+                onMiss = onMiss,
+                onUndo = onUndo,
+                onEndTurn = onEndTurn,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
-            ) {
-                // The screen's height without the bars: stable for the whole game
-                val viewportHeight = maxHeight
-                HeaderThenInput(
-                    viewportHeight = viewportHeight,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    // Cricket: on short phones the scoreboard rows shrink so the pad fits below them
-                    shrink = cricketHeaderShrink(state = state, showMultiplierButtons = settings.showMultiplierButtons),
-                    header = { cricketRowHeight ->
-                        GameHeader(
-                            state = state,
-                            showCheckoutHints = settings.showCheckoutHints,
-                            showKnockoutHints = settings.showKnockoutHints,
-                            cricketRowHeight = cricketRowHeight,
-                            onUndo = onUndo,
-                        )
-                    },
-                    input = { heightLeft ->
-                        GameInput(
-                            state = state,
-                            settings = settings,
-                            // Classic, Parcheesi, Checkout Practice and Cricket fit the input to the height their fixed
-                            // rows leave, so short phones don't scroll; Roulette keeps main's layout
-                            maxHeight = heightLeft.takeIf { state.hasCheckoutSlot || state.isCricket },
-                            onMultiplierChange = onMultiplierChange,
-                            onScoreSelect = onScoreSelect,
-                            onMiss = onMiss,
-                            onEndTurn = onEndTurn,
-                        )
-                    },
-                )
+                    .padding(padding)
+                    // TalkBack stays in the dialog, as it did in its window
+                    .then(if (showWinDialog) Modifier.clearAndSetSemantics { } else Modifier),
+            )
+            if (showWinDialog) {
+                WinDialogScrim(modifier = Modifier.fillMaxSize())
+                val density = LocalDensity.current
+                val topInsetPx = with(density) { padding.calculateTopPadding().roundToPx() }
+                WinDialogLayer(
+                    anchorPx = { topInsetPx + headerHeightPx.intValue - scrollState.value },
+                    topInsetPx = topInsetPx,
+                    bottomInsetPx = with(density) { padding.calculateBottomPadding().roundToPx() },
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    WinDialog(
+                        state = state,
+                        onContinueLegWon = onContinueLegWon,
+                        onDismissGameComplete = onDismissGameComplete,
+                        onUndoWin = onUndoWin,
+                    )
+                }
             }
         }
     }
-
-    // Undo on the win dialogs, hidden when the stored leg can't be rewound
-    val undoWin = onUndoWin.takeIf { (state.showLegWonDialog || state.showGameCompleteDialog) && state.canUndoWin }
 
     // Continue swapped the next leg in under the dialog: close it only after a frame of that leg is drawn, so the
     // ended leg never shows without the dialog
@@ -306,66 +264,6 @@ fun ActiveGameContent(
         LaunchedEffect(Unit) {
             repeat(2) { withFrameNanos { } }
             onCloseLegWon()
-        }
-    }
-
-    // Leg won dialog
-    if (state.showLegWonDialog) {
-        val result = state.lastTurnResult as? TurnResult.LegWon
-        val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
-
-        AlertDialog(
-            // Only Continue or Undo close it
-            onDismissRequest = { },
-            title = { Text("Leg Won!") },
-            text = { Text("$winnerName wins the leg!") },
-            confirmButton = {
-                TextButton(onClick = onContinueLegWon, colors = dialogTextButtonColors()) {
-                    Text("Continue")
-                }
-            },
-            dismissButton = undoWin?.let { { UndoWinButton(onClick = it) } },
-        )
-    }
-
-    // Game complete dialog
-    if (state.showGameCompleteDialog) {
-        if (state.isRoulette) {
-            // Final scores and winner come from the state after the last turn; the screen behind keeps the round
-            RouletteResultsDialog(
-                state = state.resultState,
-                onDismiss = onDismissGameComplete,
-                onUndo = undoWin,
-            )
-        } else if (state.isCheckoutPractice) {
-            CheckoutPracticeResultsDialog(
-                state = state.resultState,
-                onDismiss = onDismissGameComplete,
-                onUndo = undoWin,
-            )
-        } else {
-            val result = state.lastTurnResult as? TurnResult.MatchWon
-            val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
-
-            AlertDialog(
-                onDismissRequest = { },
-                title = { Text("Game Over!") },
-                text = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "$winnerName wins the match!",
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = onDismissGameComplete, colors = dialogTextButtonColors()) {
-                        Text("Finish")
-                    }
-                },
-                dismissButton = undoWin?.let { { UndoWinButton(onClick = it) } },
-            )
         }
     }
 
@@ -413,6 +311,215 @@ fun ActiveGameContent(
                 }
             },
         )
+    }
+}
+
+/** [content] under a [WinDialogScrim] while [dimmed]: the top bar, so it reads as under the win dialog too. */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun WinDialogDimmed(
+    dimmed: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = if (dimmed) Modifier.clearAndSetSemantics { } else Modifier) {
+        content()
+        if (dimmed) WinDialogScrim(modifier = Modifier.matchParentSize())
+    }
+}
+
+/**
+ * The leg-won, game-over or results card for [state], drawn in the screen (see `WinDialog.kt`). Undo shows only
+ * while the stored leg can be rewound.
+ */
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun WinDialog(
+    state: ActiveGameState,
+    onContinueLegWon: () -> Unit,
+    onDismissGameComplete: () -> Unit,
+    onUndoWin: () -> Unit,
+) {
+    val undoWin = onUndoWin.takeIf { state.canUndoWin }
+    if (state.showLegWonDialog) {
+        val result = state.lastTurnResult as? TurnResult.LegWon
+        val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
+        WinDialogCard(
+            title = "Leg Won!",
+            confirmLabel = "Continue",
+            onConfirm = onContinueLegWon,
+            onUndo = undoWin,
+        ) {
+            Text("$winnerName wins the leg!", style = MaterialTheme.typography.bodyMedium)
+        }
+    } else if (state.isRoulette) {
+        // Final scores and winner come from the state after the last turn; the screen behind keeps the round
+        WinDialogCard(
+            title = "Roulette Complete!",
+            confirmLabel = "Finish",
+            onConfirm = onDismissGameComplete,
+            onUndo = undoWin,
+        ) {
+            RouletteResults(state = state.resultState)
+        }
+    } else if (state.isCheckoutPractice) {
+        WinDialogCard(
+            title = "Practice Complete!",
+            confirmLabel = "Finish",
+            onConfirm = onDismissGameComplete,
+            onUndo = undoWin,
+        ) {
+            CheckoutPracticeResults(state = state.resultState)
+        }
+    } else {
+        val result = state.lastTurnResult as? TurnResult.MatchWon
+        val winnerName = result?.let { state.getPlayer(it.winnerId)?.name } ?: "Player"
+        WinDialogCard(
+            title = "Game Over!",
+            confirmLabel = "Finish",
+            onConfirm = onDismissGameComplete,
+            onUndo = undoWin,
+        ) {
+            Text(
+                text = "$winnerName wins the match!",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
+@Composable
+private fun GameTopBar(
+    state: ActiveGameState,
+    onBack: () -> Unit,
+    onSettings: () -> Unit,
+    onAbandon: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    when {
+                        state.isCheckoutPractice -> "Checkout Practice"
+
+                        state.isRoulette -> "Roulette"
+
+                        else ->
+                            state.session
+                                ?.config
+                                ?.gameType
+                                ?.displayName ?: "Game"
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
+                val isSoloGame = state.session?.config?.playerIds?.size == 1
+                if (isSoloGame && !state.isCheckoutPractice && !state.isRoulette) {
+                    Image(
+                        painter = painterResource(Res.drawable.forever_alone_bw),
+                        contentDescription = "Forever alone",
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        },
+        actions = {
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Default.Settings, contentDescription = "Settings")
+            }
+            IconButton(onClick = onAbandon) {
+                Icon(Icons.Default.Close, contentDescription = "Abandon game")
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    )
+}
+
+/**
+ * The game below the top bar: loading, error, or the header with the input below it. [onHeaderHeight] gets the
+ * header's height in pixels each time it's laid out (the win dialog sits below it).
+ */
+@Suppress("ktlint:standard:function-naming")
+@Composable
+private fun GameBody(
+    state: ActiveGameState,
+    settings: AppSettingsData,
+    scrollState: ScrollState,
+    onHeaderHeight: (Int) -> Unit,
+    onMultiplierChange: (Multiplier) -> Unit,
+    onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
+    onMiss: () -> Unit,
+    onUndo: () -> Unit,
+    onEndTurn: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (state.isLoading) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator()
+        }
+    } else if (state.error != null) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Error: ${state.error}",
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    } else {
+        BoxWithConstraints(modifier = modifier) {
+            // The screen's height without the bars: stable for the whole game
+            val viewportHeight = maxHeight
+            HeaderThenInput(
+                viewportHeight = viewportHeight,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState),
+                // Cricket: on short phones the scoreboard rows shrink so the pad fits below them
+                shrink = cricketHeaderShrink(state = state, showMultiplierButtons = settings.showMultiplierButtons),
+                onHeaderHeight = onHeaderHeight,
+                header = { cricketRowHeight ->
+                    GameHeader(
+                        state = state,
+                        showCheckoutHints = settings.showCheckoutHints,
+                        showKnockoutHints = settings.showKnockoutHints,
+                        cricketRowHeight = cricketRowHeight,
+                        onUndo = onUndo,
+                    )
+                },
+                input = { heightLeft ->
+                    GameInput(
+                        state = state,
+                        settings = settings,
+                        // Classic, Parcheesi, Checkout Practice and Cricket fit the input to the height their fixed
+                        // rows leave, so short phones don't scroll; Roulette keeps main's layout
+                        maxHeight = heightLeft.takeIf { state.hasCheckoutSlot || state.isCricket },
+                        onMultiplierChange = onMultiplierChange,
+                        onScoreSelect = onScoreSelect,
+                        onMiss = onMiss,
+                        onEndTurn = onEndTurn,
+                    )
+                },
+            )
+        }
     }
 }
 
@@ -671,6 +778,7 @@ private fun HeaderThenInput(
     input: @Composable (heightLeft: Dp) -> Unit,
     modifier: Modifier = Modifier,
     shrink: HeaderShrink? = null,
+    onHeaderHeight: (Int) -> Unit = {},
 ) {
     SubcomposeLayout(modifier = modifier) { constraints ->
         val childConstraints = constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity)
@@ -697,6 +805,7 @@ private fun HeaderThenInput(
             if (rowPx == minRowPx) atMinRows else measureHeader(HeaderSlot.HEADER_FITTED, rowPx.toDp())
         }
         val headerHeight = headerPlaceables.sumOf { it.height }
+        onHeaderHeight(headerHeight)
         val heightLeft = (viewportPx - headerHeight).coerceAtLeast(0).toDp()
         val inputPlaceables = subcompose(HeaderSlot.INPUT) { input(heightLeft) }.map { it.measure(childConstraints) }
         val placeables = headerPlaceables + inputPlaceables
@@ -1119,11 +1228,7 @@ fun CheckoutPracticeHeader(
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
-fun CheckoutPracticeResultsDialog(
-    state: ActiveGameState,
-    onDismiss: () -> Unit,
-    onUndo: (() -> Unit)?,
-) {
+private fun CheckoutPracticeResults(state: ActiveGameState) {
     val practiceState = state.checkoutPracticeState ?: return
     val totalRounds = practiceState.totalRounds
     val successCount = practiceState.successCount
@@ -1137,77 +1242,65 @@ fun CheckoutPracticeResultsDialog(
         "0.0"
     }
 
-    AlertDialog(
-        onDismissRequest = { },
-        title = { Text("Practice Complete!") },
-        text = {
-            Column {
-                // Summary stats
+    Column {
+        // Summary stats
+        Text(
+            text = "$successCount/$totalRounds - $successRate%",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (successfulRounds.isNotEmpty()) {
+            Text(
+                text = "Avg darts per checkout: $avgDartsPerSuccess",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Round-by-round results
+        Text(
+            text = "Round Results:",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        practiceState.roundResults.forEachIndexed { index, result ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
-                    text = "$successCount/$totalRounds - $successRate%",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
+                    text = "${index + 1}. Target: ${result.target}",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (successfulRounds.isNotEmpty()) {
-                    Text(
-                        text = "Avg darts per checkout: $avgDartsPerSuccess",
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Round-by-round results
                 Text(
-                    text = "Round Results:",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = if (result.success) {
+                        "${result.dartsUsed} darts"
+                    } else {
+                        "Miss"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (result.success) {
+                        MaterialTheme.brandColors.text
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
                     fontWeight = FontWeight.SemiBold,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                practiceState.roundResults.forEachIndexed { index, result ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = "${index + 1}. Target: ${result.target}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = if (result.success) {
-                                "${result.dartsUsed} darts"
-                            } else {
-                                "Miss"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (result.success) {
-                                MaterialTheme.brandColors.text
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            },
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss, colors = dialogTextButtonColors()) {
-                Text("Finish")
-            }
-        },
-        dismissButton = onUndo?.let { { UndoWinButton(onClick = it) } },
-    )
+        }
+    }
 }
 
 @Suppress("ktlint:standard:function-naming")
@@ -1274,83 +1367,58 @@ fun RouletteHeader(
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class)
 @Composable
-fun RouletteResultsDialog(
-    state: ActiveGameState,
-    onDismiss: () -> Unit,
-    onUndo: (() -> Unit)?,
-) {
+private fun RouletteResults(state: ActiveGameState) {
     val session = state.session ?: return
     val winnerName = session.winnerId?.let { state.getPlayer(it)?.name } ?: "Player"
 
-    AlertDialog(
-        onDismissRequest = { },
-        title = { Text("Roulette Complete!") },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "$winnerName wins!",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Final scores
+        Text(
+            text = "Final Scores:",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        session.config.playerIds.forEach { playerId ->
+            val player = state.getPlayer(playerId)
+            val score = state.getPlayerScore(playerId)
+            val isWinner = playerId == session.winnerId
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "$winnerName wins!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
+                    text = player?.name ?: "Unknown",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Final scores
                 Text(
-                    text = "Final Scores:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "$score pts",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isWinner) {
+                        MaterialTheme.brandColors.text
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                session.config.playerIds.forEach { playerId ->
-                    val player = state.getPlayer(playerId)
-                    val score = state.getPlayerScore(playerId)
-                    val isWinner = playerId == session.winnerId
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = player?.name ?: "Unknown",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
-                        )
-                        Text(
-                            text = "$score pts",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isWinner) {
-                                MaterialTheme.brandColors.text
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                        )
-                    }
-                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss, colors = dialogTextButtonColors()) {
-                Text("Finish")
-            }
-        },
-        dismissButton = onUndo?.let { { UndoWinButton(onClick = it) } },
-    )
-}
-
-/** Undo action on the leg-won / game-over dialogs: reopens the winning turn with its last dart in place. */
-@Suppress("ktlint:standard:function-naming")
-@Composable
-fun UndoWinButton(onClick: () -> Unit) {
-    TextButton(onClick = onClick, colors = dialogTextButtonColors()) {
-        Text("Undo")
+        }
     }
 }
