@@ -27,18 +27,25 @@ import androidx.compose.ui.graphics.luminance
  * Contrast (WCAG AA needs 4.5:1), checked per surface in `BrandColorsTest`: dark #FF8080 is 5.1:1 on default cards
  * to 7.7:1 on the background, and dark [textOnContainer] #FF9090 5.6:1 on the PTS strip (its 10% tint of
  * [highlight]); light #C62828 is 4.6:1 on dialogs to 5.6:1 on white, #9A1A1A 6.2:1 on the PTS strip.
+ *
+ * [controlLabel] is the label and icon colour of outlined controls (Undo, Miss, unselected S/D/T, the Home menu
+ * buttons), via [outlinedControlButtonColors]. Light theme keeps the brand red (5.6:1 on white); dark theme uses a
+ * neutral light grey (#E0E0E0, ~11:1 on the turn card) instead, since a lighter red there turned these neutral
+ * controls pink. Red stays the fill and highlight colour.
  */
 @Immutable
 data class BrandColors(
     val text: Color,
     val textOnContainer: Color,
     val highlight: Color,
+    val controlLabel: Color,
 )
 
 internal val LightBrandColors = BrandColors(
     text = Color(0xFFC62828),
     textOnContainer = Color(0xFF9A1A1A),
     highlight = Color(0xFFC62828),
+    controlLabel = Color(0xFFC62828),
 )
 
 internal val DarkBrandColors = BrandColors(
@@ -46,6 +53,7 @@ internal val DarkBrandColors = BrandColors(
     // A touch lighter than text: the small bold "PTS" label on its red strip needs the margin
     textOnContainer = Color(0xFFFF9090),
     highlight = Color(0xFFFF8080),
+    controlLabel = Color(0xFFE0E0E0),
 )
 
 val LocalBrandColors = staticCompositionLocalOf { LightBrandColors }
@@ -64,6 +72,16 @@ val MaterialTheme.brandColors: BrandColors
 @Composable
 fun dialogTextButtonColors(): ButtonColors = ButtonDefaults.textButtonColors(
     contentColor = MaterialTheme.brandColors.text,
+)
+
+/**
+ * Colours for outlined controls on game and Home screens (Undo, Miss, unselected S/D/T, Home menu buttons): the label
+ * and icon in [BrandColors.controlLabel], since Material's default `primary` label is ~2.5–3.3:1 on the dark theme's
+ * greys. Disabled colours stay Material's defaults.
+ */
+@Composable
+fun outlinedControlButtonColors(): ButtonColors = ButtonDefaults.outlinedButtonColors(
+    contentColor = MaterialTheme.brandColors.controlLabel,
 )
 
 /** WCAG contrast ratio between two opaque colours, from 1 (same luminance) to 21 (black on white). */

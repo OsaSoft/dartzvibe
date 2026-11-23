@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 
 private val ButtonMinHeight = 88.dp
 private val ButtonShape = RoundedCornerShape(12.dp)
@@ -92,6 +93,7 @@ private fun RouletteInputButton(
     when (option.kind) {
         RouletteInputKind.MISS -> OutlinedButton(
             onClick = onClick,
+            colors = outlinedControlButtonColors(),
             modifier = modifier,
             enabled = option.enabled,
             shape = ButtonShape,

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 
 /** Key the Bull button reports to [updateSwipePill] (the number keys report their number). */
 private const val BULL_PILL_KEY = 25
@@ -113,6 +114,7 @@ fun CricketInputPad(
 
                                 CricketPadKey.Miss -> OutlinedButton(
                                     onClick = onMiss,
+                                    colors = outlinedControlButtonColors(),
                                     enabled = canThrow,
                                     modifier = cellModifier,
                                     shape = RoundedCornerShape(8.dp),

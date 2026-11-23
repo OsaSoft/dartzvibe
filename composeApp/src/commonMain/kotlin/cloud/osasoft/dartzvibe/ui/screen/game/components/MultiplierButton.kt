@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 
 /**
  * S/D/T selector button shared by [ScoreInputKeypad] and [RadialDartboard].
@@ -49,6 +50,7 @@ internal fun MultiplierButton(
     } else {
         OutlinedButton(
             onClick = onClick,
+            colors = outlinedControlButtonColors(),
             modifier = modifier.height(40.dp),
             shape = RoundedCornerShape(8.dp),
             contentPadding = PaddingValues(8.dp),

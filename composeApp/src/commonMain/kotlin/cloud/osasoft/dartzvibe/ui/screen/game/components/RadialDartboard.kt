@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
@@ -245,6 +246,7 @@ fun RadialDartboard(
             // Round Miss button in top-left corner
             OutlinedButton(
                 onClick = onMiss,
+                colors = outlinedControlButtonColors(),
                 enabled = canThrow,
                 modifier = Modifier
                     .align(Alignment.TopStart)

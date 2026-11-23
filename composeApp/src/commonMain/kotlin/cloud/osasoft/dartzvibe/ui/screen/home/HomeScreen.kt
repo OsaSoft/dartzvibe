@@ -58,6 +58,7 @@ import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.HeadToHeadScreen
 import cloud.osasoft.dartzvibe.ui.screen.statistics.StatisticsScreen
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -310,6 +311,7 @@ fun MenuButton(
     } else {
         OutlinedButton(
             onClick = onClick,
+            colors = outlinedControlButtonColors(),
             enabled = enabled,
             modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
         ) {

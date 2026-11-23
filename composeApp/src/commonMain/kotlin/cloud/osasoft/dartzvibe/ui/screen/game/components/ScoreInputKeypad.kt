@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 
 private const val SWIPE_THRESHOLD_DP = 30f
 
@@ -212,6 +213,7 @@ fun ScoreInputKeypad(
                 // Miss button
                 OutlinedButton(
                     onClick = onMiss,
+                    colors = outlinedControlButtonColors(),
                     enabled = canThrow,
                     modifier = Modifier.fillMaxWidth().height(40.dp),
                     shape = RoundedCornerShape(8.dp),

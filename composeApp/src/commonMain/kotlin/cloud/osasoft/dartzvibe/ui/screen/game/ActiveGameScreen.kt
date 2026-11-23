@@ -109,6 +109,7 @@ import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
 import cloud.osasoft.dartzvibe.ui.theme.brandColors
 import cloud.osasoft.dartzvibe.ui.theme.dialogTextButtonColors
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
+import cloud.osasoft.dartzvibe.ui.theme.outlinedControlButtonColors
 import dartzvibe.composeapp.generated.resources.Res
 import dartzvibe.composeapp.generated.resources.forever_alone_bw
 import org.jetbrains.compose.resources.painterResource
@@ -927,6 +928,7 @@ fun CurrentTurnDisplay(
             Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
             OutlinedButton(
                 onClick = onUndo,
+                colors = outlinedControlButtonColors(),
                 enabled = canUndo,
                 modifier = Modifier.height(36.dp),
                 shape = RoundedCornerShape(8.dp),

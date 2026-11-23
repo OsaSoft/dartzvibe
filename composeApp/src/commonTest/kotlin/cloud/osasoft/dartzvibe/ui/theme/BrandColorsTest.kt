@@ -109,6 +109,44 @@ class BrandColorsTest : FreeSpec({
         }
     }
 
+    "Outlined control label" - {
+
+        withData(
+            nameFn = { (theme, surface, _) -> "Should reach 4.5:1 on $surface in $theme theme" },
+            listOf(
+                "light" to (LightBrandColors to LightColorScheme),
+                "dark" to (DarkBrandColors to DarkColorScheme),
+            ).flatMap { (theme, colors) ->
+                val (brand, scheme) = colors
+                listOf(
+                    "background (Home, keypad)" to scheme.background,
+                    "surface" to scheme.surface,
+                    "surfaceVariant (turn card with Undo)" to scheme.surfaceVariant,
+                ).map { (surface, background) -> Triple(theme, surface, brand.controlLabel to background) }
+            },
+        ) { (_, _, colors) ->
+            // GIVEN the label colour of Undo, Miss, unselected S/D/T and the Home menu buttons, and a surface under it
+            val (label, background) = colors
+
+            // WHEN measuring their contrast
+            val ratio = contrastRatio(label, background)
+
+            // THEN it meets WCAG AA for normal-size text
+            ratio shouldBeGreaterThanOrEqual 4.5f
+        }
+
+        "Should be neutral in dark theme and the brand red in light theme" {
+            // GIVEN the label colours of outlined controls
+            val dark = DarkBrandColors.controlLabel
+
+            // WHEN comparing the channels
+            // THEN dark theme's label is grey (no pink tint) and light theme keeps the brand red
+            (maxOf(dark.red, dark.green, dark.blue) - minOf(dark.red, dark.green, dark.blue)) shouldBe
+                (0f plusOrMinus 0.01f)
+            LightBrandColors.controlLabel shouldBe LightColorScheme.primary
+        }
+    }
+
     "Highlight" - {
 
         "Should match the score text in dark theme, so the border, strip and score read as one red" {
