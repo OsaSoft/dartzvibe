@@ -78,7 +78,6 @@ import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
 import cloud.osasoft.dartzvibe.data.model.GameMode
-import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
@@ -103,6 +102,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.cricketPadHeightPx
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitScoreboardRowHeight
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
 import cloud.osasoft.dartzvibe.ui.screen.game.components.knockoutSlotText
+import cloud.osasoft.dartzvibe.ui.screen.game.components.rouletteRoundLabel
 import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.screen.settings.SettingsScreen
@@ -1232,19 +1232,12 @@ fun RouletteHeader(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Round info
-            val roundInfo = when (state.session?.config?.gameType) {
-                GameType.ROULETTE_ROUNDS -> {
-                    val total = state.rouletteTotalRounds ?: 0
-                    "Round ${state.rouletteRoundNumber} of $total"
-                }
-
-                GameType.ROULETTE_SCORE -> {
-                    val targetScore = state.rouletteTargetScore ?: 0
-                    "Round ${state.rouletteRoundNumber} - Target: $targetScore pts"
-                }
-
-                else -> "Round ${state.rouletteRoundNumber}"
-            }
+            val roundInfo = rouletteRoundLabel(
+                gameType = state.session?.config?.gameType,
+                roundNumber = state.rouletteRoundNumber,
+                totalRounds = state.rouletteTotalRounds,
+                targetScore = state.rouletteTargetScore,
+            )
             Text(
                 text = roundInfo,
                 style = MaterialTheme.typography.labelLarge,
