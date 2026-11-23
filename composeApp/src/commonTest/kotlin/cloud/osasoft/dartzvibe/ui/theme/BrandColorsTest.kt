@@ -17,7 +17,7 @@ class BrandColorsTest : FreeSpec({
         "surface" to scheme.surface,
         "surfaceVariant (score and Cricket cards)" to scheme.surfaceVariant,
         "surfaceContainerHigh (dialogs)" to scheme.surfaceContainerHigh,
-        "current player's card" to scheme.primaryContainer.copy(alpha = 0.3f).compositeOver(scheme.background),
+        "current player's card" to currentPlayerCardColor(scheme),
         "leaderboard leader's card" to scheme.primaryContainer.copy(alpha = 0.5f).compositeOver(scheme.background),
     )
 
@@ -116,6 +116,25 @@ class BrandColorsTest : FreeSpec({
             // WHEN comparing the highlight border/strip colour with the score text
             // THEN they are the same red
             DarkBrandColors.highlight shouldBe DarkBrandColors.text
+        }
+    }
+
+    "Current player's card" - {
+
+        withData(
+            nameFn = { (theme, _) ->
+                "Should be opaque in $theme theme, so its shadow can't show through as a grey ring"
+            },
+            "light" to LightColorScheme,
+            "dark" to DarkColorScheme,
+        ) { (_, scheme) ->
+            // GIVEN the theme's colour scheme
+            // WHEN reading the current player's card fill
+            val fill = currentPlayerCardColor(scheme)
+
+            // THEN it is fully opaque and still the faint red tint over the screen background
+            fill.alpha shouldBe 1f
+            fill shouldBe scheme.primaryContainer.copy(alpha = 0.3f).compositeOver(scheme.background)
         }
     }
 

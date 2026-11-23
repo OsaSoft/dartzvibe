@@ -34,6 +34,7 @@ import cloud.osasoft.dartzvibe.domain.game.LastTurn
 import cloud.osasoft.dartzvibe.domain.game.label
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import cloud.osasoft.dartzvibe.ui.theme.brandColors
+import cloud.osasoft.dartzvibe.ui.theme.currentPlayerCardColor
 
 @Suppress("ktlint:standard:function-naming")
 @Composable
@@ -63,7 +64,7 @@ fun PlayerScoreCard(
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrentPlayer) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                currentPlayerCardColor(MaterialTheme.colorScheme)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             },
@@ -224,7 +225,7 @@ fun CompactPlayerScoreCard(
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrentPlayer) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                currentPlayerCardColor(MaterialTheme.colorScheme)
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             },
