@@ -2,6 +2,7 @@ package cloud.osasoft.dartzvibe.data.model
 
 import cloud.osasoft.dartzvibe.util.currentTimeMillis
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.datatest.withData
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -151,6 +152,38 @@ class GameModelsTest : FreeSpec({
             )
 
             config.legsToWin shouldBe 1
+        }
+
+        "Should describe a Roulette Score game with its target" {
+            // GIVEN a Roulette Score config with a target of 100
+            val config = GameConfig(
+                gameType = GameType.ROULETTE_SCORE,
+                playerIds = listOf(playerId1),
+                gameMode = GameMode.ROULETTE,
+                rouletteTargetScore = 100,
+            )
+
+            // WHEN describing it
+            // THEN the description names the target
+            config.displayDescription shouldBe
+                "${GameMode.ROULETTE.displayName} ${GameType.ROULETTE_SCORE.displayName} (target: 100)"
+        }
+
+        "Should leave the target out of an old Roulette Score save without one" - {
+            withData(nameFn = { "target=$it" }, null, 0) { target ->
+                // GIVEN a Roulette Score config saved without a target
+                val config = GameConfig(
+                    gameType = GameType.ROULETTE_SCORE,
+                    playerIds = listOf(playerId1),
+                    gameMode = GameMode.ROULETTE,
+                    rouletteTargetScore = target,
+                )
+
+                // WHEN describing it
+                // THEN there is no "(target: 0)"
+                config.displayDescription shouldBe
+                    "${GameMode.ROULETTE.displayName} ${GameType.ROULETTE_SCORE.displayName}"
+            }
         }
     }
 
