@@ -82,6 +82,7 @@ import cloud.osasoft.dartzvibe.domain.history.historyDartDescription
 import cloud.osasoft.dartzvibe.domain.history.historyDartLabel
 import cloud.osasoft.dartzvibe.domain.history.parcheesiLegHistory
 import cloud.osasoft.dartzvibe.domain.history.rouletteTurnContexts
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import cloud.osasoft.dartzvibe.util.formatDate
 import kotlin.uuid.ExperimentalUuidApi
@@ -105,7 +106,7 @@ class GameDetailScreen(
 
         GameDetailContent(
             state = state,
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@GameDetailScreen) },
             onToggleLeg = screenModel::toggleLegExpansion,
         )
     }

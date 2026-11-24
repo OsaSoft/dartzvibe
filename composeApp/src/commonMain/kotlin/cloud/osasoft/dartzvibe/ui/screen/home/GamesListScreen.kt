@@ -62,6 +62,7 @@ import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.ActiveGameScreen
 import cloud.osasoft.dartzvibe.ui.screen.gamedetail.GameDetailScreen
 import cloud.osasoft.dartzvibe.ui.screen.launchToCompletion
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.theme.dialogTextButtonColors
 import cloud.osasoft.dartzvibe.util.formatDateTime
@@ -179,7 +180,7 @@ class GamesListScreen : Screen {
             onDeleteGame = { screenModel.showDeleteConfirmation(it) },
             onConfirmDelete = { screenModel.confirmDelete() },
             onDismissDelete = { screenModel.dismissDeleteConfirmation() },
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@GamesListScreen) },
         )
     }
 }

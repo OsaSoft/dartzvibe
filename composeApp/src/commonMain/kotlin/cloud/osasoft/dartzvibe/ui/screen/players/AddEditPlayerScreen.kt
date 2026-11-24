@@ -48,6 +48,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -70,7 +71,7 @@ class AddEditPlayerScreen(
         // Navigate back when save is completed
         LaunchedEffect(state.saveCompleted) {
             if (state.saveCompleted) {
-                navigator.pop()
+                navigator.popFrom(this@AddEditPlayerScreen)
             }
         }
 
@@ -80,7 +81,7 @@ class AddEditPlayerScreen(
             onNicknameChange = screenModel::updateNickname,
             onColorSelect = screenModel::updateAvatarColor,
             onSave = screenModel::save,
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@AddEditPlayerScreen) },
         )
     }
 }

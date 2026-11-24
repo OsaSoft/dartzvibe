@@ -49,6 +49,7 @@ import cloud.osasoft.dartzvibe.config.BuildInfo
 import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.theme.brandColors
 
 class SettingsScreen : Screen {
@@ -65,7 +66,7 @@ class SettingsScreen : Screen {
 
         SettingsScreenContent(
             state = state,
-            onBackClick = { navigator.pop() },
+            onBackClick = { navigator.popFrom(this@SettingsScreen) },
             onThemeModeChange = screenModel::setThemeMode,
             onKeepScreenOnChange = screenModel::setKeepScreenOn,
             onShowCheckoutHintsChange = screenModel::setShowCheckoutHints,
