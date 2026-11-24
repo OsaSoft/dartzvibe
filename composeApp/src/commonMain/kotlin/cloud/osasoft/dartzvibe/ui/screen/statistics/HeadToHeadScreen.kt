@@ -72,6 +72,7 @@ import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.PlayerStatistics
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.util.formatDate
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -92,7 +93,7 @@ class HeadToHeadScreen : Screen {
 
         HeadToHeadContent(
             state = state,
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@HeadToHeadScreen) },
             onSelectPlayer1 = screenModel::selectPlayer1,
             onSelectPlayer2 = screenModel::selectPlayer2,
             onSwapPlayers = screenModel::swapPlayers,

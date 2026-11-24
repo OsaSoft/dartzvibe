@@ -58,6 +58,7 @@ import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.ui.screen.game.NewGameScreen
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.screen.pushFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import cloud.osasoft.dartzvibe.ui.theme.dialogTextButtonColors
@@ -81,7 +82,7 @@ class PlayerListScreen(
         PlayerListContent(
             state = state,
             showNewGameHint = fromNewGame,
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@PlayerListScreen) },
             onAddPlayer = { navigator.pushFrom(this@PlayerListScreen, AddEditPlayerScreen()) },
             onEditPlayer = { player ->
                 navigator.pushFrom(this@PlayerListScreen, AddEditPlayerScreen(playerId = player.id))

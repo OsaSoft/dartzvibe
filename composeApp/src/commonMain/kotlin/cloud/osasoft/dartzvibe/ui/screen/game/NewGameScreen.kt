@@ -68,6 +68,7 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
+import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.screen.replaceFrom
 import cloud.osasoft.dartzvibe.ui.theme.AvatarColors
 import cloud.osasoft.dartzvibe.ui.theme.brandColors
@@ -110,7 +111,7 @@ class NewGameScreen : Screen {
             onMoveDown = screenModel::movePlayerDown,
             onRandomizePlayerOrderChange = screenModel::setRandomizePlayerOrder,
             onStartGame = screenModel::startGame,
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@NewGameScreen) },
         )
     }
 }

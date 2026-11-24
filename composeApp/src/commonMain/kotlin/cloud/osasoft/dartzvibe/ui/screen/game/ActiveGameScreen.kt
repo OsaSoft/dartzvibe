@@ -161,11 +161,14 @@ class ActiveGameScreen(
             onDismissGameComplete = { navigator.popFrom(this@ActiveGameScreen) },
             onDismissKnockout = screenModel::dismissKnockoutDialog,
             onAbandonGame = {
-                screenModel.abandonGame()
-                navigator.pop()
+                // Abandons only from the top screen: a second Yes during the slide must not pop Home too
+                ifOnTop {
+                    screenModel.abandonGame()
+                    navigator.pop()
+                }
             },
             onSettings = { navigator.pushFrom(this@ActiveGameScreen, SettingsScreen()) },
-            onBack = { navigator.pop() },
+            onBack = { navigator.popFrom(this@ActiveGameScreen) },
         )
     }
 }
