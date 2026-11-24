@@ -2,12 +2,14 @@ package cloud.osasoft.dartzvibe.ui.theme
 
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 
 /**
@@ -55,6 +57,14 @@ val MaterialTheme.brandColors: BrandColors
     @Composable
     @ReadOnlyComposable
     get() = LocalBrandColors.current
+
+/**
+ * Fill of the current player's score card: a 30% `primaryContainer` tint, pre-blended over the screen background so
+ * it is opaque. A translucent fill lets the card's elevation shadow show through, which in light theme drew a grey
+ * frame inside the red [BrandColors.highlight] border.
+ */
+fun currentPlayerCardColor(scheme: ColorScheme): Color =
+    scheme.primaryContainer.copy(alpha = 0.3f).compositeOver(scheme.background)
 
 /**
  * Colours for a dialog's text buttons (Continue, Yes/No, OK, Undo, Delete): the label in [BrandColors.text], since
