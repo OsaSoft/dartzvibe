@@ -169,6 +169,38 @@ class GameModelsTest : FreeSpec({
                 "${GameMode.ROULETTE.displayName} ${GameType.ROULETTE_SCORE.displayName} (target: 100)"
         }
 
+        "Should describe a Roulette Rounds game with its round count" {
+            // GIVEN a Roulette Rounds config of 10 rounds
+            val config = GameConfig(
+                gameType = GameType.ROULETTE_ROUNDS,
+                playerIds = listOf(playerId1),
+                gameMode = GameMode.ROULETTE,
+                rouletteRounds = 10,
+            )
+
+            // WHEN describing it
+            // THEN the description names the round count
+            config.displayDescription shouldBe
+                "${GameMode.ROULETTE.displayName} ${GameType.ROULETTE_ROUNDS.displayName} (10 rounds)"
+        }
+
+        "Should leave the round count out of an old Roulette Rounds save without one" - {
+            withData(nameFn = { "rounds=$it" }, null, 0) { rounds ->
+                // GIVEN a Roulette Rounds config saved without a round count
+                val config = GameConfig(
+                    gameType = GameType.ROULETTE_ROUNDS,
+                    playerIds = listOf(playerId1),
+                    gameMode = GameMode.ROULETTE,
+                    rouletteRounds = rounds,
+                )
+
+                // WHEN describing it
+                // THEN there is no "(0 rounds)"
+                config.displayDescription shouldBe
+                    "${GameMode.ROULETTE.displayName} ${GameType.ROULETTE_ROUNDS.displayName}"
+            }
+        }
+
         "Should leave the target out of an old Roulette Score save without one" - {
             withData(nameFn = { "target=$it" }, null, 0) { target ->
                 // GIVEN a Roulette Score config saved without a target
