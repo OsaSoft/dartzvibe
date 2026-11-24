@@ -224,6 +224,44 @@ class StatisticsCalculatorTest : FreeSpec({
             classic.checkoutPercentage shouldBe FixedDecimal.fromInt(50)
         }
 
+        "Should count a 171-180 turn as a checkout attempt without double-out" {
+            // GIVEN a single-out leg won with T20 T20 T20 from 180, after a turn on 175
+            val turns = listOf(
+                createTurn(playerId1, listOf(t(20, Multiplier.TRIPLE), t(20, Multiplier.TRIPLE), t(1)), 301),
+                createTurn(playerId1, listOf(t(1), t(1), t(1)), 175),
+                createTurn(
+                    playerId1,
+                    listOf(t(20, Multiplier.TRIPLE), t(20, Multiplier.TRIPLE), t(20, Multiplier.TRIPLE)),
+                    180,
+                ),
+            )
+            val game = createClassicGame(
+                legs = listOf(Leg(turns = turns, winnerId = playerId1)),
+                winnerId = playerId1,
+            ).let { it.copy(config = it.config.copy(doubleOut = false)) }
+
+            // THEN both turns from 171-180 are attempts and the percentage stays within 100
+            val classic = classicStats(playerId1, listOf(game)).classic
+            classic.checkoutAttempts shouldBe 2
+            classic.checkoutsHit shouldBe 1
+            classic.checkoutPercentage shouldBe FixedDecimal.fromInt(50)
+        }
+
+        "Should not count a 171-180 turn as a checkout attempt with double-out" {
+            val turns = listOf(
+                createTurn(playerId1, listOf(t(1), t(1), t(1)), 175),
+                createTurn(
+                    playerId1,
+                    listOf(t(20, Multiplier.TRIPLE), t(20, Multiplier.TRIPLE), t(25, Multiplier.DOUBLE)),
+                    170,
+                ),
+            )
+            val game = createClassicGame(legs = listOf(Leg(turns = turns, winnerId = playerId1)), winnerId = playerId1)
+            val classic = classicStats(playerId1, listOf(game)).classic
+            classic.checkoutAttempts shouldBe 1
+            classic.checkoutsHit shouldBe 1
+        }
+
         "Should find best checkout" {
             val turns = listOf(
                 createTurn(playerId1, listOf(t(20, Multiplier.TRIPLE), t(10), t(20, Multiplier.DOUBLE)), 110),
