@@ -52,6 +52,9 @@ import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.theme.brandColors
 
+// Material 3 opacity for disabled content
+private const val DISABLED_CONTENT_ALPHA = 0.38f
+
 class SettingsScreen : Screen {
 
     // Unique per instance: the ScreenModel store is keyed by it, so a new screen never reuses an old model
@@ -183,6 +186,7 @@ fun SettingsScreenContent(
 
             SwipeMultiplierModeSettingItem(
                 selectedMode = state.settings.swipeMultiplierMode,
+                enabled = state.isSwipeMultiplierModeEnabled,
                 onSwipeMultiplierModeChange = onSwipeMultiplierModeChange,
             )
 
@@ -277,14 +281,19 @@ fun ThemeModeSettingItem(
 /**
  * Single choice with full-length labels: the options are too long for a segmented button
  * and are not an on/off pair, so they are shown as a radio group.
+ *
+ * Disabled when the setting has no effect; the saved choice stays selected so it is kept when re-enabled.
  */
 @Suppress("ktlint:standard:function-naming")
 @Composable
 fun SwipeMultiplierModeSettingItem(
     selectedMode: SwipeMultiplierMode,
+    enabled: Boolean,
     onSwipeMultiplierModeChange: (SwipeMultiplierMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Text doesn't dim itself when disabled; use the Material disabled alpha like the RadioButton does
+    val contentAlpha = if (enabled) 1f else DISABLED_CONTENT_ALPHA
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -293,10 +302,12 @@ fun SwipeMultiplierModeSettingItem(
         Text(
             text = "Dartboard Swipe Direction",
             style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
         )
         Text(
-            text = "How swipes pick Double/Triple on the radial dartboard when multiplier buttons are off. " +
-                "The grid keypad always uses up = Double, down = Triple.",
+            text = "How swipes pick Double/Triple on the radial dartboard. " +
+                "The grid keypad always uses up = Double, down = Triple." +
+                if (enabled) "" else "\nOnly used with Radial Dartboard Keypad on and Show Multiplier Buttons off.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -309,6 +320,7 @@ fun SwipeMultiplierModeSettingItem(
                         .heightIn(min = 48.dp)
                         .selectable(
                             selected = selectedMode == mode,
+                            enabled = enabled,
                             onClick = { onSwipeMultiplierModeChange(mode) },
                             role = Role.RadioButton,
                         )
@@ -318,6 +330,7 @@ fun SwipeMultiplierModeSettingItem(
                     RadioButton(
                         selected = selectedMode == mode,
                         onClick = null,
+                        enabled = enabled,
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
@@ -326,6 +339,7 @@ fun SwipeMultiplierModeSettingItem(
                             SwipeMultiplierMode.RADIAL -> "Like a real board: toward center = Triple, outward = Double"
                         },
                         style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
                         modifier = Modifier.weight(1f),
                     )
                 }

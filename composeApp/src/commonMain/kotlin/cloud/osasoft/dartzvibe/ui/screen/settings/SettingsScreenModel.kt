@@ -19,7 +19,11 @@ data class SettingsState(
     val settings: AppSettingsData = AppSettingsData(),
     val isLoading: Boolean = true,
     val error: String? = null,
-)
+) {
+    /** The swipe direction is only read by the radial dartboard in swipe mode (S/D/T buttons hidden). */
+    val isSwipeMultiplierModeEnabled: Boolean
+        get() = settings.useRadialKeypad && !settings.showMultiplierButtons
+}
 
 class SettingsScreenModel(
     private val appSettingsRepository: AppSettingsRepository,

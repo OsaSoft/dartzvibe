@@ -4,6 +4,7 @@ import cloud.osasoft.dartzvibe.data.model.SwipeMultiplierMode
 import cloud.osasoft.dartzvibe.data.model.ThemeMode
 import cloud.osasoft.dartzvibe.data.repository.FakeAppSettingsRepository
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.datatest.withData
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -186,6 +187,78 @@ class SettingsScreenModelTest : FreeSpec({
                 val updatedState = screenModel.state.first()
                 updatedState.settings.keepScreenOn shouldBe true
                 updatedState.settings.showCheckoutHints shouldBe false
+            }
+        }
+
+        "Dartboard swipe direction availability" - {
+            data class Case(val useRadialKeypad: Boolean, val showMultiplierButtons: Boolean, val enabled: Boolean) {
+                override fun toString() =
+                    "Should be ${if (enabled) "enabled" else "disabled"} with radial dartboard " +
+                        "${if (useRadialKeypad) "on" else "off"} and S/D/T buttons ${if (showMultiplierButtons) "on" else "off"}"
+            }
+
+            withData(
+                Case(useRadialKeypad = true, showMultiplierButtons = false, enabled = true),
+                Case(useRadialKeypad = true, showMultiplierButtons = true, enabled = false),
+                Case(useRadialKeypad = false, showMultiplierButtons = false, enabled = false),
+                Case(useRadialKeypad = false, showMultiplierButtons = true, enabled = false),
+            ) { case ->
+                runTest {
+                    // GIVEN a SettingsScreenModel
+                    val repository = FakeAppSettingsRepository()
+                    val screenModel = SettingsScreenModel(repository)
+                    advanceUntilIdle()
+
+                    // WHEN the keypad switches are set
+                    screenModel.setUseRadialKeypad(case.useRadialKeypad)
+                    screenModel.setShowMultiplierButtons(case.showMultiplierButtons)
+                    advanceUntilIdle()
+
+                    // THEN the swipe direction option is only enabled when it affects input
+                    screenModel.state.first().isSwipeMultiplierModeEnabled shouldBe case.enabled
+                }
+            }
+
+            "Should be disabled with the default settings" {
+                runTest {
+                    // GIVEN a fresh SettingsScreenModel (grid keypad, S/D/T buttons on)
+                    val screenModel = SettingsScreenModel(FakeAppSettingsRepository())
+
+                    // WHEN the settings have loaded
+                    advanceUntilIdle()
+
+                    // THEN the swipe direction option is disabled
+                    screenModel.state.first().isSwipeMultiplierModeEnabled shouldBe false
+                }
+            }
+
+            "Should keep the chosen direction while disabled and re-enabled" {
+                runTest {
+                    // GIVEN the swipe direction is enabled and set to RADIAL
+                    val repository = FakeAppSettingsRepository()
+                    val screenModel = SettingsScreenModel(repository)
+                    advanceUntilIdle()
+                    screenModel.setUseRadialKeypad(true)
+                    screenModel.setShowMultiplierButtons(false)
+                    screenModel.setSwipeMultiplierMode(SwipeMultiplierMode.RADIAL)
+                    advanceUntilIdle()
+
+                    // WHEN the S/D/T buttons are turned on (disabling it)
+                    screenModel.setShowMultiplierButtons(true)
+                    advanceUntilIdle()
+
+                    // THEN it is disabled and the direction is still RADIAL
+                    screenModel.state.first().isSwipeMultiplierModeEnabled shouldBe false
+                    screenModel.state.first().settings.swipeMultiplierMode shouldBe SwipeMultiplierMode.RADIAL
+
+                    // AND when the S/D/T buttons are turned off again
+                    screenModel.setShowMultiplierButtons(false)
+                    advanceUntilIdle()
+
+                    // THEN it is enabled again with RADIAL still selected
+                    screenModel.state.first().isSwipeMultiplierModeEnabled shouldBe true
+                    screenModel.state.first().settings.swipeMultiplierMode shouldBe SwipeMultiplierMode.RADIAL
+                }
             }
         }
     }
