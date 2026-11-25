@@ -5,7 +5,10 @@ import cloud.osasoft.dartzvibe.data.model.Leg
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-/** A player's last finished turn in the current leg, as the score card's "Last:" line shows it. */
+/**
+ * A player's last finished turn in the current leg, as the score card's "Last:" line shows it. A caller may show an
+ * open turn that a Parcheesi bounce already ended as [Bounce] before End Turn saves it.
+ */
 sealed interface LastTurn {
     /** No turn yet in this leg. */
     data object None : LastTurn
