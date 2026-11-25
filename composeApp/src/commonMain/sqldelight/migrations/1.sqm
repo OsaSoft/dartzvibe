@@ -1,5 +1,7 @@
 -- Migration 1: Create initial tables
-CREATE TABLE GameSession (
+-- Only runs on a schema-v1 database, which already has both tables (Schema.create made them), so the
+-- statements must be no-ops there: IF NOT EXISTS. With plain CREATE TABLE, every v1 upgrade failed.
+CREATE TABLE IF NOT EXISTS GameSession (
     id TEXT NOT NULL PRIMARY KEY,
     gameType TEXT NOT NULL,
     doubleIn INTEGER NOT NULL DEFAULT 0,
@@ -14,7 +16,7 @@ CREATE TABLE GameSession (
     winnerId TEXT
 );
 
-CREATE TABLE Player (
+CREATE TABLE IF NOT EXISTS Player (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     nickname TEXT,

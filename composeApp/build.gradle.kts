@@ -129,6 +129,9 @@ kotlin {
         // Android/JVM unit-test target (testDebugUnitTest) without a macOS/iOS simulator.
         androidUnitTest.dependencies {
             implementation(libs.kotest.runner.junit5)
+
+            // JVM SQLite driver for the migration tests (DatabaseMigrationTest)
+            implementation(libs.sqldelight.sqlite)
         }
     }
 }
