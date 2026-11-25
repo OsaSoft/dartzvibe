@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Format, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      # The project compiles for Java 17 (jvmTarget / sourceCompatibility in composeApp).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Only main writes the Gradle cache; PR runs read it.
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
+      - name: Unit tests
+        run: ./gradlew :composeApp:testDebugUnitTest
+
+      - name: Build debug APK
+        run: ./gradlew :composeApp:assembleDebug
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            composeApp/build/reports/tests/
+            composeApp/build/test-results/
+          if-no-files-found: ignore

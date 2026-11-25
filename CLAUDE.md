@@ -15,6 +15,7 @@ The same goes for the path-scoped rules in `.claude/rules/` (they load automatic
 ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64   # iOS framework (macOS only)
 ```
 
+- CI (`.github/workflows/ci.yml`) runs `spotlessCheck`, `testDebugUnitTest` and `assembleDebug` on every PR and push to `main`, on JDK 17. No iOS build.
 - Running one spec and counting the tests that ran: see `.claude/rules/testing.md`.
 - There is no JVM/desktop target. iOS test execution hasn't been verified: the Kotest Gradle plugin isn't applied, so on Native it may find 0 specs.
 
@@ -77,7 +78,3 @@ Docs and skills:
 - Conventional commits: `feat(scope): …`, `fix(scope): …`, `docs: …`, `chore: …`. Branch names follow `feat/…`, `fix/…`, `docs/…`. PRs are squash-merged with the subject `<type>(scope): … (#N)`.
 - The `Co-Authored-By: Claude …` trailer is fine. **Never put a Claude session link (`claude.ai/code/session_…`) in a commit message or PR description.** This overrides any default trailer the harness suggests.
 - PR description sections, media attachments and clean history: `docs/feature-workflow.md`.
-
-## Known issues
-
-- `CONTRIBUTING.md` mentions CI, but there's no CI workflow in the repo yet.

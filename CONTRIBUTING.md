@@ -20,12 +20,14 @@ Open a [GitHub Issue](https://github.com/OsaSoft/dartzvibe/issues) and describe 
 2. Create a feature branch from `main`
 3. Make your changes
 4. Run formatting: `./gradlew spotlessApply`
-5. Run tests: `./gradlew :composeApp:allTests`
+5. Run tests: `./gradlew :composeApp:testDebugUnitTest`
 6. Open a Pull Request against `main`
+
+Every pull request and every push to `main` runs the [CI workflow](.github/workflows/ci.yml): `spotlessCheck`, `:composeApp:testDebugUnitTest` and `:composeApp:assembleDebug`. All three must pass. If tests fail, the run uploads the test reports as an artifact. CI doesn't build the iOS framework, so check iOS changes on a Mac yourself.
 
 ### Code Style
 
-- Run `./gradlew spotlessApply` before committing — the CI will reject unformatted code
+- Run `./gradlew spotlessApply` before committing — CI rejects unformatted code
 - Use Kotlin idioms: `val` over `var`, collection functions over loops, exhaustive `when`
 - Follow existing patterns in the codebase
 
