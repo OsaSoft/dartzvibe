@@ -50,15 +50,13 @@ object CheckoutCalculator {
     private fun calculateCheckouts(score: Int, doubleOut: Boolean, maxDarts: Int): List<CheckoutPath>? {
         val paths = mutableListOf<CheckoutPath>()
 
-        // Without double-out the order of the darts doesn't matter, so keep only the first (preferred) order of each
-        // set of darts; otherwise the alternative could be the same darts reordered
+        // Keep only the first (preferred) order of each set of darts, so the alternative is never the same darts
+        // reordered (with double-out too, where swapping two doubles changes the finish but not the darts)
         fun add(found: List<CheckoutPath>) {
             paths.addAll(found)
-            if (!doubleOut) {
-                val distinct = paths.distinctBy { path -> path.throws.groupingBy { it }.eachCount() }
-                paths.clear()
-                paths.addAll(distinct)
-            }
+            val distinct = paths.distinctBy { path -> path.throws.groupingBy { it }.eachCount() }
+            paths.clear()
+            paths.addAll(distinct)
         }
 
         // Try 1-dart finishes
@@ -146,14 +144,13 @@ object CheckoutCalculator {
                             .map { setup2 -> CheckoutPath(listOf(setup1, setup2, finish)) }
                     }
             }
-            .sortedWith(threeDartOrder(doubleOut))
+            .sortedWith(threeDartOrder)
     }
 
-    /** Highest setup total first; without double-out, ties read the setup darts high to low (T20 → T19 → T18). */
-    private fun threeDartOrder(doubleOut: Boolean): Comparator<CheckoutPath> {
-        val bySetup = compareByDescending<CheckoutPath> { path -> path.throws.dropLast(1).sumOf { it.score } }
-        return if (doubleOut) bySetup else bySetup.thenByDescending { path -> path.throws.first().score }
-    }
+    /** Highest setup total first; ties read the setup darts high to low (T20 → T19 → T18). */
+    private val threeDartOrder: Comparator<CheckoutPath> =
+        compareByDescending<CheckoutPath> { path -> path.throws.dropLast(1).sumOf { it.score } }
+            .thenByDescending { path -> path.throws.first().score }
 
     /**
      * Returns all possible finishing throws (doubles and bull).
