@@ -325,8 +325,12 @@ data class ActiveGameState(
 
     fun getPlayer(playerId: Uuid): Player? = players[playerId]
 
-    fun getLastTurn(playerId: Uuid): LastTurn = session?.currentLeg
-        ?.let { leg ->
+    /**
+     * [playerId]'s "Last:" line. A Parcheesi bounce ends the turn on the dart, so the throwing player's card reads
+     * BOUNCE right away (like the turn total slot) instead of the previous turn until End Turn saves it (#38).
+     */
+    fun getLastTurn(playerId: Uuid): LastTurn = LastTurn.Bounce.takeIf { isBounced && playerId == currentPlayerId }
+        ?: session?.currentLeg?.let { leg ->
             LastTurn.of(
                 leg = leg,
                 playerId = playerId,

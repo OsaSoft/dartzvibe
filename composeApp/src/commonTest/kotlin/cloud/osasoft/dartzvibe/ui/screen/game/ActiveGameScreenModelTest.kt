@@ -346,10 +346,131 @@ class ActiveGameScreenModelTest : FreeSpec({
                 screenModel.endTurn()
                 advanceUntilIdle()
 
-                // THEN P1's card reads BOUNCE, and P2's miss still reads +0
+                // THEN P1's card reads BOUNCE, and P2's miss still reads +0: BOUNCE doesn't move to P2, now throwing
                 val state = screenModel.state.value
+                state.currentPlayerId shouldBe roulettePlayer2Id
                 state.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: BOUNCE"
                 state.getLastTurn(roulettePlayer2Id).label(isCountUp = true) shouldBe "Last: +0"
+            }
+        }
+
+        "Should read Last: BOUNCE as soon as the bounce ends the turn, before End Turn (#38)" - {
+            // GIVEN a Parcheesi 301 game with P1 on 300 after five T20 turns, P2 on 0 with misses
+            suspend fun TestScope.bounceGame(): ActiveGameScreenModel {
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = false,
+                        playerIds = listOf(roulettePlayer1Id, roulettePlayer2Id),
+                    ),
+                )
+                repeat(5) {
+                    screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                    screenModel.endTurn()
+                    screenModel.onMiss()
+                    screenModel.endTurn()
+                }
+                advanceUntilIdle()
+                return screenModel
+            }
+
+            "Should show BOUNCE on the bouncing player's card while End Turn is pending" {
+                runTest {
+                    val screenModel = bounceGame()
+
+                    // WHEN P1 bounces with S20 and hasn't ended the turn yet
+                    screenModel.onScoreSelect(20, Multiplier.SINGLE)
+
+                    // THEN P1's card already reads BOUNCE, and P2's card is unchanged
+                    val state = screenModel.state.value
+                    state.isBounced shouldBe true
+                    state.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: BOUNCE"
+                    state.getLastTurn(roulettePlayer2Id).label(isCountUp = true) shouldBe "Last: +0"
+                }
+            }
+
+            "Should keep the previous turn while the turn is still open without a bounce" {
+                runTest {
+                    val screenModel = bounceGame()
+
+                    // WHEN P1 throws a miss that doesn't end the turn
+                    screenModel.onMiss()
+
+                    // THEN P1's card still shows the previous turn
+                    screenModel.state.value.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: +60"
+                }
+            }
+
+            "Should go back to the previous turn when the bouncing dart is undone" {
+                runTest {
+                    val screenModel = bounceGame()
+                    screenModel.onScoreSelect(20, Multiplier.SINGLE)
+
+                    // WHEN the bouncing dart is undone
+                    screenModel.undo()
+
+                    // THEN P1's card shows the previous turn again
+                    screenModel.state.value.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: +60"
+                }
+            }
+
+            "Should show BOUNCE again when Undo reopens the ended bounce turn" {
+                runTest {
+                    val screenModel = bounceGame()
+                    screenModel.onScoreSelect(20, Multiplier.SINGLE)
+                    screenModel.endTurn()
+                    advanceUntilIdle()
+
+                    // WHEN Undo reopens P1's bounce turn with its darts
+                    screenModel.undo()
+                    advanceUntilIdle()
+
+                    // THEN the reopened turn shows BOUNCE, like the turn total slot
+                    val state = screenModel.state.value
+                    state.currentPlayerId shouldBe roulettePlayer1Id
+                    state.isBounced shouldBe true
+                    state.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: BOUNCE"
+                }
+            }
+        }
+
+        "Should show BOUNCE only on the thrower's card when a knockout and a bounce share the turn" {
+            runTest {
+                // GIVEN a Parcheesi 301 game: P1 on 240 (180, then 60), P2 on 250 (177, then 73)
+                val (screenModel, _) = configScreenModel(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = false,
+                        playerIds = listOf(roulettePlayer1Id, roulettePlayer2Id),
+                    ),
+                )
+                repeat(3) { screenModel.onScoreSelect(20, Multiplier.TRIPLE) }
+                screenModel.endTurn()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(19, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                screenModel.onScoreSelect(19, Multiplier.TRIPLE)
+                screenModel.onScoreSelect(16, Multiplier.SINGLE)
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // WHEN P1 knocks P2 out with D5 (250) and then bounces with T20
+                screenModel.onScoreSelect(5, Multiplier.DOUBLE)
+                screenModel.dismissKnockoutDialog()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+
+                // THEN P1, still throwing, reads BOUNCE, and P2 keeps their own last real turn, not the phantom
+                val state = screenModel.state.value
+                state.isBounced shouldBe true
+                state.currentPlayerId shouldBe roulettePlayer1Id
+                state.getPlayerScore(roulettePlayer2Id) shouldBe 0
+                state.getLastTurn(roulettePlayer1Id).label(isCountUp = true) shouldBe "Last: BOUNCE"
+                state.getLastTurn(roulettePlayer2Id).label(isCountUp = true) shouldBe "Last: +73"
             }
         }
 
