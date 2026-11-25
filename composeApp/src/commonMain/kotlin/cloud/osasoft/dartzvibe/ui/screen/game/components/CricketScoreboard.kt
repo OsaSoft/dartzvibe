@@ -97,7 +97,8 @@ fun CricketScoreboard(
                                     Modifier
                                 },
                             )
-                            .padding(vertical = if (compact) 2.dp else 4.dp),
+                            // Keeps a cut name's ellipsis clear of the next player's avatar
+                            .padding(horizontal = 2.dp, vertical = if (compact) 2.dp else 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (player != null) {
@@ -117,12 +118,13 @@ fun CricketScoreboard(
                                     )
                                 }
                             }
-                            val name = @Composable {
-                                Text(
-                                    text = player.name,
+                            // A long name shrinks to fit the column before it's cut (issue #37)
+                            val name = @Composable { nameModifier: Modifier ->
+                                PlayerNameText(
+                                    name = player.name,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1,
+                                    modifier = nameModifier,
                                 )
                             }
                             if (compact) {
@@ -132,13 +134,13 @@ fun CricketScoreboard(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     avatar()
-                                    name()
+                                    name(Modifier.weight(1f, fill = false))
                                 }
                             } else {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     avatar()
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    name()
+                                    name(Modifier)
                                 }
                             }
                         }

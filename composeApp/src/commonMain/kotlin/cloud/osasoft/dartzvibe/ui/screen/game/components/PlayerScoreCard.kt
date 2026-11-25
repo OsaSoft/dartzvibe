@@ -119,12 +119,13 @@ fun PlayerScoreCard(
                             fontWeight = FontWeight.Bold,
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = player.name,
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // A long name shrinks to fit the card before it's cut (4 players on a phone, issue #37)
+                    PlayerNameText(
+                        name = player.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (isCurrentPlayer) FontWeight.Bold else FontWeight.Medium,
-                        maxLines = 1,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
 
