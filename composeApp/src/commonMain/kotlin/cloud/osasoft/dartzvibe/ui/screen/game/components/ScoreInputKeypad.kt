@@ -229,7 +229,9 @@ fun ScoreInputKeypad(
         // Floating multiplier indicator overlay
         MultiplierIndicator(
             multiplier = swipePill?.multiplier,
-            modifier = Modifier.align(Alignment.Center),
+            // Above the keys, not over them (issue #33); the pill only shows while the S/D/T row is hidden
+            modifier = Modifier.align(Alignment.TopCenter).aboveKeys(keysTop = KeypadPadding),
+            compact = true,
         )
     }
 }
