@@ -6,7 +6,9 @@ import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Multiplier.DOUBLE
 import cloud.osasoft.dartzvibe.data.model.Multiplier.SINGLE
+import cloud.osasoft.dartzvibe.data.model.Multiplier.TRIPLE
 import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.model.Turn
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.shouldBe
@@ -67,7 +69,7 @@ class ParcheesiRulesTest : FreeSpec({
                 "Should mark after doubling in mid-turn",
                 config.copy(doubleIn = true),
                 261,
-                listOf(t(1), t(5, DOUBLE), t(10, Multiplier.TRIPLE)),
+                listOf(t(1), t(5, DOUBLE), t(10, TRIPLE)),
                 false,
                 listOf(false, false, true),
             ),
@@ -78,6 +80,37 @@ class ParcheesiRulesTest : FreeSpec({
 
             // THEN only the darts that hit the target without the double are marked
             flags shouldBe expected
+        }
+    }
+
+    "Should tell whether a player had doubled in" - {
+        val player1 = Uuid.parse("00000000-0000-0000-0000-000000000001")
+        val player2 = Uuid.parse("00000000-0000-0000-0000-000000000002")
+
+        fun turn(playerId: Uuid, vararg darts: Throw) = Turn(
+            playerId = playerId,
+            throws = darts.toList(),
+            scoreBeforeTurn = 0,
+            scoreAfterTurn = 0,
+        )
+
+        "Should say yes after any double of theirs in an earlier turn" {
+            // GIVEN player 1 hit a double in an earlier turn
+            val turns = listOf(turn(player1, t(5), t(10, DOUBLE)), turn(player2, t(1)))
+
+            // WHEN asking about player 1
+            // THEN they had doubled in
+            ParcheesiRules.hasDoubledIn(turns, player1) shouldBe true
+        }
+
+        "Should say no when only another player hit a double" {
+            // GIVEN only player 2 hit a double
+            val turns = listOf(turn(player1, t(5), t(20, TRIPLE)), turn(player2, t(10, DOUBLE)))
+
+            // WHEN asking about player 1
+            // THEN they had not doubled in, and with no turns nobody has
+            ParcheesiRules.hasDoubledIn(turns, player1) shouldBe false
+            ParcheesiRules.hasDoubledIn(emptyList(), player2) shouldBe false
         }
     }
 })

@@ -720,4 +720,111 @@ class GameHistoryContextTest : FreeSpec({
             history.unfinishedTurnKnockouts.shouldBeEmpty()
         }
     }
+
+    "Parcheesi darts that didn't count" - {
+        fun doubleInOutEngine() = GameEngine.fromSession(
+            session(
+                GameConfig(
+                    gameType = GameType.CLASSIC_301,
+                    gameMode = GameMode.PARCHEESI,
+                    doubleIn = true,
+                    doubleOut = true,
+                    playerIds = listOf(playerId1, playerId2),
+                ),
+            ),
+        )
+
+        "Should mark the dart that hit the target without the double, judging double-in from earlier turns" {
+            // GIVEN player 1 doubled in on their first turn and reached 281 on their second
+            val session = doubleInOutEngine()
+                .playTurn(double(20), triple(20), triple(20)) // P1 160
+                .playTurn(miss, miss, miss) // P2 0
+                .playTurn(triple(20), triple(20), single(1)) // P1 281
+                .playTurn(miss, miss, miss) // P2 0
+                // AND on their third turn hits S20 (301 without the double), then S10 and a miss
+                .playTurn(single(20), single(10), miss) // P1 291
+                .toGameSession()
+
+            // WHEN the darts that didn't count are derived for each turn
+            val flags = parcheesiNonCountingDarts(session.legs[0], session.config)
+
+            // THEN only the S20 is marked, as the double-in from the first turn carried over
+            flags shouldBe listOf(
+                listOf(false, false, false),
+                listOf(false, false, false),
+                listOf(false, false, false),
+                listOf(false, false, false),
+                listOf(true, false, false),
+            )
+            session.legs[0].playerTurns[4].scoreAfterTurn shouldBe 291
+        }
+
+        "Should flag the right turn after a knockout's phantom turn" {
+            // GIVEN double-out only, and player 2 knocks out player 1 at 20, which stores a phantom turn
+            val session = GameEngine.fromSession(
+                session(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = true,
+                        playerIds = listOf(playerId1, playerId2),
+                    ),
+                ),
+            )
+                .playTurn(single(20), miss, miss) // P1 20
+                .playTurn(single(20), triple(20), triple(20)) // P2 20 (KO P1), 140
+                .playTurn(triple(20), triple(20), triple(20)) // P1 180
+                .playTurn(miss, miss, miss) // P2 140
+                // WHEN player 1 reaches 300 and hits S1 (301 without the double)
+                .playTurn(triple(20), triple(20), single(1)) // P1 300
+                .toGameSession()
+            val leg = session.legs[0]
+            leg.turns.count { it.isPhantom } shouldBe 1
+
+            val flags = parcheesiNonCountingDarts(leg, session.config)
+
+            // THEN one row per player turn, and only the S1 in player 1's last turn is flagged
+            flags shouldBe listOf(
+                listOf(false, false, false),
+                listOf(false, false, false),
+                listOf(false, false, false),
+                listOf(false, false, false),
+                listOf(false, false, true),
+            )
+            leg.playerTurns[4].scoreAfterTurn shouldBe 300
+        }
+
+        "Should flag a void dart followed by a bounce in the same turn" {
+            // GIVEN a double-out game where player 1 stands on 300
+            val session = GameEngine.fromSession(
+                session(
+                    GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.PARCHEESI,
+                        doubleOut = true,
+                        playerIds = listOf(playerId1),
+                    ),
+                ),
+            )
+                .playTurn(triple(20), triple(20), triple(20)) // 180
+                .playTurn(triple(20), triple(20), miss) // 300
+                // WHEN they hit S1 (301 without the double), then overshoot with T20
+                .playTurn(single(1), triple(20))
+                .toGameSession()
+            val leg = session.legs[0]
+
+            val flags = parcheesiNonCountingDarts(leg, session.config)
+
+            // THEN the S1 is flagged and the bouncing T20 is not
+            leg.playerTurns[2].isBounce shouldBe true
+            flags[2] shouldBe listOf(true, false)
+        }
+
+        "Should return no turns for an empty leg" {
+            // GIVEN a leg without turns
+            // WHEN the flags are derived
+            // THEN there are none
+            parcheesiNonCountingDarts(Leg(), parcheesiEngine().config).shouldBeEmpty()
+        }
+    }
 })
