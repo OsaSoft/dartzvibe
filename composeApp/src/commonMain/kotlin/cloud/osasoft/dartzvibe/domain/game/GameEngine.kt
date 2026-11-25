@@ -57,11 +57,6 @@ sealed class TurnResult {
     data class LegWon(val winnerId: Uuid, val matchContinues: Boolean) : TurnResult()
 
     data class MatchWon(val winnerId: Uuid) : TurnResult()
-
-    data class NextPlayerWithKnockout(
-        val playerId: Uuid,
-        val knockedOutPlayerIds: List<Uuid>,
-    ) : TurnResult()
 }
 
 /**
