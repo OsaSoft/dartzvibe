@@ -1,6 +1,7 @@
 ---
 paths:
   - "**/commonTest/**"
+  - "**/androidUnitTest/**"
 ---
 
 # Tests

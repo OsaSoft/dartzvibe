@@ -10,7 +10,7 @@ The same goes for the path-scoped rules in `.claude/rules/` (they load automatic
 ```sh
 ./gradlew spotlessApply                       # format; run before every commit
 ./gradlew spotlessCheck                       # verify formatting
-./gradlew :composeApp:testDebugUnitTest       # all commonTest specs (Kotest, JUnit 5 runner)
+./gradlew :composeApp:testDebugUnitTest       # all commonTest + androidUnitTest specs (Kotest, JUnit 5 runner)
 ./gradlew :composeApp:assembleDebug           # debug APK → composeApp/build/outputs/apk/debug/
 ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64   # iOS framework (macOS only)
 ```
@@ -44,6 +44,7 @@ composeApp/src/
 │   └── util/               # expect TimeUtils (currentTimeMillis), KeepScreenOn
 ├── commonMain/sqldelight/  # *.sq schemas + migrations/*.sqm
 ├── commonTest/             # Kotest specs + Fake*Repository for ScreenModel tests
+├── androidUnitTest/        # JVM-only specs: DatabaseMigrationTest (real SQLite via JdbcSqliteDriver)
 ├── androidMain/            # MainActivity, DartzVibeApplication (builds AppComponent), actuals
 └── iosMain/                # MainViewController (wires dependencies by hand), actuals
 ```
@@ -79,5 +80,4 @@ Docs and skills:
 
 ## Known issues
 
-- `migrations/1.sqm` runs `CREATE TABLE` on tables a v1 database already has, so an install that never moved past schema v1 crashes on upgrade. New installs aren't affected.
 - `CONTRIBUTING.md` mentions CI, but there's no CI workflow in the repo yet.
