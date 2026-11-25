@@ -235,9 +235,7 @@ data class ActiveGameState(
             startScore = engine.getPlayerScore(playerId),
             darts = throws,
             config = config,
-            doubledIn = engine.toGameSession().currentLeg.turns.any { turn ->
-                turn.playerId == playerId && turn.throws.any { it.multiplier == Multiplier.DOUBLE }
-            },
+            doubledIn = ParcheesiRules.hasDoubledIn(engine.toGameSession().currentLeg.turns, playerId),
         )
     }
 

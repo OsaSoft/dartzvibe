@@ -81,7 +81,10 @@ import cloud.osasoft.dartzvibe.domain.history.cricketTurnEffects
 import cloud.osasoft.dartzvibe.domain.history.historyDartDescription
 import cloud.osasoft.dartzvibe.domain.history.historyDartLabel
 import cloud.osasoft.dartzvibe.domain.history.parcheesiLegHistory
+import cloud.osasoft.dartzvibe.domain.history.parcheesiNonCountingDarts
 import cloud.osasoft.dartzvibe.domain.history.rouletteTurnContexts
+import cloud.osasoft.dartzvibe.ui.screen.game.components.nonCountingDartChip
+import cloud.osasoft.dartzvibe.ui.screen.game.components.nonCountingDartLabel
 import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
 import cloud.osasoft.dartzvibe.util.formatDate
@@ -484,6 +487,8 @@ private fun TurnRow(
     knockouts: List<KnockoutDisplay> = emptyList(),
     // The turn's points; Parcheesi passes the darts that counted
     points: Int = turn.totalScore,
+    // Parcheesi: per dart, whether it didn't count (exact target without the double-out double)
+    nonCountingDarts: List<Boolean> = emptyList(),
 ) {
     Column(
         modifier = Modifier
@@ -504,6 +509,7 @@ private fun TurnRow(
             showCheckout = showCheckout,
             showBounce = showBounce,
             points = points,
+            nonCountingDarts = nonCountingDarts,
         )
         if (knockouts.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -521,6 +527,7 @@ private fun TurnRowMain(
     showCheckout: Boolean,
     showBounce: Boolean,
     points: Int,
+    nonCountingDarts: List<Boolean>,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -529,7 +536,12 @@ private fun TurnRowMain(
     ) {
         PlayerNameCell(playerName = playerName, modifier = Modifier.weight(1f))
 
-        ThrowBadges(darts = turn.throws, outcomes = null, modifier = Modifier.weight(1.5f))
+        ThrowBadges(
+            darts = turn.throws,
+            outcomes = null,
+            nonCountingDarts = nonCountingDarts,
+            modifier = Modifier.weight(1.5f),
+        )
 
         // Score column
         Column(
@@ -591,7 +603,12 @@ private fun TurnRowMain(
  */
 @Suppress("ktlint:standard:function-naming")
 @Composable
-private fun ThrowBadge(dart: Throw?, outcome: DartOutcome? = null) {
+private fun ThrowBadge(
+    dart: Throw?,
+    outcome: DartOutcome? = null,
+    // Parcheesi: the dart didn't count, so its chip is ringed in red with a ✕ badge (as on the game screen)
+    notCounted: Boolean = false,
+) {
     val colorScheme = MaterialTheme.colorScheme
     val multiplierColors = MaterialTheme.multiplierColors
     val shape = RoundedCornerShape(4.dp)
@@ -634,6 +651,18 @@ private fun ThrowBadge(dart: Throw?, outcome: DartOutcome? = null) {
                 if (style.border != null) Modifier.border(1.dp, style.border, shape) else Modifier,
             )
             .then(
+                if (notCounted) {
+                    Modifier.nonCountingDartChip(
+                        shape = shape,
+                        ringColor = colorScheme.error,
+                        markColor = colorScheme.onError,
+                        gapColor = colorScheme.surface,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .then(
                 if (dart != null && outcome != null) {
                     Modifier.clearAndSetSemantics { contentDescription = historyDartDescription(dart, outcome) }
                 } else {
@@ -649,6 +678,7 @@ private fun ThrowBadge(dart: Throw?, outcome: DartOutcome? = null) {
             fontWeight = if (outcome == DartOutcome.HIT || outcome == null) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
             softWrap = false,
+            modifier = if (notCounted) Modifier.nonCountingDartLabel() else Modifier,
         )
     }
 }
@@ -666,12 +696,19 @@ private fun ThrowBadges(
     darts: List<Throw>,
     outcomes: List<DartOutcome>?,
     modifier: Modifier = Modifier,
+    nonCountingDarts: List<Boolean> = emptyList(),
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier,
     ) {
-        darts.forEachIndexed { index, dart -> ThrowBadge(dart, outcomes?.getOrNull(index)) }
+        darts.forEachIndexed { index, dart ->
+            ThrowBadge(
+                dart = dart,
+                outcome = outcomes?.getOrNull(index),
+                notCounted = nonCountingDarts.getOrNull(index) == true,
+            )
+        }
         repeat(3 - darts.size) { ThrowBadge(null) }
     }
 }
@@ -1083,8 +1120,9 @@ private fun ParcheesiLegContent(
     players: Map<Uuid, Player>,
 ) {
     val history = remember(leg) { parcheesiLegHistory(leg) }
+    val nonCountingDarts = remember(leg, config) { parcheesiNonCountingDarts(leg, config) }
 
-    history.turns.forEach { context ->
+    history.turns.forEachIndexed { index, context ->
         TurnRow(
             turn = context.turn,
             playerName = players[context.turn.playerId]?.name ?: "Unknown",
@@ -1092,6 +1130,7 @@ private fun ParcheesiLegContent(
             showBounce = true,
             knockouts = context.knockouts.map { it.toDisplay(players) },
             points = ParcheesiRules.turnPoints(context.turn, config),
+            nonCountingDarts = nonCountingDarts.getOrNull(index).orEmpty(),
         )
     }
 

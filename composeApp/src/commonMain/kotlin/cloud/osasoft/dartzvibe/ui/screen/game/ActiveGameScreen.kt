@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -54,15 +53,10 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -110,6 +104,8 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.cricketPadHeightPx
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitScoreboardRowHeight
 import cloud.osasoft.dartzvibe.ui.screen.game.components.fitTextScale
 import cloud.osasoft.dartzvibe.ui.screen.game.components.knockoutSlotText
+import cloud.osasoft.dartzvibe.ui.screen.game.components.nonCountingDartChip
+import cloud.osasoft.dartzvibe.ui.screen.game.components.nonCountingDartLabel
 import cloud.osasoft.dartzvibe.ui.screen.game.components.rouletteRoundLabel
 import cloud.osasoft.dartzvibe.ui.screen.game.components.scoreCardTargetSuffix
 import cloud.osasoft.dartzvibe.ui.screen.popFrom
@@ -970,7 +966,7 @@ fun CurrentTurnDisplay(
                     val displayColor = when {
                         isBust -> MaterialTheme.colorScheme.error
 
-                        // Grey, like the void dart chip, at the BUST/BOUNCE/OUT! size: neither OUT!'s red nor BOUNCE's colour
+                        // Grey at the BUST/BOUNCE/OUT! size: not BUST's red (the score isn't lost), OUT!'s red or BOUNCE's colour
                         isNoDouble -> MaterialTheme.colorScheme.onSurfaceVariant
 
                         isBounce -> MaterialTheme.colorScheme.tertiary
@@ -1069,7 +1065,7 @@ internal fun cricketTurnSummaryText(summary: CricketTurnSummary): String {
 @Composable
 fun ThrowDisplay(
     throwObj: Throw,
-    // Parcheesi: the dart didn't count (exact target without the double), so it's a grey chip with a red ✕ badge
+    // Parcheesi: the dart didn't count (exact target without the double): its own chip, ringed in red with a ✕ badge
     notCounted: Boolean = false,
 ) {
     val displayText = when {
@@ -1082,48 +1078,26 @@ fun ThrowDisplay(
     // secondaryContainer because surfaceVariant would vanish on this card
     val colorScheme = MaterialTheme.colorScheme
     val multiplierColors = MaterialTheme.multiplierColors
-    val voidBadgeColor = colorScheme.error
-    val voidBadgeMarkColor = colorScheme.onError
-    val (backgroundColor, textColor) = if (notCounted) {
-        // Void: a neutral grey chip, so it never reads as a valid single or treble
-        colorScheme.outlineVariant to colorScheme.onSurfaceVariant
-    } else {
-        when (throwObj.multiplier) {
-            Multiplier.SINGLE -> colorScheme.secondaryContainer to colorScheme.onSecondaryContainer
-            Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
-            Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
-        }
+    val (backgroundColor, textColor) = when (throwObj.multiplier) {
+        Multiplier.SINGLE -> colorScheme.secondaryContainer to colorScheme.onSecondaryContainer
+        Multiplier.DOUBLE -> multiplierColors.double to multiplierColors.onDouble
+        Multiplier.TRIPLE -> multiplierColors.triple to multiplierColors.onTriple
     }
+    val shape = RoundedCornerShape(6.dp)
 
     Box(
         modifier = Modifier
             .size(36.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .clip(shape)
             .background(backgroundColor)
             .then(
                 if (notCounted) {
-                    // A small red ✕ badge in the top-right corner, clear of the centred label, which stays legible
-                    Modifier
-                        .drawWithContent {
-                            drawContent()
-                            // 14 dp across, 1 dp in from the top and right edges: fully inside the rounded corner
-                            val radius = 7.dp.toPx()
-                            val center = Offset(x = size.width - 8.dp.toPx(), y = 8.dp.toPx())
-                            drawCircle(color = voidBadgeColor, radius = radius, center = center)
-                            val arm = 3.dp.toPx()
-                            listOf(
-                                Offset(-arm, -arm) to Offset(arm, arm),
-                                Offset(-arm, arm) to Offset(arm, -arm),
-                            ).forEach { (from, to) ->
-                                drawLine(
-                                    color = voidBadgeMarkColor,
-                                    start = center + from,
-                                    end = center + to,
-                                    strokeWidth = 2.dp.toPx(),
-                                    cap = StrokeCap.Round,
-                                )
-                            }
-                        }.semantics { stateDescription = "didn't count" }
+                    Modifier.nonCountingDartChip(
+                        shape = shape,
+                        ringColor = colorScheme.error,
+                        markColor = colorScheme.onError,
+                        gapColor = colorScheme.surface,
+                    )
                 } else {
                     Modifier
                 },
@@ -1135,8 +1109,7 @@ fun ThrowDisplay(
             style = MaterialTheme.typography.bodyMedium,
             color = textColor,
             fontWeight = FontWeight.Bold,
-            // On a void chip the label sits a little down and left, clear of the corner badge
-            modifier = if (notCounted) Modifier.offset(x = (-2).dp, y = 3.dp) else Modifier,
+            modifier = if (notCounted) Modifier.nonCountingDartLabel() else Modifier,
         )
     }
 }
