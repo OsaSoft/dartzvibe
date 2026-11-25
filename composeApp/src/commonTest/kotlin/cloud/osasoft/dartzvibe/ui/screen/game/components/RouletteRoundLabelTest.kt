@@ -55,5 +55,19 @@ class RouletteRoundLabelTest : FreeSpec({
             // THEN it shows the round out of the total
             label shouldBe "Round 3 of 10"
         }
+
+        "Should hide the round count when an old save has none" - {
+            withData(
+                Case(GameType.ROULETTE_ROUNDS, null, null, "Round 3"),
+                Case(GameType.ROULETTE_ROUNDS, 0, null, "Round 3"),
+            ) { case ->
+                // GIVEN a Roulette Rounds game saved without a round count
+                // WHEN building the round line
+                val label = rouletteRoundLabel(case.gameType, roundNumber = 3, case.totalRounds, case.targetScore)
+
+                // THEN it shows just the round, never "of 0"
+                label shouldBe case.expected
+            }
+        }
     }
 })

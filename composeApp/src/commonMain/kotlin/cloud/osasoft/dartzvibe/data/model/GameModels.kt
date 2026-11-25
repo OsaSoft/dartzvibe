@@ -213,9 +213,9 @@ data class GameConfig(
             }
             if (isRoulette) {
                 when (gameType) {
-                    GameType.ROULETTE_ROUNDS -> append(" (${rouletteRounds ?: 0} rounds)")
+                    // Old saves may lack the round count or target (null or 0): leave it out rather than show 0
+                    GameType.ROULETTE_ROUNDS -> rouletteRounds?.takeIf { it > 0 }?.let { append(" ($it rounds)") }
 
-                    // Old saves have no Roulette target (null or 0): leave it out rather than "(target: 0)"
                     GameType.ROULETTE_SCORE -> rouletteTargetScore?.takeIf { it > 0 }?.let { append(" (target: $it)") }
 
                     else -> {}
