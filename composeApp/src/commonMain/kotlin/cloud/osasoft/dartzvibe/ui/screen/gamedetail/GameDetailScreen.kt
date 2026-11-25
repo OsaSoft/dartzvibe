@@ -77,9 +77,12 @@ import cloud.osasoft.dartzvibe.domain.game.ParcheesiRules
 import cloud.osasoft.dartzvibe.domain.history.CricketTurnEffect
 import cloud.osasoft.dartzvibe.domain.history.DartOutcome
 import cloud.osasoft.dartzvibe.domain.history.ParcheesiKnockout
+import cloud.osasoft.dartzvibe.domain.history.countLabel
 import cloud.osasoft.dartzvibe.domain.history.cricketTurnEffects
 import cloud.osasoft.dartzvibe.domain.history.historyDartDescription
 import cloud.osasoft.dartzvibe.domain.history.historyDartLabel
+import cloud.osasoft.dartzvibe.domain.history.isMissedDart
+import cloud.osasoft.dartzvibe.domain.history.multiplierDartLabel
 import cloud.osasoft.dartzvibe.domain.history.parcheesiLegHistory
 import cloud.osasoft.dartzvibe.domain.history.parcheesiNonCountingDarts
 import cloud.osasoft.dartzvibe.domain.history.rouletteTurnContexts
@@ -87,6 +90,7 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.nonCountingDartChip
 import cloud.osasoft.dartzvibe.ui.screen.game.components.nonCountingDartLabel
 import cloud.osasoft.dartzvibe.ui.screen.popFrom
 import cloud.osasoft.dartzvibe.ui.theme.multiplierColors
+import cloud.osasoft.dartzvibe.ui.theme.resultColors
 import cloud.osasoft.dartzvibe.util.formatDate
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -348,15 +352,12 @@ private fun GameSummaryHeader(
                 }
             }
 
-            // Settings row
-            val settings = buildList {
-                if (session.config.doubleIn) add("Double In")
-                if (session.config.doubleOut) add("Double Out")
-            }
-            if (settings.isNotEmpty()) {
+            // Rules the Type above doesn't already name (Checkout Practice's double-out)
+            val rules = session.config.inOutRulesNotInDescription
+            if (rules.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = settings.joinToString(" | "),
+                    text = rules.joinToString(" | "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                     modifier = Modifier.fillMaxWidth(),
@@ -423,7 +424,7 @@ private fun LegSection(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "${leg.playerTurns.size} turns",
+                        text = countLabel(leg.playerTurns.size, "turn"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -630,6 +631,12 @@ private fun ThrowBadge(
             )
         }
 
+        // A miss stays neutral even if an old save stored it with a multiplier
+        isMissedDart(dart) -> BadgeStyle(
+            background = colorScheme.surfaceVariant,
+            text = colorScheme.onSurfaceVariant,
+        )
+
         else -> when (dart.multiplier) {
             Multiplier.SINGLE -> BadgeStyle(
                 background = colorScheme.surfaceVariant,
@@ -672,7 +679,7 @@ private fun ThrowBadge(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (dart != null && outcome != null) historyDartLabel(dart) else formatThrow(dart),
+            text = if (dart != null && outcome != null) historyDartLabel(dart) else multiplierDartLabel(dart),
             style = MaterialTheme.typography.labelMedium,
             color = style.text,
             fontWeight = if (outcome == DartOutcome.HIT || outcome == null) FontWeight.Bold else FontWeight.Medium,
@@ -785,15 +792,6 @@ private fun KnockoutLine(knockouts: List<KnockoutDisplay>) {
             modifier = Modifier.weight(1f),
         )
     }
-}
-
-private fun formatThrow(dart: Throw?): String = when {
-    dart == null -> "-"
-    dart.segment == 50 -> "Bull"
-    dart.segment == 25 -> "25"
-    dart.multiplier == Multiplier.TRIPLE -> "T${dart.segment}"
-    dart.multiplier == Multiplier.DOUBLE -> "D${dart.segment}"
-    else -> dart.segment.toString()
 }
 
 private fun segmentLabel(segment: Int): String = when (segment) {
@@ -1037,14 +1035,14 @@ private fun CheckoutRoundSummary(result: CheckoutRoundResult) {
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = if (result.success) {
-                    MaterialTheme.colorScheme.tertiary
+                    MaterialTheme.resultColors.success
                 } else {
                     MaterialTheme.colorScheme.error
                 },
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "${result.dartsUsed} darts",
+                text = countLabel(result.dartsUsed, "dart"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -211,6 +211,59 @@ class GameHistoryContextTest : FreeSpec({
         }
     }
 
+    "Multiplier dart label" - {
+        "Should read Miss for a missed dart and keep the other labels short" - {
+            withData(
+                mapOf(
+                    "empty slot" to (null to "-"),
+                    "miss" to (miss to "Miss"),
+                    "miss stored as a double" to (Throw(0, Multiplier.DOUBLE) to "Miss"),
+                    "miss stored as a triple" to (Throw(0, Multiplier.TRIPLE) to "Miss"),
+                    "single" to (single(7) to "7"),
+                    "double" to (double(16) to "D16"),
+                    "triple" to (triple(20) to "T20"),
+                    "outer bull" to (single(25) to "25"),
+                    "bullseye" to (double(25) to "25"),
+                    "legacy bullseye" to (single(50) to "Bull"),
+                ),
+            ) { (dart, expected) ->
+                // GIVEN a dart in a multiplier-colored history row (Classic, Parcheesi, Checkout Practice)
+                // WHEN it is labeled
+                // THEN a miss reads "Miss" like in Roulette and Cricket, and other darts keep their usual label
+                multiplierDartLabel(dart) shouldBe expected
+            }
+        }
+
+        "Should treat only segment 0 as a missed dart" {
+            // GIVEN a miss and darts that hit the board
+            // WHEN checking for a miss
+            // THEN only the miss counts
+            isMissedDart(miss) shouldBe true
+            listOf(single(1), double(25), single(50)).forEach { isMissedDart(it) shouldBe false }
+        }
+    }
+
+    "Count label" - {
+        "Should use the singular noun for exactly one" - {
+            withData(
+                mapOf(
+                    "zero turns" to (Pair(0, "turn") to "0 turns"),
+                    "one turn" to (Pair(1, "turn") to "1 turn"),
+                    "two turns" to (Pair(2, "turn") to "2 turns"),
+                    "one dart" to (Pair(1, "dart") to "1 dart"),
+                    "three darts" to (Pair(3, "dart") to "3 darts"),
+                ),
+            ) { (input, expected) ->
+                // GIVEN a count and its noun
+                val (count, noun) = input
+
+                // WHEN it is labeled
+                // THEN the noun agrees with the count
+                countLabel(count, noun) shouldBe expected
+            }
+        }
+    }
+
     "History dart description" - {
         "Should name the dart and its outcome for screen readers" - {
             withData(

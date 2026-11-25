@@ -154,6 +154,33 @@ class GameModelsTest : FreeSpec({
             config.legsToWin shouldBe 1
         }
 
+        "Should list only the in/out rules the description leaves out" - {
+            withData(
+                nameFn = { "${it.first} doubleIn=${it.second.first} doubleOut=${it.second.second}" },
+                Triple(GameMode.CLASSIC, true to true, emptyList<String>()),
+                Triple(GameMode.CLASSIC, true to false, emptyList<String>()),
+                Triple(GameMode.PARCHEESI, false to true, emptyList<String>()),
+                Triple(GameMode.PARCHEESI, true to true, emptyList<String>()),
+                Triple(GameMode.CHECKOUT_PRACTICE, false to true, listOf("Double Out")),
+                Triple(GameMode.CHECKOUT_PRACTICE, false to false, emptyList<String>()),
+                Triple(GameMode.CRICKET, false to false, emptyList<String>()),
+                Triple(GameMode.ROULETTE, false to false, emptyList<String>()),
+            ) { (mode, rules, expected) ->
+                // GIVEN a config of that mode with its double-in/out rules
+                val config = GameConfig(
+                    gameType = GameType.CLASSIC_501,
+                    playerIds = listOf(playerId1),
+                    gameMode = mode,
+                    doubleIn = rules.first,
+                    doubleOut = rules.second,
+                )
+
+                // WHEN listing the rules the description doesn't name
+                // THEN Classic and Parcheesi repeat nothing, and Checkout Practice keeps its double-out
+                config.inOutRulesNotInDescription shouldBe expected
+            }
+        }
+
         "Should describe a Roulette Score game with its target" {
             // GIVEN a Roulette Score config with a target of 100
             val config = GameConfig(

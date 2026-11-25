@@ -110,6 +110,7 @@ fun DartzVibeTheme(
     CompositionLocalProvider(
         LocalMultiplierColors provides if (isDarkTheme) DarkMultiplierColors else LightMultiplierColors,
         LocalBrandColors provides if (isDarkTheme) DarkBrandColors else LightBrandColors,
+        LocalResultColors provides if (isDarkTheme) DarkResultColors else LightResultColors,
     ) {
         MaterialTheme(
             colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,

@@ -62,6 +62,37 @@ fun historyDartLabel(dart: Throw): String = when {
     }
 }
 
+/** True for a dart that missed the board, which every mode stores as segment 0. */
+fun isMissedDart(dart: Throw): Boolean = dart.segment == MISS_SEGMENT
+
+/**
+ * Badge label for modes that color darts by multiplier (Classic, Parcheesi, Checkout Practice): "Miss",
+ * "T20", "D16", "5", "25" and "Bull", or "-" for an empty slot. A miss reads "Miss" as in Roulette and
+ * Cricket ([historyDartLabel]). Unlike there, an outer-bull double keeps "25": its badge color shows the double.
+ */
+fun multiplierDartLabel(dart: Throw?): String = when {
+    dart == null -> "-"
+
+    isMissedDart(dart) -> "Miss"
+
+    dart.segment == LEGACY_BULLSEYE_SEGMENT -> "Bull"
+
+    dart.segment == BULL_SEGMENT -> "25"
+
+    else -> when (dart.multiplier) {
+        Multiplier.SINGLE -> dart.segment.toString()
+        Multiplier.DOUBLE -> "D${dart.segment}"
+        Multiplier.TRIPLE -> "T${dart.segment}"
+    }
+}
+
+/** A count with its noun, singular for exactly one: "1 turn", "3 turns", "0 darts". */
+fun countLabel(
+    count: Int,
+    singular: String,
+    plural: String = "${singular}s",
+): String = "$count ${if (count == 1) singular else plural}"
+
 /** Spoken description of a dart whose badge is styled by [outcome], e.g. "T7, hit" or "Miss". */
 fun historyDartDescription(dart: Throw, outcome: DartOutcome): String = when (outcome) {
     DartOutcome.HIT -> "${historyDartLabel(dart)}, hit"
