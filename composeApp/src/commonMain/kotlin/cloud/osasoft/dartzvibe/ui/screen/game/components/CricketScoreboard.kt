@@ -97,7 +97,8 @@ fun CricketScoreboard(
                                     Modifier
                                 },
                             )
-                            .padding(vertical = if (compact) 2.dp else 4.dp),
+                            // Keeps a cut name's ellipsis clear of the next player's avatar
+                            .padding(horizontal = 2.dp, vertical = if (compact) 2.dp else 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (player != null) {

@@ -12,7 +12,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 
 /** Smallest font a scoreboard name shrinks to; a name still too wide at this size is cut with an ellipsis. */
@@ -21,7 +20,7 @@ val MinPlayerNameFontSize = 10.sp
 /**
  * Font scale for a player name measured at [textWidth] (at [fontSize]) in [maxWidth]: 1 when it fits, otherwise
  * shrunk to fit ([fitTextScale]), but never below [minFontSize]; a name that doesn't fit even then is ellipsized.
- * A [fontSize] already at or below the minimum never shrinks.
+ * A [fontSize] already at or below the minimum never shrinks; without sp sizes there's no floor.
  */
 fun playerNameScale(
     textWidth: Int,
@@ -30,7 +29,7 @@ fun playerNameScale(
     minFontSize: TextUnit = MinPlayerNameFontSize,
 ): Float {
     val fit = fitTextScale(textWidth = textWidth, maxWidth = maxWidth)
-    if (fit >= 1f || !fontSize.isSpecified || !minFontSize.isSpecified) return fit
+    if (fit >= 1f || !fontSize.isSp || !minFontSize.isSp) return fit
     val floor = (minFontSize.value / fontSize.value).coerceAtMost(1f)
     return fit.coerceAtLeast(floor)
 }
@@ -53,7 +52,7 @@ fun PlayerNameText(
         val maxWidthPx = constraints.maxWidth
         val textMeasurer = rememberTextMeasurer()
         val measureStyle = LocalTextStyle.current.merge(style).copy(fontWeight = fontWeight)
-        val scale = remember(name, measureStyle, maxWidthPx) {
+        val scale = remember(name, measureStyle, maxWidthPx, textMeasurer) {
             val width = textMeasurer
                 .measure(text = name, style = measureStyle, maxLines = 1, softWrap = false)
                 .size
