@@ -1,5 +1,6 @@
 package cloud.osasoft.dartzvibe.ui.screen.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -279,6 +280,8 @@ fun HomeScreenContent(
     }
 }
 
+private const val DISABLED_OUTLINE_ALPHA = 0.7f
+
 @Suppress("ktlint:standard:function-naming")
 @Composable
 fun MenuButton(
@@ -308,10 +311,20 @@ fun MenuButton(
             )
         }
     } else {
+        // Material's disabled outline is so faint on our greys that a disabled button reads as bare text between
+        // outlined ones, so it keeps a dimmed copy of the enabled outline (outlineVariant) instead.
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
             modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
+            border = if (enabled) {
+                ButtonDefaults.outlinedButtonBorder(enabled = true)
+            } else {
+                BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = DISABLED_OUTLINE_ALPHA),
+                )
+            },
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.size(12.dp))
