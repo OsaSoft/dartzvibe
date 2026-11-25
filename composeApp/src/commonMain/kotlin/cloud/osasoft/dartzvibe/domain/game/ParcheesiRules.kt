@@ -4,6 +4,8 @@ import cloud.osasoft.dartzvibe.data.model.GameConfig
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Parcheesi scoring shared by [ParcheesiModeEngine], the score cards, the Game Details history and statistics, so
@@ -46,6 +48,18 @@ object ParcheesiRules {
                 else -> Triple(score + dart.score, true, flags + false)
             }
         }.third
+
+    /**
+     * Whether [playerId] had doubled in before the turn that follows [turns] (the leg's earlier turns): any of their
+     * darts there was a double. This is the `doubledIn` that [nonCountingDarts] takes.
+     */
+    @OptIn(ExperimentalUuidApi::class)
+    fun hasDoubledIn(
+        turns: List<Turn>,
+        playerId: Uuid,
+    ): Boolean = turns.any { turn ->
+        turn.playerId == playerId && turn.throws.any { it.multiplier == Multiplier.DOUBLE }
+    }
 
     /**
      * The points [turn] scored: the score it added, or for a bounce the darts that counted (a bounce takes the score

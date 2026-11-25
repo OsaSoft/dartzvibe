@@ -8,6 +8,7 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
 import cloud.osasoft.dartzvibe.data.model.Turn
 import cloud.osasoft.dartzvibe.domain.game.CricketRules
+import cloud.osasoft.dartzvibe.domain.game.ParcheesiRules
 import cloud.osasoft.dartzvibe.domain.game.RouletteRules
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -224,4 +225,25 @@ fun parcheesiLegHistory(leg: Leg): ParcheesiLegHistory {
         },
         unfinishedTurnKnockouts = knockoutsByTurnIndex[playerTurns.size].orEmpty(),
     )
+}
+
+/**
+ * For each [Leg.playerTurns] entry, which of its darts didn't count ([ParcheesiRules.nonCountingDarts]): replayed from
+ * the turn's own starting score, with double-in judged from the player's earlier turns in the leg, as the game screen
+ * does for the turn in play.
+ */
+@OptIn(ExperimentalUuidApi::class)
+fun parcheesiNonCountingDarts(
+    leg: Leg,
+    config: GameConfig,
+): List<List<Boolean>> {
+    val playerTurns = leg.playerTurns
+    return playerTurns.mapIndexed { index, turn ->
+        ParcheesiRules.nonCountingDarts(
+            startScore = turn.scoreBeforeTurn,
+            darts = turn.throws,
+            config = config,
+            doubledIn = ParcheesiRules.hasDoubledIn(playerTurns.take(index), turn.playerId),
+        )
+    }
 }
