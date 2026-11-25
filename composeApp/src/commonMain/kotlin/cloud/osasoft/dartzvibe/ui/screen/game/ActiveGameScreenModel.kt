@@ -523,11 +523,6 @@ class ActiveGameScreenModel(
 
         val (newEngine, result) = engine.endTurn()
 
-        val knockedOutIds = if (result is TurnResult.NextPlayerWithKnockout) {
-            result.knockedOutPlayerIds
-        } else {
-            emptyList()
-        }
         val isWin = result is TurnResult.LegWon || result is TurnResult.MatchWon
 
         _state.update {
@@ -545,8 +540,8 @@ class ActiveGameScreenModel(
                     engine = newEngine,
                     session = newEngine.toGameSession(),
                     lastTurnResult = result,
-                    showKnockoutDialog = knockedOutIds.isNotEmpty(),
-                    knockedOutPlayerIds = knockedOutIds,
+                    showKnockoutDialog = false,
+                    knockedOutPlayerIds = emptyList(),
                     selectedMultiplier = Multiplier.SINGLE,
                     lastThrowResult = null,
                 )
