@@ -194,6 +194,24 @@ data class GameConfig(
 
     val isRoulette: Boolean get() = gameMode == GameMode.ROULETTE
 
+    /** Whether [displayDescription] names the Double-In/Double-Out rules (Classic and Parcheesi). */
+    private val describesInOutRules: Boolean
+        get() = gameMode in listOf(GameMode.CLASSIC, GameMode.PARCHEESI)
+
+    /**
+     * Double-In/Double-Out rules that apply but [displayDescription] leaves out, e.g. "Double Out" for Checkout
+     * Practice. Empty for Classic and Parcheesi, whose description already names them.
+     */
+    val inOutRulesNotInDescription: List<String>
+        get() = if (describesInOutRules) {
+            emptyList()
+        } else {
+            buildList {
+                if (doubleIn) add("Double In")
+                if (doubleOut) add("Double Out")
+            }
+        }
+
     /**
      * Human-readable description of the game configuration.
      * Example: "Classic 501 Double-Out" or "Parcheesi 301" or "Cricket"
@@ -203,7 +221,7 @@ data class GameConfig(
             append(gameMode.displayName)
             append(" ")
             append(gameType.displayName)
-            if (gameMode in listOf(GameMode.CLASSIC, GameMode.PARCHEESI)) {
+            if (describesInOutRules) {
                 if (doubleIn) append(" Double-In")
                 if (doubleOut) append(" Double-Out")
             }
