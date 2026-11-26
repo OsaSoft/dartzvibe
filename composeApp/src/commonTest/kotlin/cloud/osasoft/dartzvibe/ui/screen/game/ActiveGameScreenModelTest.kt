@@ -9,6 +9,7 @@ import cloud.osasoft.dartzvibe.data.model.Leg
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.repository.FakeAppSettingsRepository
 import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.GameEngine
@@ -86,6 +87,7 @@ class ActiveGameScreenModelTest : FreeSpec({
         val screenModel = ActiveGameScreenModel(
             gameRepository = gameRepository,
             playerRepository = playerRepository,
+            appSettingsRepository = FakeAppSettingsRepository(),
             sessionId = session.id,
         )
         advanceUntilIdle()
@@ -225,6 +227,7 @@ class ActiveGameScreenModelTest : FreeSpec({
                 val screenModel = ActiveGameScreenModel(
                     gameRepository = gameRepository,
                     playerRepository = playerRepository,
+                    appSettingsRepository = FakeAppSettingsRepository(),
                     sessionId = session.id,
                 )
                 advanceUntilIdle()
@@ -274,6 +277,7 @@ class ActiveGameScreenModelTest : FreeSpec({
     suspend fun TestScope.configScreenModel(
         config: GameConfig,
         session: GameSession = GameSession(id = undoSessionId, config = config, startedAt = 0L),
+        appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
     ): Pair<ActiveGameScreenModel, FakeGameRepository> {
         val playerRepository = FakePlayerRepository()
         playerRepository.insertPlayer(Player(id = undoPlayer1Id, name = "Player 1", createdAt = 0L))
@@ -283,6 +287,7 @@ class ActiveGameScreenModelTest : FreeSpec({
         val screenModel = ActiveGameScreenModel(
             gameRepository = gameRepository,
             playerRepository = playerRepository,
+            appSettingsRepository = appSettingsRepository,
             sessionId = session.id,
         )
         advanceUntilIdle()
@@ -2051,6 +2056,183 @@ class ActiveGameScreenModelTest : FreeSpec({
                 screenModel.state.value.session?.legs?.size shouldBe 1
                 screenModel.state.value.getLegsWon(undoPlayer1Id) shouldBe 0
                 repository.saved().legs.size shouldBe 1
+            }
+        }
+    }
+
+    "Scoreboard mode" - {
+        "Should show the scoreboard until scoring opens, and again for the next thrower after End Turn" {
+            runTest {
+                // GIVEN a Classic game with Scoreboard mode on
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe true
+
+                // WHEN the player taps the scoreboard to enter their darts
+                screenModel.openScoring()
+                advanceUntilIdle()
+
+                // THEN the game screen shows
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe false
+
+                // WHEN they throw and end the turn
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // THEN the scoreboard is back, for player 2
+                val state = screenModel.state.value
+                state.showsScoreboard(scoreboardMode = true) shouldBe true
+                state.currentPlayerId shouldBe undoPlayer2Id
+            }
+        }
+
+        "Should only show the scoreboard while Scoreboard mode is on" {
+            runTest {
+                // GIVEN a Classic game between turns, scoring not opened
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                advanceUntilIdle()
+                val state = screenModel.state.value
+
+                // WHEN the setting is off THEN the game screen shows; WHEN on THEN the scoreboard does
+                state.showsScoreboard(scoreboardMode = false) shouldBe false
+                state.showsScoreboard(scoreboardMode = true) shouldBe true
+            }
+        }
+
+        "Should stay on the game screen when the dialog's Undo reopens the winning turn" {
+            runTest {
+                // GIVEN player 1 won the first leg of a best-of-3 with scoring open
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC, legsToWin = 2)
+                screenModel.playClassicToOneLeft()
+                screenModel.openScoring()
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                advanceUntilIdle()
+
+                // WHEN the Leg Won dialog's Undo is tapped
+                screenModel.undoWin()
+                advanceUntilIdle()
+
+                // THEN the game screen stays, with the winning turn reopened
+                val state = screenModel.state.value
+                state.showLegWonDialog shouldBe false
+                state.currentPlayerId shouldBe undoPlayer1Id
+                state.showsScoreboard(scoreboardMode = true) shouldBe false
+            }
+        }
+
+        "Should bring the scoreboard back after a knockout turn ends in Parcheesi" {
+            runTest {
+                // GIVEN a Parcheesi 301 game where player 2 can knock player 1 (on 60) back to 0
+                val (screenModel, _) = undoScreenModel(GameMode.PARCHEESI)
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                screenModel.openScoring()
+                advanceUntilIdle()
+
+                // WHEN player 2 lands on 60 (the knockout dialog shows) and ends the turn
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                advanceUntilIdle()
+                screenModel.state.value.showKnockoutDialog shouldBe true
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe false
+                screenModel.endTurn()
+                advanceUntilIdle()
+
+                // THEN the knockout dialog is gone and the scoreboard shows player 1
+                val state = screenModel.state.value
+                state.showKnockoutDialog shouldBe false
+                state.currentPlayerId shouldBe undoPlayer1Id
+                state.showsScoreboard(scoreboardMode = true) shouldBe true
+            }
+        }
+
+        "Should stay on the game screen when Undo reopens the previous turn" {
+            runTest {
+                // GIVEN player 1 ended a turn and player 2 opened scoring
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC)
+                screenModel.openScoring()
+                screenModel.onScoreSelect(20, Multiplier.TRIPLE)
+                screenModel.endTurn()
+                screenModel.openScoring()
+                advanceUntilIdle()
+
+                // WHEN Undo goes back into player 1's turn
+                screenModel.undo()
+                advanceUntilIdle()
+
+                // THEN the game screen stays, with player 1's turn reopened
+                val state = screenModel.state.value
+                state.currentPlayerId shouldBe undoPlayer1Id
+                state.showsScoreboard(scoreboardMode = true) shouldBe false
+            }
+        }
+
+        "Should keep the game screen under the Leg Won dialog and show the scoreboard once the next leg is in" {
+            runTest {
+                // GIVEN a best-of-3 Classic 301 game with player 1 on 1 and scoring open
+                val (screenModel, _) = undoScreenModel(GameMode.CLASSIC, legsToWin = 2)
+                screenModel.playClassicToOneLeft()
+                screenModel.openScoring()
+                advanceUntilIdle()
+
+                // WHEN player 1 checks out with S1
+                screenModel.onScoreSelect(1, Multiplier.SINGLE)
+                advanceUntilIdle()
+
+                // THEN the Leg Won dialog shows on the game screen
+                screenModel.state.value.showLegWonDialog shouldBe true
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe false
+
+                // WHEN Continue swaps the next leg in under the dialog
+                screenModel.continueToNextLeg()
+                advanceUntilIdle()
+
+                // THEN the dialog's screen stays until it closes
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe false
+
+                // WHEN the dialog closes over the new leg
+                screenModel.closeLegWonDialog()
+                advanceUntilIdle()
+
+                // THEN the scoreboard shows the new leg
+                val state = screenModel.state.value
+                state.showLegWonDialog shouldBe false
+                state.showsScoreboard(scoreboardMode = true) shouldBe true
+                state.currentPlayerScore shouldBe 301
+            }
+        }
+
+        "Should save the toggle, and show the scoreboard as soon as it is turned on" {
+            runTest {
+                // GIVEN a Classic game with scoring open and the mode off
+                val settings = FakeAppSettingsRepository()
+                val (screenModel, _) = configScreenModel(
+                    config = GameConfig(
+                        gameType = GameType.CLASSIC_301,
+                        gameMode = GameMode.CLASSIC,
+                        doubleOut = false,
+                        playerIds = listOf(undoPlayer1Id, undoPlayer2Id),
+                    ),
+                    appSettingsRepository = settings,
+                )
+                screenModel.openScoring()
+
+                // WHEN Scoreboard mode is turned on from the top bar
+                screenModel.setScoreboardMode(true)
+                advanceUntilIdle()
+
+                // THEN it's saved and the scoreboard shows straight away
+                settings.getCurrentSettings().scoreboardMode shouldBe true
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe true
+
+                // WHEN it's turned off again
+                screenModel.setScoreboardMode(false)
+                advanceUntilIdle()
+
+                // THEN it's saved off, and the game screen stays even while the setting still reads on
+                settings.getCurrentSettings().scoreboardMode shouldBe false
+                screenModel.state.value.showsScoreboard(scoreboardMode = true) shouldBe false
             }
         }
     }

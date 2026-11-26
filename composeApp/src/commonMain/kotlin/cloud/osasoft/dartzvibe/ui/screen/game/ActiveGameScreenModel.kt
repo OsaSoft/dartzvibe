@@ -13,6 +13,7 @@ import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Player
 import cloud.osasoft.dartzvibe.data.model.RouletteState
 import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.CheckoutCalculator
@@ -74,7 +75,16 @@ data class ActiveGameState(
      * stays the one before it, so the screen behind the dialog shows the leg as it ended.
      */
     val pendingWinEngine: GameEngine? = null,
+    /**
+     * Scoreboard mode only: the player tapped the scoreboard view to enter their darts, so the normal game screen
+     * shows. Cleared whenever the turn passes on, which brings the scoreboard back for the next thrower.
+     */
+    val isScoringOpen: Boolean = false,
 ) {
+    /** Whether the scoreboard view covers the game: Scoreboard mode is on and nobody is entering darts. */
+    fun showsScoreboard(scoreboardMode: Boolean): Boolean =
+        scoreboardMode && !isScoringOpen && !isLoading && error == null && engine != null
+
     val currentPlayerId: Uuid?
         get() = engine?.getCurrentPlayerId()
 
@@ -343,6 +353,7 @@ data class ActiveGameState(
 class ActiveGameScreenModel(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
+    private val appSettingsRepository: AppSettingsRepository,
     private val sessionId: Uuid,
 ) : ScreenModel {
 
@@ -399,6 +410,22 @@ class ActiveGameScreenModel(
                 log.e(e) { "Error loading game" }
                 _state.update { it.copy(isLoading = false, error = e.message) }
             }
+        }
+    }
+
+    /** Scoreboard mode: the player tapped the scoreboard view; show the game screen to enter their darts. */
+    fun openScoring() {
+        _state.update { it.copy(isScoringOpen = true) }
+    }
+
+    /**
+     * The top bar's Scoreboard mode toggle. Turning it on shows the scoreboard straight away; turning it off keeps the
+     * game screen. The choice is saved, so the next game starts the same way.
+     */
+    fun setScoreboardMode(enabled: Boolean) {
+        _state.update { it.copy(isScoringOpen = !enabled) }
+        launchToCompletion {
+            appSettingsRepository.setScoreboardMode(enabled)
         }
     }
 
@@ -542,6 +569,8 @@ class ActiveGameScreenModel(
                     knockedOutPlayerIds = emptyList(),
                     selectedMultiplier = Multiplier.SINGLE,
                     lastThrowResult = null,
+                    // The turn passed on: Scoreboard mode shows the next thrower
+                    isScoringOpen = false,
                 )
             }
         }
@@ -597,7 +626,8 @@ class ActiveGameScreenModel(
     fun closeLegWonDialog() {
         _state.update {
             if (!it.isLegWonDialogClosing) return@update it
-            it.copy(showLegWonDialog = false, lastTurnResult = null)
+            // The next leg starts with the scoreboard (Scoreboard mode), as after any turn
+            it.copy(showLegWonDialog = false, lastTurnResult = null, isScoringOpen = false)
         }
     }
 

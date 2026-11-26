@@ -72,6 +72,7 @@ class SettingsScreen : Screen {
             onBackClick = { navigator.popFrom(this@SettingsScreen) },
             onThemeModeChange = screenModel::setThemeMode,
             onKeepScreenOnChange = screenModel::setKeepScreenOn,
+            onScoreboardModeChange = screenModel::setScoreboardMode,
             onShowCheckoutHintsChange = screenModel::setShowCheckoutHints,
             onShowKnockoutHintsChange = screenModel::setShowKnockoutHints,
             onUseRadialKeypadChange = screenModel::setUseRadialKeypad,
@@ -94,6 +95,7 @@ fun SettingsScreenContent(
     onBackClick: () -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
+    onScoreboardModeChange: (Boolean) -> Unit,
     onShowCheckoutHintsChange: (Boolean) -> Unit,
     onShowKnockoutHintsChange: (Boolean) -> Unit,
     onUseRadialKeypadChange: (Boolean) -> Unit,
@@ -143,6 +145,16 @@ fun SettingsScreenContent(
                 description = "Prevent screen from sleeping during games",
                 checked = state.settings.keepScreenOn,
                 onCheckedChange = onKeepScreenOnChange,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SwitchSettingItem(
+                title = "Scoreboard Mode",
+                description = "Between turns, show the scores in big text you can read from the oche. " +
+                    "Also in the game's top bar",
+                checked = state.settings.scoreboardMode,
+                onCheckedChange = onScoreboardModeChange,
             )
 
             Spacer(modifier = Modifier.height(8.dp))

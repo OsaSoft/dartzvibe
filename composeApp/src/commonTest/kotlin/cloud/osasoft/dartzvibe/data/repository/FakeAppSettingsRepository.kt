@@ -45,6 +45,10 @@ class FakeAppSettingsRepository : AppSettingsRepository {
         _settings.update { it.copy(showKnockoutHints = value) }
     }
 
+    override suspend fun setScoreboardMode(value: Boolean) {
+        _settings.update { it.copy(scoreboardMode = value) }
+    }
+
     // Test helpers
     fun reset() {
         _settings.value = AppSettingsData()
