@@ -11,6 +11,7 @@ import cloud.osasoft.dartzvibe.data.model.GameStatus
 import cloud.osasoft.dartzvibe.data.model.GameType
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Player
+import cloud.osasoft.dartzvibe.data.repository.FakeAppSettingsRepository
 import cloud.osasoft.dartzvibe.data.repository.FakeGameRepository
 import cloud.osasoft.dartzvibe.data.repository.FakePlayerRepository
 import io.kotest.core.spec.style.FreeSpec
@@ -71,7 +72,8 @@ class ActiveGameScreenModelLifecycleTest : FreeSpec({
         playerRepository.insertPlayer(Player(id = player2Id, name = "Player 2", createdAt = 0L))
         val gameRepository = FakeGameRepository()
         gameRepository.insertSession(session)
-        val screenModel = ActiveGameScreenModel(gameRepository, playerRepository, sessionId)
+        val screenModel =
+            ActiveGameScreenModel(gameRepository, playerRepository, FakeAppSettingsRepository(), sessionId)
         advanceUntilIdle()
         return screenModel to gameRepository
     }

@@ -32,6 +32,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -41,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,10 +59,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainHeight
@@ -72,12 +80,14 @@ import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cloud.osasoft.dartzvibe.LocalAppSettings
+import cloud.osasoft.dartzvibe.LocalAppSettingsRepository
 import cloud.osasoft.dartzvibe.LocalGameRepository
 import cloud.osasoft.dartzvibe.LocalPlayerRepository
 import cloud.osasoft.dartzvibe.data.model.AppSettingsData
 import cloud.osasoft.dartzvibe.data.model.GameMode
 import cloud.osasoft.dartzvibe.data.model.Multiplier
 import cloud.osasoft.dartzvibe.data.model.Throw
+import cloud.osasoft.dartzvibe.data.repository.AppSettingsRepository
 import cloud.osasoft.dartzvibe.data.repository.GameRepository
 import cloud.osasoft.dartzvibe.data.repository.PlayerRepository
 import cloud.osasoft.dartzvibe.domain.game.CricketTurnSummary
@@ -96,6 +106,8 @@ import cloud.osasoft.dartzvibe.ui.screen.game.components.PlayerScoreCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RadialDartboard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.RouletteInputPad
 import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreInputKeypad
+import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreboardModeIcon
+import cloud.osasoft.dartzvibe.ui.screen.game.components.ScoreboardView
 import cloud.osasoft.dartzvibe.ui.screen.game.components.WinDialogCard
 import cloud.osasoft.dartzvibe.ui.screen.game.components.WinDialogLayer
 import cloud.osasoft.dartzvibe.ui.screen.game.components.WinDialogScrim
@@ -132,7 +144,9 @@ class ActiveGameScreen(
     override fun Content() {
         val playerRepository = LocalPlayerRepository.current
         val gameRepository = LocalGameRepository.current
-        val screenModel = rememberActiveGameScreenModel(gameRepository, playerRepository, sessionId)
+        val appSettingsRepository = LocalAppSettingsRepository.current
+        val screenModel =
+            rememberActiveGameScreenModel(gameRepository, playerRepository, appSettingsRepository, sessionId)
         val state by screenModel.state.collectAsState()
         val settings = LocalAppSettings.current
         val navigator = LocalNavigator.currentOrThrow
@@ -164,6 +178,8 @@ class ActiveGameScreen(
                 }
             },
             onSettings = { navigator.pushFrom(this@ActiveGameScreen, SettingsScreen()) },
+            onScoreboardModeChange = screenModel::setScoreboardMode,
+            onOpenScoring = screenModel::openScoring,
             onBack = { navigator.popFrom(this@ActiveGameScreen) },
         )
     }
@@ -174,8 +190,11 @@ class ActiveGameScreen(
 fun Screen.rememberActiveGameScreenModel(
     gameRepository: GameRepository,
     playerRepository: PlayerRepository,
+    appSettingsRepository: AppSettingsRepository,
     sessionId: Uuid,
-): ActiveGameScreenModel = rememberScreenModel { ActiveGameScreenModel(gameRepository, playerRepository, sessionId) }
+): ActiveGameScreenModel = rememberScreenModel {
+    ActiveGameScreenModel(gameRepository, playerRepository, appSettingsRepository, sessionId)
+}
 
 @Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalUuidApi::class, ExperimentalComposeUiApi::class)
@@ -195,6 +214,8 @@ fun ActiveGameContent(
     onDismissKnockout: () -> Unit,
     onAbandonGame: () -> Unit,
     onSettings: () -> Unit,
+    onScoreboardModeChange: (Boolean) -> Unit,
+    onOpenScoring: () -> Unit,
     onBack: () -> Unit,
 ) {
     var showAbandonConfirmDialog by remember { mutableStateOf(false) }
@@ -207,54 +228,35 @@ fun ActiveGameContent(
     // Like the dialog window's ignored dismiss request: only the dialog's buttons close it
     BackHandler(enabled = showWinDialog) { }
 
-    Scaffold(
-        topBar = {
-            WinDialogDimmed(showWinDialog) {
-                GameTopBar(
-                    state = state,
-                    onBack = onBack,
-                    onSettings = onSettings,
-                    onAbandon = { showAbandonConfirmDialog = true },
-                )
-            }
-        },
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            GameBody(
-                state = state,
-                settings = settings,
-                scrollState = scrollState,
-                onHeaderHeight = { headerHeightPx.intValue = it },
-                onMultiplierChange = onMultiplierChange,
-                onScoreSelect = onScoreSelect,
-                onMiss = onMiss,
-                onUndo = onUndo,
-                onEndTurn = onEndTurn,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    // TalkBack stays in the dialog, as it did in its window
-                    .then(if (showWinDialog) Modifier.clearAndSetSemantics { } else Modifier),
-            )
-            if (showWinDialog) {
-                WinDialogScrim(modifier = Modifier.fillMaxSize())
-                val density = LocalDensity.current
-                val topInsetPx = with(density) { padding.calculateTopPadding().roundToPx() }
-                WinDialogLayer(
-                    anchorPx = { topInsetPx + headerHeightPx.intValue - scrollState.value },
-                    topInsetPx = topInsetPx,
-                    bottomInsetPx = with(density) { padding.calculateBottomPadding().roundToPx() },
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    WinDialog(
-                        state = state,
-                        onContinueLegWon = onContinueLegWon,
-                        onDismissGameComplete = onDismissGameComplete,
-                        onUndoWin = onUndoWin,
-                    )
-                }
-            }
-        }
+    // Scoreboard mode between turns: the big view covers the whole screen, top bar included. Win dialogs only come
+    // up while someone is scoring, so they never show over it
+    if (state.showsScoreboard(settings.scoreboardMode) && !showWinDialog) {
+        ScoreboardView(
+            state = state,
+            settings = settings,
+            onOpenScoring = onOpenScoring,
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        GameScaffold(
+            state = state,
+            settings = settings,
+            showWinDialog = showWinDialog,
+            headerHeightPx = headerHeightPx,
+            scrollState = scrollState,
+            onMultiplierChange = onMultiplierChange,
+            onScoreSelect = onScoreSelect,
+            onMiss = onMiss,
+            onUndo = onUndo,
+            onUndoWin = onUndoWin,
+            onEndTurn = onEndTurn,
+            onContinueLegWon = onContinueLegWon,
+            onDismissGameComplete = onDismissGameComplete,
+            onSettings = onSettings,
+            onScoreboardModeChange = onScoreboardModeChange,
+            onAbandon = { showAbandonConfirmDialog = true },
+            onBack = onBack,
+        )
     }
 
     // Continue swapped the next leg in under the dialog: close it only after a frame of that leg is drawn, so the
@@ -310,6 +312,82 @@ fun ActiveGameContent(
                 }
             },
         )
+    }
+}
+
+/** The normal game screen: top bar, header and input, with the win dialog drawn over it. */
+@Suppress("ktlint:standard:function-naming")
+@OptIn(ExperimentalUuidApi::class)
+@Composable
+private fun GameScaffold(
+    state: ActiveGameState,
+    settings: AppSettingsData,
+    showWinDialog: Boolean,
+    headerHeightPx: MutableIntState,
+    scrollState: ScrollState,
+    onMultiplierChange: (Multiplier) -> Unit,
+    onScoreSelect: (segment: Int, multiplier: Multiplier) -> Unit,
+    onMiss: () -> Unit,
+    onUndo: () -> Unit,
+    onUndoWin: () -> Unit,
+    onEndTurn: () -> Unit,
+    onContinueLegWon: () -> Unit,
+    onDismissGameComplete: () -> Unit,
+    onSettings: () -> Unit,
+    onScoreboardModeChange: (Boolean) -> Unit,
+    onAbandon: () -> Unit,
+    onBack: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            WinDialogDimmed(showWinDialog) {
+                GameTopBar(
+                    state = state,
+                    scoreboardMode = settings.scoreboardMode,
+                    onBack = onBack,
+                    onSettings = onSettings,
+                    onScoreboardModeChange = onScoreboardModeChange,
+                    onAbandon = onAbandon,
+                )
+            }
+        },
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            GameBody(
+                state = state,
+                settings = settings,
+                scrollState = scrollState,
+                onHeaderHeight = { headerHeightPx.intValue = it },
+                onMultiplierChange = onMultiplierChange,
+                onScoreSelect = onScoreSelect,
+                onMiss = onMiss,
+                onUndo = onUndo,
+                onEndTurn = onEndTurn,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    // TalkBack stays in the dialog, as it did in its window
+                    .then(if (showWinDialog) Modifier.clearAndSetSemantics { } else Modifier),
+            )
+            if (showWinDialog) {
+                WinDialogScrim(modifier = Modifier.fillMaxSize())
+                val density = LocalDensity.current
+                val topInsetPx = with(density) { padding.calculateTopPadding().roundToPx() }
+                WinDialogLayer(
+                    anchorPx = { topInsetPx + headerHeightPx.intValue - scrollState.value },
+                    topInsetPx = topInsetPx,
+                    bottomInsetPx = with(density) { padding.calculateBottomPadding().roundToPx() },
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    WinDialog(
+                        state = state,
+                        onContinueLegWon = onContinueLegWon,
+                        onDismissGameComplete = onDismissGameComplete,
+                        onUndoWin = onUndoWin,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -394,8 +472,10 @@ private fun WinDialog(
 @Composable
 private fun GameTopBar(
     state: ActiveGameState,
+    scoreboardMode: Boolean,
     onBack: () -> Unit,
     onSettings: () -> Unit,
+    onScoreboardModeChange: (Boolean) -> Unit,
     onAbandon: () -> Unit,
 ) {
     TopAppBar(
@@ -417,6 +497,9 @@ private fun GameTopBar(
                                 ?.displayName ?: "Game"
                     },
                     fontWeight = FontWeight.Bold,
+                    // Three actions leave a 360 dp phone little room: "Checkout Practice" must not wrap
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 val isSoloGame = state.session?.config?.playerIds?.size == 1
                 if (isSoloGame && !state.isCheckoutPractice && !state.isRoulette) {
@@ -434,6 +517,23 @@ private fun GameTopBar(
             }
         },
         actions = {
+            // Selected look while on: a filled circle in the bar's text colour
+            IconToggleButton(
+                checked = scoreboardMode,
+                onCheckedChange = onScoreboardModeChange,
+                // TalkBack: "Scoreboard mode, switch, on" rather than a checkbox
+                modifier = Modifier.semantics {
+                    role = Role.Switch
+                    stateDescription = if (scoreboardMode) "On" else "Off"
+                },
+                colors = IconButtonDefaults.iconToggleButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    checkedContainerColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    checkedContentColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Icon(ScoreboardModeIcon, contentDescription = "Scoreboard mode")
+            }
             IconButton(onClick = onSettings) {
                 Icon(Icons.Default.Settings, contentDescription = "Settings")
             }
