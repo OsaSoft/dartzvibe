@@ -549,31 +549,56 @@ private fun CricketMarks(
 ) {
     Canvas(modifier = Modifier.size(size)) {
         val color = ScoreboardColors.text
+        // The tile can give the canvas a little less height than width: centre everything on the real centre and
+        // size it from the shorter side, or the cross drifts off the ring's centre
         val side = this.size.minDimension
-        val center = side / 2
+        val half = side / 2
+        val cx = this.size.width / 2
+        val cy = this.size.height / 2
         val closed = marks >= 3
         val ringWidth = side * 0.09f
-        val ringRadius = center - ringWidth / 2
+        val ringRadius = half - ringWidth / 2
         val crossWidth = side * if (closed) 0.11f else 0.13f
         // How far each arm reaches from the centre along x and y. Inside the ring, the arm's rounded end stays a gap
         // clear of the ring's inner edge, so the cross never touches or pokes through it
         val reach = if (closed) {
             (ringRadius - ringWidth / 2 - side * 0.07f - crossWidth / 2) / SQRT_2
         } else {
-            center - side * 0.22f
+            half - side * 0.22f
         }
-        val lo = center - reach
-        val hi = center + reach
         when {
-            marks <= 0 -> drawCircle(color = color.copy(alpha = 0.35f), radius = crossWidth / 2)
+            marks <= 0 -> drawCircle(
+                color = color.copy(alpha = 0.35f),
+                radius = crossWidth / 2,
+                center = Offset(cx, cy),
+            )
 
             else -> {
-                drawLine(color, Offset(lo, hi), Offset(hi, lo), strokeWidth = crossWidth, cap = StrokeCap.Round)
+                drawLine(
+                    color,
+                    Offset(cx - reach, cy + reach),
+                    Offset(cx + reach, cy - reach),
+                    strokeWidth = crossWidth,
+                    cap = StrokeCap.Round,
+                )
                 val secondStroke = marks >= 2
                 if (secondStroke) {
-                    drawLine(color, Offset(lo, lo), Offset(hi, hi), strokeWidth = crossWidth, cap = StrokeCap.Round)
+                    drawLine(
+                        color,
+                        Offset(cx - reach, cy - reach),
+                        Offset(cx + reach, cy + reach),
+                        strokeWidth = crossWidth,
+                        cap = StrokeCap.Round,
+                    )
                 }
-                if (closed) drawCircle(color = color, radius = ringRadius, style = Stroke(width = ringWidth))
+                if (closed) {
+                    drawCircle(
+                        color = color,
+                        radius = ringRadius,
+                        center = Offset(cx, cy),
+                        style = Stroke(width = ringWidth),
+                    )
+                }
             }
         }
     }
