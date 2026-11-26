@@ -549,29 +549,37 @@ private fun CricketMarks(
 ) {
     Canvas(modifier = Modifier.size(size)) {
         val color = ScoreboardColors.text
-        val stroke = this.size.minDimension * 0.13f
-        val lo = this.size.minDimension * 0.22f
-        val hi = this.size.minDimension - lo
+        val side = this.size.minDimension
+        val center = side / 2
+        val closed = marks >= 3
+        val ringWidth = side * 0.09f
+        val ringRadius = center - ringWidth / 2
+        val crossWidth = side * if (closed) 0.11f else 0.13f
+        // How far each arm reaches from the centre along x and y. Inside the ring, the arm's rounded end stays a gap
+        // clear of the ring's inner edge, so the cross never touches or pokes through it
+        val reach = if (closed) {
+            (ringRadius - ringWidth / 2 - side * 0.07f - crossWidth / 2) / SQRT_2
+        } else {
+            center - side * 0.22f
+        }
+        val lo = center - reach
+        val hi = center + reach
         when {
-            marks <= 0 -> drawCircle(color = color.copy(alpha = 0.35f), radius = stroke / 2)
+            marks <= 0 -> drawCircle(color = color.copy(alpha = 0.35f), radius = crossWidth / 2)
 
             else -> {
-                drawLine(color, Offset(lo, hi), Offset(hi, lo), strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(lo, hi), Offset(hi, lo), strokeWidth = crossWidth, cap = StrokeCap.Round)
                 val secondStroke = marks >= 2
                 if (secondStroke) {
-                    drawLine(color, Offset(lo, lo), Offset(hi, hi), strokeWidth = stroke, cap = StrokeCap.Round)
+                    drawLine(color, Offset(lo, lo), Offset(hi, hi), strokeWidth = crossWidth, cap = StrokeCap.Round)
                 }
-                if (marks >= 3) {
-                    drawCircle(
-                        color = color,
-                        radius = this.size.minDimension / 2 - stroke / 3,
-                        style = Stroke(width = stroke * 0.7f),
-                    )
-                }
+                if (closed) drawCircle(color = color, radius = ringRadius, style = Stroke(width = ringWidth))
             }
         }
     }
 }
+
+private const val SQRT_2 = 1.4142135f
 
 /**
  * The other players in throwing order (or, in Checkout Practice, the round and hits), filling the height that's
