@@ -23,10 +23,11 @@ interface AppSettingsRepository {
     suspend fun setShowMultiplierButtons(value: Boolean)
     suspend fun setSwipeMultiplierMode(mode: SwipeMultiplierMode)
     suspend fun setShowKnockoutHints(value: Boolean)
+    suspend fun setScoreboardMode(value: Boolean)
 }
 
 /**
- * Every settings flow registers a listener on [settings] from [dispatcher]. `getSettings()` combines seven of them, so
+ * Every settings flow registers a listener on [settings] from [dispatcher]. `getSettings()` combines eight of them, so
  * on a multi-threaded dispatcher those registrations run in parallel: fine for SharedPreferences and NSUserDefaults,
  * but not for a store with a plain listener list such as `MapSettings`. Tests pass a single-threaded test dispatcher.
  */
@@ -43,10 +44,12 @@ class AppSettingsRepositoryImpl(
         baseSettings(),
         flowSettings.getStringFlow(KEY_SWIPE_MULTIPLIER_MODE, defaultValue = SwipeMultiplierMode.VERTICAL.value),
         flowSettings.getBooleanFlow(KEY_SHOW_KNOCKOUT_HINTS, defaultValue = true),
-    ) { base, swipeMultiplierMode, showKnockoutHints ->
+        flowSettings.getBooleanFlow(KEY_SCOREBOARD_MODE, defaultValue = false),
+    ) { base, swipeMultiplierMode, showKnockoutHints, scoreboardMode ->
         base.copy(
             swipeMultiplierMode = SwipeMultiplierMode.fromValue(swipeMultiplierMode),
             showKnockoutHints = showKnockoutHints,
+            scoreboardMode = scoreboardMode,
         )
     }
 
@@ -94,6 +97,10 @@ class AppSettingsRepositoryImpl(
         flowSettings.putBoolean(KEY_SHOW_KNOCKOUT_HINTS, value)
     }
 
+    override suspend fun setScoreboardMode(value: Boolean) {
+        flowSettings.putBoolean(KEY_SCOREBOARD_MODE, value)
+    }
+
     companion object {
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
@@ -102,5 +109,6 @@ class AppSettingsRepositoryImpl(
         private const val KEY_SHOW_MULTIPLIER_BUTTONS = "show_multiplier_buttons"
         private const val KEY_SWIPE_MULTIPLIER_MODE = "swipe_multiplier_mode"
         private const val KEY_SHOW_KNOCKOUT_HINTS = "show_knockout_hints"
+        private const val KEY_SCOREBOARD_MODE = "scoreboard_mode"
     }
 }

@@ -62,6 +62,12 @@ class SettingsScreenModel(
         }
     }
 
+    fun setScoreboardMode(value: Boolean) {
+        launchToCompletion {
+            appSettingsRepository.setScoreboardMode(value)
+        }
+    }
+
     fun setShowCheckoutHints(value: Boolean) {
         launchToCompletion {
             appSettingsRepository.setShowCheckoutHints(value)

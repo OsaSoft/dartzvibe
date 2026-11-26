@@ -8,4 +8,6 @@ data class AppSettingsData(
     val showMultiplierButtons: Boolean = true,
     val swipeMultiplierMode: SwipeMultiplierMode = SwipeMultiplierMode.VERTICAL,
     val showKnockoutHints: Boolean = true,
+    /** Show the scoreboard view (big text, readable from the oche) between turns; toggled from the game's top bar. */
+    val scoreboardMode: Boolean = false,
 )

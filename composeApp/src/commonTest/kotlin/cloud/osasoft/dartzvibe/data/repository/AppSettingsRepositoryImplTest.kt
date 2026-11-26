@@ -68,6 +68,35 @@ class AppSettingsRepositoryImplTest : FreeSpec({
         }
     }
 
+    "Scoreboard mode" - {
+        "Should default to off when nothing is stored" {
+            runTest {
+                // GIVEN empty settings storage
+                // WHEN the settings are read
+                val settings = repository().getSettings().first()
+
+                // THEN Scoreboard mode is off
+                settings.scoreboardMode shouldBe false
+            }
+        }
+
+        "Should read back on after it is set, also through a new repository on the same storage" {
+            runTest {
+                // GIVEN a repository on empty storage
+                val storage = MapSettings()
+                val repository = repository(storage)
+
+                // WHEN Scoreboard mode is turned on
+                repository.setScoreboardMode(true)
+
+                // THEN getSettings() returns on
+                repository.getSettings().first().scoreboardMode shouldBe true
+                // AND a new repository on the same storage (like after an app restart) reads on
+                repository(storage).getSettings().first().scoreboardMode shouldBe true
+            }
+        }
+    }
+
     "Dartboard swipe direction" - {
         "Should default to vertical when nothing is stored" {
             runTest {
